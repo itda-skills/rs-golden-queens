@@ -44,9 +44,25 @@
 
 ### 로컬 실행
 
+`Makefile`이 자주 쓰는 명령을 래핑한다.
+
 ```bash
 git clone git@github.com:itda-skills/rs-golden-queens.git
 cd rs-golden-queens
+
+make              # 사용 가능한 명령 목록
+make test         # 단위 테스트 (mock + fixture, 네트워크 없음)
+make test-live    # 라이브 호출 포함 전체 테스트
+make collect      # 9콜 통합 수집 (cron 진입점과 동일)
+make flow         # flow_day 단독 조회
+make rank MARKET=kospi INVESTOR=foreign SIDE=buy   # 종목 랭킹 단독
+make notify-test  # 텔레그램 헬로 메시지 (환경변수 동작 확인)
+make smoke-headers # HTTP 헤더(UA·Referer·Accept) 라이브 점검
+make clean        # __pycache__·캐시 제거
+make version      # 패키지 버전
+```
+
+또는 Make 없이 직접:
 
 # 1) 통합 수집 (9콜 + 마크다운 보고서 출력)
 python3 -m naver_investor_flow.collect
