@@ -10,6 +10,7 @@ CI(GitHub Actions)에서 cron으로 매일 KST 18:10에 호출된다.
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import sys
 import traceback
@@ -90,12 +91,30 @@ def render_report(context: dict) -> str:
     return report_engine.render(context)
 
 
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """collect 진입점 argparse 정의. dry-run 옵션 노출."""
+    parser = argparse.ArgumentParser(
+        prog="python -m naver_investor_flow.collect",
+        description="네이버 투자자 매매동향 9콜 통합 수집 + 보고서 + Telegram 전송",
+    )
+    parser.add_argument(
+        "--no-telegram",
+        action="store_true",
+        help="Telegram 전송을 명시적으로 skip (env가 설정되어 있어도). 수집·보고서·stdout 출력은 그대로.",
+    )
+    return parser
+
+
 def main(argv: list[str] | None = None) -> int:
     """수집 + 보고서 + 텔레그램 전송. exit code 반환.
 
     0: 정상
     1: 수집·보고서 작성 실패 (텔레그램 전송 실패는 0 — collect는 성공)
     """
+    # argv=None 이면 빈 리스트로 처리 (sys.argv 누설 방지 — 테스트·라이브러리 호출 안전).
+    # __main__ 가드는 명시적으로 sys.argv[1:] 를 전달한다.
+    args = _build_arg_parser().parse_args(argv if argv is not None else [])
+
     kst = datetime.timezone(datetime.timedelta(hours=9))
     fetched_at = datetime.datetime.now(kst).isoformat(timespec="seconds")
     bizdate = _kst_today()
@@ -130,16 +149,19 @@ def main(argv: list[str] | None = None) -> int:
         report = report_engine._build_report_fallback(ctx)
     print(report)
 
-    # 텔레그램 전송 (설정 부재 시 no-op, 실패는 stderr만)
-    cfg = notify_telegram.TelegramConfig.from_env()
-    if cfg.enabled:
-        ok = notify_telegram.send_message(report, config=cfg)
-        if ok:
-            print("[collect] telegram 전송 성공", file=sys.stderr)
-        else:
-            print("[collect] telegram 전송 실패", file=sys.stderr)
+    # 텔레그램 전송 (--no-telegram dry-run 우선, 그 다음 env 부재 시 no-op)
+    if args.no_telegram:
+        print("[collect] --no-telegram 플래그 — Telegram 전송 skip (stdout만)", file=sys.stderr)
     else:
-        print("[collect] TELEGRAM_BOT_TOKEN/CHAT_ID 미설정 — stdout만", file=sys.stderr)
+        cfg = notify_telegram.TelegramConfig.from_env()
+        if cfg.enabled:
+            ok = notify_telegram.send_message(report, config=cfg)
+            if ok:
+                print("[collect] telegram 전송 성공", file=sys.stderr)
+            else:
+                print("[collect] telegram 전송 실패", file=sys.stderr)
+        else:
+            print("[collect] TELEGRAM_BOT_TOKEN/CHAT_ID 미설정 — stdout만", file=sys.stderr)
 
     # 수집 자체가 전부 실패한 경우만 비정상 종료
     if not flow_rows and all(not rows for _, rows in rank_results):
@@ -148,4 +170,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

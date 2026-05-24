@@ -164,6 +164,22 @@ class TestMain(unittest.TestCase):
         self.assertIn("네이버 투자자 매매동향", buf_out.getvalue())
         self.assertIn("미설정", buf_err.getvalue())
 
+    def test_main_no_telegram_flag_skips_send_even_with_env(self):
+        """--no-telegram 플래그는 env가 있어도 send_message 호출을 막는다."""
+        with patch("naver_investor_flow.collect.fetch_flow_day", return_value=SAMPLE_FLOW):
+            with patch("naver_investor_flow.collect.fetch_deal_rank",
+                       return_value=_sample_rank_rows("S", "000001", 1000)):
+                with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "T", "TELEGRAM_CHAT_ID": "C"}, clear=True):
+                    with patch("naver_investor_flow.collect.notify_telegram.send_message") as mock_send:
+                        buf_out, buf_err = io.StringIO(), io.StringIO()
+                        with redirect_stdout(buf_out), redirect_stderr(buf_err):
+                            code = collect.main(["--no-telegram"])
+        self.assertEqual(code, 0)
+        mock_send.assert_not_called()
+        self.assertIn("네이버 투자자 매매동향", buf_out.getvalue())
+        # stderr 에 dry-run 표시 (no-telegram 명시)
+        self.assertIn("--no-telegram", buf_err.getvalue())
+
     def test_main_with_telegram_env_calls_send(self):
         """환경변수 있으면 send_message 호출"""
         with patch("naver_investor_flow.collect.fetch_flow_day", return_value=SAMPLE_FLOW):
