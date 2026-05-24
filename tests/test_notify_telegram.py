@@ -9,7 +9,6 @@
 - 네트워크 오류 처리
 """
 
-import json
 import io
 import unittest
 import urllib.error

@@ -17,6 +17,7 @@ import os
 import unittest
 import json
 import subprocess
+from unittest.mock import patch
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -36,8 +37,6 @@ def run_main(*args, input_=None) -> tuple[str, str, int]:
 # ──────────────────────────────────────────────
 # 직접 import 기반 테스트 (mock 사용)
 # ──────────────────────────────────────────────
-import unittest
-from unittest.mock import patch, MagicMock
 
 
 def _add_scripts_path():

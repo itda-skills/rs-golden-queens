@@ -12,7 +12,6 @@ M-3: parser_rank.py 단위 테스트
 import sys
 import os
 import unittest
-import re
 
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:

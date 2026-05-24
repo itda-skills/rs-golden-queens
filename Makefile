@@ -28,14 +28,14 @@ install-dev:  ## pytest 설치 (uv 우선, fallback pip)
 		$(PY) -m pip install --upgrade pytest; \
 	fi
 
-test:  ## 단위 테스트 (mock + fixture만, 네트워크 없음)
-	$(PY) -m pytest tests/ -q --ignore=tests/test_live_smoke.py
+test:  ## 단위 테스트 (mock + fixture만, 네트워크 없음 — pytest 마커 "not live")
+	$(PY) -m pytest tests/ -q -m "not live"
 
 test-live:  ## 라이브 호출 포함 전체 테스트 (네이버 직접 호출)
 	$(PY) -m pytest tests/ -q
 
 test-cov:  ## 커버리지 리포트 (coverage 패키지 필요)
-	$(PY) -m coverage run -m pytest tests/ --ignore=tests/test_live_smoke.py
+	$(PY) -m coverage run -m pytest tests/ -m "not live"
 	$(PY) -m coverage report -m
 	@printf "\nHTML 리포트: htmlcov/index.html\n"
 	@$(PY) -m coverage html >/dev/null 2>&1 || true

@@ -17,19 +17,18 @@ SPEC-NAVER-INVESTOR-FLOW-001 AC-1 / AC-4 / AC-5 / AC-6 / AC-11 / AC-12 라이브
 from __future__ import annotations
 
 import json
-import re
-import sys
-import os
 import unittest
 
-_SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
+import pytest
 
 from naver_investor_flow import http_client
 from naver_investor_flow import parser_flow
 from naver_investor_flow import parser_rank
 from naver_investor_flow import formatter
+
+# 모듈 전체를 라이브 마커로 표시 — `pytest -m "not live"` 로 기본 단위 테스트에서 제외 가능
+# sys.path는 conftest.py가 처리한다.
+pytestmark = pytest.mark.live
 
 
 class TestLiveFlowDay(unittest.TestCase):

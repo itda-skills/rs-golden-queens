@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SPEC-REPORT-001 Telegram daily report context",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "title_emoji",
+    "bizdate",
+    "fetched_at",
+    "flow_day_table",
+    "rank_sections_block",
+    "divider",
+    "disclaimer"
+  ],
+  "properties": {
+    "title_emoji": {
+      "type": "string",
+      "default": "📊",
+      "description": "보고서 제목 이모지"
+    },
+    "bizdate": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$",
+      "description": "기준일 YYYYMMDD (KST)"
+    },
+    "fetched_at": {
+      "type": "string",
+      "description": "수집 시각 ISO 8601 (KST)"
+    },
+    "flow_day_table": {
+      "type": "string",
+      "description": "일별 시장 매매 마크다운 블록 (헤더 + N행, 단위 억원)"
+    },
+    "rank_sections_block": {
+      "type": "string",
+      "description": "8조합 랭킹 섹션을 DEAL_RANK_COMBOS 순서로 빈 줄 구분하여 합친 단일 블록 (단위 백만원)"
+    },
+    "divider": {
+      "type": "string",
+      "default": "─────────",
+      "description": "본문과 디스클레이머 사이 구분선"
+    },
+    "disclaimer": {
+      "type": "string",
+      "default": "출처: finance.naver.com (사실 데이터, 투자 권유 아님)",
+      "description": "필수 디스클레이머 — 정확 문구 보존 [HARD]"
+    }
+  }
+}

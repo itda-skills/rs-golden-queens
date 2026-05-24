@@ -13,9 +13,15 @@ from __future__ import annotations
 import datetime
 import sys
 import traceback
-from typing import Any
 
-from naver_investor_flow import http_client, parser_flow, parser_rank, notify_telegram
+from naver_investor_flow import http_client, parser_flow, parser_rank, notify_telegram, report_engine
+
+# SPEC-REPORT-001: 라벨/조합 정본은 report_engine 으로 이전됨.
+# 하위 호환을 위해 collect 에서도 재-export (다른 모듈/테스트가 collect.LABEL_* 를 참조할 수 있음).
+DEAL_RANK_COMBOS = report_engine.DEAL_RANK_COMBOS
+LABEL_MARKET = report_engine.LABEL_MARKET
+LABEL_INVESTOR = report_engine.LABEL_INVESTOR
+LABEL_SIDE = report_engine.LABEL_SIDE
 
 BASE_FLOW = "https://finance.naver.com/sise/investorDealTrendDay.naver"
 BASE_RANK = "https://finance.naver.com/sise/sise_deal_rank_iframe.naver"
@@ -24,23 +30,6 @@ REFERER_RANK = "https://finance.naver.com/sise/sise_deal_rank.naver"
 
 MARKET_MAP = {"kospi": "01", "kosdaq": "02"}
 INVESTOR_MAP = {"foreign": "9000", "institution": "1000"}
-
-# 8조합 순서 (보고서 표시 순)
-DEAL_RANK_COMBOS = [
-    ("kospi", "foreign", "buy"),
-    ("kospi", "foreign", "sell"),
-    ("kospi", "institution", "buy"),
-    ("kospi", "institution", "sell"),
-    ("kosdaq", "foreign", "buy"),
-    ("kosdaq", "foreign", "sell"),
-    ("kosdaq", "institution", "buy"),
-    ("kosdaq", "institution", "sell"),
-]
-
-LABEL_MARKET = {"kospi": "KOSPI", "kosdaq": "KOSDAQ"}
-LABEL_INVESTOR = {"foreign": "외국인", "institution": "기관"}
-LABEL_SIDE = {"buy": "매수", "sell": "매도"}
-
 
 def _kst_today() -> str:
     """KST 기준 오늘 날짜 YYYYMMDD."""
@@ -73,6 +62,8 @@ def _fmt_mn(v: int) -> str:
     return f"{v:+,}"
 
 
+# @MX:NOTE: SPEC-REPORT-001 — 보고서 합성은 report_engine 으로 위임.
+# 기존 build_report 호출자(테스트 포함)와의 하위 호환을 위해 동일 시그니처를 유지한다.
 def build_report(
     flow_rows: list[dict],
     rank_results: list[tuple[tuple[str, str, str], list[dict]]],
@@ -82,47 +73,21 @@ def build_report(
 ) -> str:
     """수집 결과를 사람이 읽는 마크다운 요약으로 변환.
 
-    Args:
-        flow_rows: flow_day 행 (최근 영업일부터)
-        rank_results: [((market, investor, side), rows), ...] 순서대로 8개
-        bizdate: 호출 기준일 (KST YYYYMMDD)
-        fetched_at: ISO 8601 (KST)
+    SPEC-REPORT-001 이후 본 함수는 `report_engine.build_context` + `render_report`
+    의 얇은 래퍼이다. 출력은 SPEC-REPORT-001 도입 전과 byte-for-byte 동등하다.
     """
-    lines: list[str] = []
-    lines.append(f"📊 네이버 투자자 매매동향 — 기준일 {bizdate} (KST)")
-    lines.append(f"수집 시각: {fetched_at}")
-    lines.append("")
+    ctx = report_engine.build_context(
+        flow_rows, rank_results, bizdate=bizdate, fetched_at=fetched_at
+    )
+    return render_report(ctx)
 
-    # ▎일별 시장 매매 (최대 5행, 단위 억원)
-    lines.append("▎일별 시장 매매 (억원, 부호=순매수)")
-    if not flow_rows:
-        lines.append("  (데이터 없음)")
-    else:
-        for row in flow_rows[:5]:
-            lines.append(
-                f"  {row['date']}  "
-                f"개인 {_fmt_eok(row['individual_eok'])} / "
-                f"외국인 {_fmt_eok(row['foreign_eok'])} / "
-                f"기관계 {_fmt_eok(row['institution_total_eok'])}"
-            )
-    lines.append("")
 
-    # ▎8조합 종목 랭킹 (각 TOP3, 단위 백만원)
-    for combo, rows in rank_results:
-        market, investor, side = combo
-        header = f"▎{LABEL_MARKET[market]} {LABEL_INVESTOR[investor]} {LABEL_SIDE[side]} TOP3 (백만원)"
-        lines.append(header)
-        if not rows:
-            lines.append("  (데이터 없음)")
-        else:
-            for i, r in enumerate(rows[:3], start=1):
-                code = r.get("code") or "------"
-                lines.append(f"  {i}. {r['name']} ({code})  {_fmt_mn(r['amount_mn_krw'])}")
-        lines.append("")
-
-    lines.append("─────────")
-    lines.append("출처: finance.naver.com (사실 데이터, 투자 권유 아님)")
-    return "\n".join(lines)
+# @MX:NOTE: SPEC-REPORT-001 의 신규 공개 API. 컨텍스트 dict 를 받아 템플릿 렌더링 결과 반환.
+# @MX:ANCHOR: collect.main 및 tests/test_collect_render.py 가 호출하는 경계
+# @MX:REASON: 템플릿 외부화의 entry point — 변경 시 cron 출력에 직접 영향
+def render_report(context: dict) -> str:
+    """report_engine.render 위임. 실패 시 엔진 내부에서 fallback 처리."""
+    return report_engine.render(context)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -152,9 +117,17 @@ def main(argv: list[str] | None = None) -> int:
             traceback.print_exc()
         rank_results.append((combo, rows))
 
-    report = build_report(
+    # SPEC-REPORT-001: 신규 경로 — context 빌드 후 render_report 위임.
+    # render_report 자체가 fallback 을 내장하지만, 컨텍스트 빌드/외부 예외에 대한
+    # 추가 방어선으로 try 로 감싸 직접 _build_report_fallback 으로 fallback.
+    ctx = report_engine.build_context(
         flow_rows, rank_results, bizdate=bizdate, fetched_at=fetched_at
     )
+    try:
+        report = render_report(ctx)
+    except Exception as e:
+        print(f"[collect] render_report 실패 ({type(e).__name__}: {e}) — fallback", file=sys.stderr)
+        report = report_engine._build_report_fallback(ctx)
     print(report)
 
     # 텔레그램 전송 (설정 부재 시 no-op, 실패는 stderr만)
