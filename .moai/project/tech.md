@@ -4,246 +4,175 @@
 
 | 항목 | 내용 |
 |---|---|
-| 언어 | Python 3.10+ |
-| 의존성 정책 | **stdlib only** — 외부 라이브러리 0건. `requirements.txt` 없음. |
-| 옵션 개발 의존 | `pytest` (테스트 실행 전용. 수집·실행 자체에 불필요.) |
-| 패키지 관리 | pyproject.toml 없음. `make install-dev`로 pytest만 설치. |
-| CI 매트릭스 | 3 OS × 3 Python 버전 = 9잡 (ubuntu/macos/windows × 3.10/3.11/3.12) |
+| 언어 | Python 3.10+ (CI 매트릭스: 3.10/3.11/3.12), Python 3.13 (운영 워크플로우) |
+| 패키지 관리 | `market_flow/requirements.txt` (pip / uv) |
+| 외부 의존성 | yfinance, pandas, python-dotenv, pandas_market_calendars, exchange_calendars |
+| 테스트 | pytest (`-m "not live"` 기본, live 마커 확장 예정) |
+| CI | GitHub Actions — Linux 단일 OS × Python 3.10/3.11/3.12 = 3잡 |
 
-## 2. 사용 stdlib 모듈
+설계 원칙: "외부 의존성 최소화 + 검증된 라이브러리 채택". 데이터 수집 목적에 한해 yfinance, pandas, pandas_market_calendars, exchange_calendars를 사용한다. 불필요한 프레임워크·HTTP 클라이언트·파서 라이브러리는 도입하지 않는다.
 
-| 모듈 | 사용처 | 역할 |
+## 2. 외부 통합
+
+### 네이버 금융 (한국 데이터)
+
+`market_flow/fetchers/naver_kr.py`가 네이버 모바일/데스크탑 페이지를 직접 fetch한다.
+
+| 데이터 | 소스 페이지 | 단위 |
 |---|---|---|
-| `urllib.request` | `http_client.py`, `notify_telegram.py` | HTTP GET (네이버), POST (Telegram sendMessage) |
-| `urllib.error` | `http_client.py`, `notify_telegram.py` | HTTPError, URLError 예외 처리 |
-| `urllib.parse` | `notify_telegram.py` | urlencode (Telegram 요청 파라미터 인코딩) |
-| `html.parser` | `parser_flow.py`, `parser_rank.py` | HTMLParser 서브클래스 상태기계 파싱 |
-| `csv` | `formatter.py` | CSV 출력 (RFC 4180) |
-| `json` | `formatter.py`, `cli.py`, `notify_telegram.py` | JSON 출력·파싱 |
-| `io` | `formatter.py` | StringIO (CSV 버퍼) |
-| `argparse` | `cli.py` | flow_day / deal_rank 서브커맨드 CLI |
-| `socket` | `http_client.py` | socket.timeout 예외 처리 |
-| `datetime` + `timezone` | `collect.py`, `formatter.py`, `cli.py` | KST(+09:00) 현재 시각 산정 |
-| `re` | `parser_flow.py`, `parser_rank.py` | 날짜 패턴 변환, `code=NNNNNN` href 정규식 추출 |
-| `os` | `notify_telegram.py` | 환경변수 읽기 (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) |
-| `sys`, `traceback` | `collect.py`, `cli.py` | stderr 출력, exit code 관리 |
+| 코스피·코스닥 당일 합산 (외인·기관·개인) | 네이버 모바일 API | 억원 |
+| 프로그램매매 (차익/비차익) | 네이버 모바일 API | 억원 |
+| 10거래일 추이 (코스피) | 네이버 데스크탑 | 억원 |
 
-## 3. 외부 통합
+### yfinance (미국 데이터)
 
-### 네이버 금융 공개 페이지 (9종)
+`market_flow/fetchers/us_market.py`가 Yahoo Finance에서 수집한다.
 
-1회 실행(`collect.py`)에 9개 페이지를 호출한다.
+| 데이터 | 내용 |
+|---|---|
+| 지수 | S&P 500 (^GSPC), 나스닥 (^IXIC), 다우 (^DJI) |
+| 변동성 | VIX (^VIX) |
+| 섹터 ETF | XLK, XLV, XLF 등 11개 |
+| 워치 ETF | QQQ, SMH 등 (`WATCH` 리스트 — 수정 시 fetcher + formatter 양쪽 수정) |
+| 매크로 | 국채 금리, DXY 등 |
 
-| URL 패턴 | 의미 | 단위 |
-|---|---|---|
-| `investorDealTrendDay.naver?bizdate=YYYYMMDD&sosok=` | 최근 10영업일 시장 매매동향 (개인·외국인·기관계 + 기관 6분류 + 기타외인) | 억원 |
-| `sise_deal_rank_iframe.naver?sosok=01&investor_gubun=9000&type=buy` | KOSPI 외국인 순매수 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=01&investor_gubun=9000&type=sell` | KOSPI 외국인 순매도 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=01&investor_gubun=1000&type=buy` | KOSPI 기관 순매수 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=01&investor_gubun=1000&type=sell` | KOSPI 기관 순매도 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=02&investor_gubun=9000&type=buy` | KOSDAQ 외국인 순매수 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=02&investor_gubun=9000&type=sell` | KOSDAQ 외국인 순매도 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=02&investor_gubun=1000&type=buy` | KOSDAQ 기관 순매수 상위 | 백만원 |
-| `sise_deal_rank_iframe.naver?sosok=02&investor_gubun=1000&type=sell` | KOSDAQ 기관 순매도 상위 | 백만원 |
+### pandas_market_calendars (NYSE 거래일 판정)
 
-응답 인코딩: `EUC-KR`. `http_client.decode_response()`가 EUC-KR 우선 시도, 실패 시 UTF-8 fallback.
+`market_flow/calendar_utils.py`의 `is_us_trading_day()` 함수가 사용한다. 반장일도 거래일로 간주.
+
+### exchange_calendars (XKRX 거래일 판정)
+
+`market_flow/calendar_utils.py`의 `is_kr_trading_day()`, `is_last_kr_trading_day_of_week()` 함수가 사용한다.
 
 ### Telegram Bot API
 
 - 엔드포인트: `https://api.telegram.org/bot{TOKEN}/sendMessage`
-- 메서드: POST, `application/x-www-form-urlencoded`
-- 파라미터: `chat_id`, `text`, `disable_web_page_preview`
-- parse_mode: 없음 (plain text) — 종목명 특수문자(예: `KODEX 200선물인버스2X`) 이스케이프 부담 회피
-- 메시지 최대 4096자. 초과 시 `truncate_for_telegram()`이 `\n…(잘림)` 표시 후 자름.
+- 메서드: POST
+- 인증: `GOLDENQUEENS_BOT_TOKEN` 환경변수
+- `MARKET_FLOW_DRY_RUN=1` 설정 시 API 호출 없이 stdout 출력으로 대체
 
-## 4. Decisions & Constraints
-
-### [HARD] stdlib-only 정책
-
-`requests`·`httpx`·`aiohttp`·`bs4`·`lxml` 도입 금지. `urllib` + `html.parser` + `csv` + `datetime` + `re`만 사용.
-
-근거:
-- 의존성 0 → GitHub Actions 캐시 불필요 (checkout + python setup만으로 실행 가능)
-- 보안 표면 0 — 외부 패키지 취약점 벡터 없음
-- Python 3.10~3.13 어디서나 동일 동작 (버전 호환 이슈 없음)
-
-정책 검증:
-```bash
-grep -rE "^(import|from) (requests|httpx|aiohttp|bs4|lxml)" naver_investor_flow/
-# 기대치: 0건
-```
-
-### [HARD] WebFetch 금지
-
-Anthropic의 `WebFetch` 도구는 Anthropic 인프라 IP에서 발신한다. 데이터센터 IP 대역은 네이버 같은 정적 페이지도 차단당할 수 있으며, 인프라가 동적 렌더링·헤더 정규화를 수행하므로 코드에서 설정한 헤더(UA·Referer)가 그대로 전달되지 않는다. 본 저장소는 무조건 `urllib` 자체 호출만 사용한다.
-
-### [HARD] 데이터 저장 금지
-
-commit/Release/Pages에 수집 결과를 저장하지 않는다. 본 저장소는 **코드 저장 목적만**이다. 수집 데이터 이력이 필요하면 별도 데이터 저장소로 분리해야 한다. `shared/itda_path.py` 같은 외부 디렉토리 의존도 없다.
-
-### [HARD] 단위 의도적 차별화 — 통일 금지
-
-| MODE | 금액 단위 | JSON 필드 |
-|---|---|---|
-| `flow_day` | **억원** (100,000,000 KRW) | `unit: "억원"` |
-| `deal_rank` | **백만원** (1,000,000 KRW) | `unit_amount: "백만원"`, `unit_quantity: "주"` |
-
-- `flow_day` JSON에는 `unit_amount` / `unit_quantity` 필드가 **없다**
-- `deal_rank` JSON에는 `unit` 필드가 **없다**
-- 두 스키마를 mutually exclusive로 설계하여 LLM·다운스트림이 섞어 쓰면 schema mismatch로 즉시 깨지게 함
-- 100억원 ≠ 100백만원 (100배 차이). 사용자 의사결정 오류 방지가 일관성 미감보다 우선
-- `test_formatter.py`가 negative assertion으로 강제. **"통일하자"는 충동을 누를 것**
-
-### [HARD] `deal_rank --bizdate` 신설 금지 (REQ-020.4)
-
-`sise_deal_rank_iframe.naver`에 `bizdate=20260515` / `20260520` / 생략 → **모두 동일 응답**. 네이버 서버단이 이 파라미터를 보지 않는다. CLI에 `--bizdate` 옵션을 신설하면 사용자를 오인시키므로 SPEC `REQ-020.4`로 명시적 거부되어 있다.
-
-### `flow_day`는 bizdate 필수 자동 주입
-
-`investorDealTrendDay.naver`는 `bizdate=` 없이 호출하면 **1.6KB 빈 페이지** 반환. `bizdate=YYYYMMDD` 명시 시 7.8KB·10영업일 데이터 정상 반환. `collect.fetch_flow_day()`와 `cli._build_flow_url()`이 미지정 시 오늘 KST 날짜를 자동 주입한다. 비영업일·미래 날짜 입력 시 네이버가 직전 영업일 데이터로 자동 보정.
-
-### Referer 헤더 — 현재 효과 0이지만 유지
-
-라이브에서 Referer 유/무 응답 크기 동일(16385 bytes). 그럼에도 유지하는 이유: 실제 브라우저처럼 흉내내기 위한 사용자 명시 요청 + 미래 차단 회피 보험. 네이버가 정책을 바꿔 차단을 시작할 경우에 대비. 비용 거의 0이므로 유지 권장. `http_client.fetch(referer=...)` 인자로 받아 `collect.py`와 `cli.py`가 iframe별 부모 페이지 URL을 주입한다.
-
-- flow_day Referer: `https://finance.naver.com/sise/sise_trans_style.naver`
-- deal_rank Referer: `https://finance.naver.com/sise/sise_deal_rank.naver`
-
-## 5. 라이브 falsification 함정 3건
-
-코드만 봐서는 알 수 없는 함정. 비슷한 변경 시 라이브 1회 확인을 반드시 끼울 것.
-
-### 함정 1: [HARD] `flow_day`의 `bizdate`는 필수
-
-- 증상: `bizdate=` 없이 호출 → 1.6KB 빈 페이지 반환
-- 정상 호출: `bizdate=YYYYMMDD` 명시 → 7.8KB·10영업일 데이터
-- 비영업일·미래 날짜: 네이버가 직전 영업일 데이터로 자동 보정해 반환
-- 대응: `collect.fetch_flow_day()`와 `cli._build_flow_url()`이 미지정 시 오늘 KST 자동 주입
-- **다시 만들면 안 되는 것**: "bizdate 없으면 최신을 알아서 주겠지" 가정. 라이브 1회로 즉시 깨짐.
-
-### 함정 2: [HARD] `deal_rank`는 `bizdate`를 무시한다
-
-- 증상: `bizdate=20260515` / `20260520` / 생략 → 모두 동일 응답
-- 원인: 네이버 서버단이 이 파라미터를 보지 않음
-- 결론: CLI에 `--bizdate` 옵션 신설 금지 — 있어도 의미 없고 사용자를 오인시킴
-- SPEC `REQ-020.4`로 명시적 거부 박혀 있음
-
-### 함정 3: [HARD] 단위 혼용 — 의도적 스키마 차별화
-
-- 코드만 보면 "왜 두 모드 단위가 다른가?" 의문이 생길 수 있음
-- flow_day=억원, deal_rank=백만원. 100배 차이.
-- 통일하면 사용자 의사결정 오류 발생. 의도적 차별화가 정책.
-- `test_formatter.py`의 negative assertion이 통일을 코드 레벨에서 막음
-
-## 6. 운영 환경
+## 3. 운영 환경
 
 ### cron 시각 산정
 
-| 시각 | 설명 |
-|---|---|
-| KST 09:00 | 한국 주식 개장 |
-| KST 15:30 | 본장 마감 |
-| KST 18:00 | 시간외 거래 종료 |
-| **KST 18:10** | **cron 실행 시각** — 시간외 종료 + 네이버 페이지 갱신 안정 마진 10분 |
-| UTC 09:10 | GitHub Actions cron 표현식 기준 (`10 9 * * *`) |
+| 워크플로우 | cron 표현식 | KST 시각 | 근거 |
+|---|---|---|---|
+| `flow-kr.yml` | `10 9 * * 1-5` | 평일 18:10 | 네이버 18:03 갱신 + 7분 마진 |
+| `flow-us.yml` (EDT) | `30 20 * * 1-5` | 익일 05:30 | NYSE 16:00 EDT + 30분 |
+| `flow-us.yml` (EST) | `30 21 * * 1-5` | 익일 06:30 | NYSE 16:00 EST + 30분 |
+| `flow-weekly.yml` | `30 9 * * 1-5` | 평일 18:30 | KST 18:10보다 20분 후, 마지막 거래일 게이트 |
 
-평일/주말 구분 없음: 네이버는 주말에도 직전 영업일 데이터를 그대로 반환한다. 메시지가 1회 더 발송될 뿐 비용 사실상 0이며 cron 표현식이 단순해 유지보수에도 유리하다.
+### DST 게이트 메커니즘 (SPEC-MF-SCHED-001)
 
-`workflow_dispatch`도 함께 등록되어 있어 Actions 탭에서 수동 트리거 가능.
+`flow-us.yml`은 두 cron이 동시에 활성화되어 EDT/EST 시즌마다 두 잡이 모두 트리거된다. 이중 발송을 방지하기 위해:
 
-### Telegram 환경변수 명명 표준
+1. 워크플로우가 `MARKET_SCHEDULE=edt` 또는 `MARKET_SCHEDULE=est`를 주입 (`github.event.schedule`로 분기)
+2. `daily_us.py`가 `is_us_in_dst()`로 실제 DST 시즌을 확인
+3. `MARKET_SCHEDULE`과 실제 시즌이 불일치하면 즉시 `sys.exit(0)`
 
-| 환경변수 | 의미 |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | BotFather 발급 봇 토큰 |
-| `TELEGRAM_CHAT_ID` | 수신 chat ID (개인=양수, 그룹/채널=보통 음수) |
+결과: 한 시즌에 한 번만 발송.
 
-`python-telegram-bot`·`telegraf` 등 공식 표준 명명. 짧은 `TG_BOT_TOKEN`·`BOT_TOKEN` 등은 검색·호환성에서 불리하여 채택 안 함.
+### 휴장 처리 흐름
 
-**둘 다 있어야 활성**. 하나라도 비면 `collect.py`가 stdout만 출력하고 정상 종료 (exit code 0). 로컬·CI 코드 경로 동일.
+```
+flow-kr 트리거
+  → is_kr_trading_day() → 비거래일: "[KR] 오늘은 휴장입니다" 발송, 종료
+                         → 거래일: 데이터 수집 → 정상 발송
+
+flow-us 트리거
+  → DST 게이트 (MARKET_SCHEDULE 불일치면 종료)
+  → is_us_trading_day() → 비거래일: "[US] 오늘은 휴장입니다" 발송, 종료
+                         → 거래일: 데이터 수집 → 정상 발송
+
+flow-weekly 트리거
+  → is_last_kr_trading_day_of_week() → 아니면: 침묵 종료 (발송 없음)
+                                      → 마지막 거래일: 데이터 수집 → 주간 리포트 발송
+```
+
+## 4. 환경변수 명명 표준
+
+| 환경변수 | 의미 | 위치 |
+|---|---|---|
+| `GOLDENQUEENS_BOT_TOKEN` | Telegram Bot 토큰 | GitHub Secrets / `.env` |
+| `GOLDENQUEENS_CHAT_ID` | 수신 chat_id (채널은 `-100` 시작) | GitHub Secrets / `.env` |
+| `MARKET_FLOW_DRY_RUN` | `1`이면 텔레그램 발송 없이 stdout 출력 | Makefile `DRY=1` 또는 export |
+| `MARKET_SCHEDULE` | `edt` 또는 `est` — DST 게이트용 | `flow-us.yml`이 자동 주입 |
+
+`GOLDENQUEENS_*` 시크릿 이름은 변경 불가 (SPEC-MF-SCHED-NEG-001). `TELEGRAM_BOT_TOKEN` 등 일반 명칭과 의도적으로 구분.
 
 ### GitHub Secrets 등록 위치
 
 ```
 Repository → Settings → Secrets and variables → Actions
-  TELEGRAM_BOT_TOKEN
-  TELEGRAM_CHAT_ID
+  GOLDENQUEENS_BOT_TOKEN
+  GOLDENQUEENS_CHAT_ID
 ```
 
-Secrets 없이도 cron은 안 깨진다. Secrets 없이 push 후 cron 동작을 먼저 확인하고 이후에 Secrets를 채워도 된다.
+두 값 모두 있어야 텔레그램 발송이 활성화된다. 하나라도 없으면 `telegram_push.py`가 stdout 출력만 하고 정상 종료 (exit code 0).
 
-## 7. 개발 환경 요구사항
+## 5. CI 매트릭스
+
+| OS | Python 3.10 | Python 3.11 | Python 3.12 |
+|---|---|---|---|
+| ubuntu-latest | O | O | O |
+
+총 3잡. `fail-fast: false`. pytest `-m "not live"` 옵션으로 네트워크 호출이 필요한 테스트는 제외.
+
+## 6. 개발 환경 요구사항
 
 | 항목 | 요구사항 |
 |---|---|
 | Python | 3.10+ |
 | make | Makefile 사용 시 필요 |
-| pytest | 옵션. 테스트 실행 시만 필요. |
+| pip / uv | 의존성 설치 |
 
 설치 명령:
+
 ```bash
-make install-dev    # pytest 설치 (uv 우선, fallback pip)
+python -m venv .venv && source .venv/bin/activate
+pip install -r market_flow/requirements.txt
+# 또는
+make install   # uv 우선, fallback pip
 ```
 
-실행 자체(수집·CLI)에는 Python 3.10+ 외 추가 설치 없음.
+## 7. 검증 명령
 
-## 8. 에러 코드 체계
+```bash
+# 단위 테스트 (mock, 네트워크 없음)
+python -m pytest tests/ -q -m "not live"
 
-`cli.py` 기준 exit code:
+# 코드 품질 (ruff 설치 시)
+ruff check market_flow/ tests/
 
-| 코드 | 의미 |
+# 개별 fetch 점검 (텔레그램 발송 없음)
+make smoke-kr   # 네이버 fetch 단독
+make smoke-us   # yfinance fetch 단독
+
+# dry-run (텔레그램 발송 없이 전체 리포트 stdout)
+make daily-kr DRY=1
+make daily-us DRY=1
+make weekly DRY=1
+
+# 텔레그램 연결 확인
+make notify-test
+```
+
+## 8. 의도적 결정 (HARD 제약)
+
+| 결정 | 내용 |
 |---|---|
-| 0 | 정상 (데이터 없는 empty 포함) |
-| 2 | HTTP 오류 (4xx/5xx) |
-| 3 | HTML 파싱 오류 |
-| 4 | 네트워크 연결 실패 / 타임아웃 |
-| 5 | EUC-KR·UTF-8 모두 디코딩 실패 |
-| 64 | 사용법 오류 (argparse 인자 누락·오입력) |
-
-`collect.py` exit code: 0 (수집 성공 또는 텔레그램 전송 실패), 1 (flow_day + 모든 deal_rank 전부 실패).
-
-`make rank` 타겟: MARKET/INVESTOR/SIDE 인자 누락 시 exit 64.
-
-## 9. CI 매트릭스
-
-| OS | Python 3.10 | Python 3.11 | Python 3.12 |
-|---|---|---|---|
-| ubuntu-latest | O | O | O |
-| macos-latest | O | O | O |
-| windows-latest | O | O | O |
-
-총 9잡. `fail-fast: false` — 한 잡 실패해도 나머지 계속 실행.
-
-라이브 테스트 제외 이유: 매트릭스 9잡 × 8 deal_rank = 72콜로 네이버에 불필요한 부하 발생. `test_live_smoke.py`는 `--ignore`로 제외. 라이브는 `make test-live` (로컬·수동) 또는 `daily.yml` cron이 1일 1회 본격 실행.
-
-## 10. 검증 명령
-
-다음 세션이 안전한 상태인지 1분 안에 검증 (HANDOFF.md §6 그대로):
-
-```bash
-make clean
-make test                    # 150 passed / 0 failed / 0 skipped
-make test-live               # 170 passed / 0 failed / 0 skipped (네트워크 필요)
-make smoke-headers           # 4헤더 (UA·Accept·Accept-Language·Referer) 라이브 확인
-make collect                 # 9콜 + 마크다운 보고서 stdout
-
-# requests/bs4 등 외부 라이브러리 0건 확인
-grep -rE "^(import|from) (requests|httpx|aiohttp|bs4|lxml)" naver_investor_flow/
-# WebFetch 0건 확인
-grep -rl "WebFetch" naver_investor_flow/
-# requirements.txt 미생성 확인
-ls requirements.txt 2>&1
-```
-
-기대치: 모두 PASS, 마지막 셋 다 매칭 0건 / 파일 없음.
+| dry-run은 환경변수로만 | `MARKET_FLOW_DRY_RUN`으로만 제어. CLI 플래그 없음. `telegram_push.py` 내부에서 분기. |
+| 반장 시각 동적 조정 없음 | 반장일은 정상 거래일로 처리. NYSE/KRX 반장 시각 조회·분기 구현 없음. |
+| `GOLDENQUEENS_*` 시크릿 이름 불변 | SPEC-MF-SCHED-NEG-001. 이름 변경 시 GitHub Actions 시크릿 재등록 필요 → 변경 금지. |
+| `flow-kr.yml` cron 불변 | `10 9 * * 1-5` 고정. 네이버 갱신 주기 변경 확인 전 수정 금지. |
+| `formatter.format_weekly` 본문 형식 불변 | 텔레그램 파싱 의존. 구조 변경 시 수신 측에 영향. |
 
 ## 출처
 
-- `HANDOFF.md` §2 (기술 결정), §3 (라이브 falsification 함정), §4 (운영 메모), §6 (검증 명령)
-- `.moai/project/interview.md` Round 2 (Constraints and Non-Goals), Round 3 (Documentation Priority)
-- `naver_investor_flow/http_client.py` — 헤더·에러 코드 직접 확인
-- `naver_investor_flow/formatter.py` — 단위 스키마 직접 확인
-- `naver_investor_flow/collect.py` — 9콜 구조·텔레그램 no-op 직접 확인
-- `naver_investor_flow/cli.py` — exit code 체계 직접 확인
-- `.github/workflows/daily.yml`, `test.yml` — cron·매트릭스 직접 확인
-- `Makefile` — 타겟별 역할 직접 확인
+- `market_flow/requirements.txt` 직접 확인
+- `market_flow/calendar_utils.py` 직접 확인 (DST/거래일 판정 구현)
+- `market_flow/daily_kr.py`, `daily_us.py`, `weekly.py` 직접 확인 (진입점·게이트 로직)
+- `market_flow/telegram_push.py` 직접 확인 (DRY_RUN 분기)
+- `.github/workflows/flow-kr.yml`, `flow-us.yml`, `flow-weekly.yml`, `test.yml` 직접 확인
+- `Makefile` 직접 확인
+- SPEC-MF-SCHED-001 (DST 자동 반영 + 휴장 인지)

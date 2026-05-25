@@ -2,150 +2,174 @@
 
 시스템에 진입할 수 있는 모든 경로와 그 파라미터를 정리한다.
 
----
-
-## Python 모듈 진입점
-
-### `python -m naver_investor_flow` → 단발 CLI 조회
-
-```
-python -m naver_investor_flow {flow_day|deal_rank} [옵션]
-```
-
-실행 흐름: `__main__.py` → `cli.main()`
-
-서브커맨드가 없으면 help를 stderr에 출력하고 exit 64.
-
-### `python -m naver_investor_flow.collect` → cron 통합 수집
-
-```
-python -m naver_investor_flow.collect
-```
-
-실행 흐름: `collect.py` → `collect.main()`
-
-`__main__.py`를 거치지 않는다. 독립 cron 진입점으로 직접 호출된다.
+모든 Python 진입점은 `market_flow/` 디렉터리에서 실행한다 (`Makefile`의 `cd $(PKG_DIR)` 참조).
 
 ---
 
-## CLI 서브커맨드 옵션 표
+## Python 스크립트 진입점
 
-### `flow_day` — 일별 시장 매매동향
+### `python daily_kr.py [YYYYMMDD]` — 한국장 일간 발송
 
-```
-python -m naver_investor_flow flow_day [--bizdate YYYYMMDD] [--format json|table|csv] [--limit N]
-```
-
-| 옵션 | 타입 | 기본값 | 설명 |
-|---|---|---|---|
-| `--bizdate` | `YYYYMMDD` | (오늘 KST 자동 주입) | 조회 영업일. 미지정 시 KST 기준 오늘 날짜 자동 주입. 비영업일·미래 날짜 입력 시 네이버가 직전 영업일 데이터로 보정. |
-| `--format` | `json\|table\|csv` | `json` | 출력 포맷 |
-| `--limit` | `int` | None (전체) | 출력 행 수 제한 (1~10) |
-
-**[HARD] `flow_day`에서 `bizdate` 파라미터는 HTTP 호출 시 필수로 주입해야 한다.** 미지정 시 네이버가 1.6KB 빈 페이지를 반환한다. `_build_flow_url()`이 이를 처리한다.
-
-### `deal_rank` — 종목별 외국인·기관 매매 랭킹
-
-```
-python -m naver_investor_flow deal_rank --market kospi|kosdaq --investor foreign|institution --side buy|sell [--format json|table|csv] [--limit N]
+```bash
+# market_flow/ 디렉터리에서 실행
+python daily_kr.py             # 오늘 KST 날짜 자동 사용
+python daily_kr.py 20260522    # 특정일 지정
 ```
 
-| 옵션 | 타입 | 필수 | 기본값 | 설명 |
-|---|---|---|---|---|
-| `--market` | `kospi\|kosdaq` | 필수 | — | 시장 구분 |
-| `--investor` | `foreign\|institution` | 필수 | — | 투자자 구분 |
-| `--side` | `buy\|sell` | 필수 | — | 매매 방향 |
-| `--format` | `json\|table\|csv` | 선택 | `json` | 출력 포맷 |
-| `--limit` | `int` | 선택 | None (전체) | 출력 행 수 제한 (1~30) |
+실행 흐름: `daily_kr.main()` → 휴장 게이트 → fetch → format → send
 
-**[HARD] `deal_rank`에 `--bizdate` 옵션 신설 금지 (SPEC REQ-020.4).** 네이버 서버단이 이 파라미터를 무시한다. 신설하면 사용자를 오인시킨다. (HANDOFF.md §3.2 참조)
+| 인자 | 타입 | 설명 |
+|---|---|---|
+| `YYYYMMDD` (선택) | 날짜 문자열 | 수집 기준 영업일. 미지정 시 오늘 KST 날짜 자동 사용. |
+
+### `python daily_us.py [YYYY-MM-DD]` — 미국장 일간 발송
+
+```bash
+python daily_us.py              # 최신 거래일
+python daily_us.py 2026-05-22   # 특정일 지정
+```
+
+실행 흐름: `daily_us.main()` → DST 게이트 → 휴장 게이트 → fetch → format → send
+
+| 환경변수 | 값 | 설명 |
+|---|---|---|
+| `MARKET_SCHEDULE` | `edt` \| `est` | DST 이중 발송 방지 게이트. `flow-us.yml`이 자동 주입. 미설정 시 게이트 무시. |
+
+### `python weekly.py` — 주간 리포트 발송
+
+```bash
+python weekly.py
+```
+
+실행 흐름: `weekly.main()` → 마지막 거래일 게이트 → fetch → format → send
+
+인자 없음. 오늘이 그 주의 마지막 KR 거래일이 아니면 침묵 종료 (발송 없음).
+
+### `python telegram_push.py "메시지"` — 텔레그램 직접 발송
+
+```bash
+python telegram_push.py "점검 메시지"   # 인자로 메시지 지정
+python telegram_push.py                  # 기본 점검 메시지 사용
+```
+
+봇 토큰·chat_id 동작 확인용. `GOLDENQUEENS_BOT_TOKEN`, `GOLDENQUEENS_CHAT_ID` 환경변수 필요.
 
 ---
 
-## cron 진입점
+## Makefile 타겟
 
-### `.github/workflows/daily.yml` — 일일 자동 수집
+```bash
+make [타겟] [DRY=1] [DATE=...]
+```
+
+`DRY=1`을 붙이면 `MARKET_FLOW_DRY_RUN=1`이 자동 주입되어 텔레그램 발송 없이 stdout 출력.
+
+| 타겟 | 실행 명령 | 용도 |
+|---|---|---|
+| `help` | *(기본 타겟)* | 사용 가능한 명령 목록 출력 |
+| `install` | `pip install -r requirements.txt` (uv 우선, fallback pip) | 의존성 설치 |
+| `daily-kr [DATE=YYYYMMDD]` | `python daily_kr.py [DATE]` | 한국장 매매동향 발송 |
+| `daily-us [DATE=YYYY-MM-DD]` | `python daily_us.py [DATE]` | 미국장 마감 요약 발송 |
+| `weekly` | `python weekly.py` | 주간 리포트 발송 |
+| `notify-test` | 인라인 Python | 텔레그램 핑 메시지 (환경변수 동작 확인) |
+| `smoke-kr` | 인라인 Python | 네이버 fetch 단독 점검 (텔레그램 발송 없음) |
+| `smoke-us` | 인라인 Python | yfinance fetch 단독 점검 (텔레그램 발송 없음) |
+| `clean` | `find ... -exec rm -rf` | `__pycache__`, `.pytest_cache`, `htmlcov` 제거 |
+
+**사용 예:**
+
+```bash
+make daily-kr DRY=1               # 텔레그램 없이 한국장 리포트 stdout
+make daily-kr DRY=1 DATE=20260522 # 특정일 dry-run
+make daily-us DRY=1
+make weekly DRY=1
+make smoke-kr                     # 네이버 fetch 단독 점검
+make smoke-us                     # yfinance fetch 단독 점검
+make notify-test                  # 봇 연결 확인
+```
+
+---
+
+## GitHub Actions 진입점
+
+### `flow-kr.yml` — 한국장 일간 발송
 
 | 항목 | 내용 |
 |---|---|
-| schedule | `10 9 * * *` (UTC) = KST 18:10 매일 |
-| 수동 트리거 | `workflow_dispatch` (Actions 탭에서 즉시 실행 가능) |
-| 러너 | ubuntu-latest |
-| Python | 3.11 고정 |
+| 트리거 | `cron '10 9 * * 1-5'` (평일 KST 18:10) + `workflow_dispatch` |
+| 러너 | ubuntu-latest, Python 3.13 |
+| 작업 디렉터리 | `market_flow` |
+| 실행 명령 | `python daily_kr.py` |
+| 환경변수 | `GOLDENQUEENS_BOT_TOKEN`, `GOLDENQUEENS_CHAT_ID`, `TZ=Asia/Seoul` |
 | 타임아웃 | 5분 |
-| 실행 명령 | `python -m naver_investor_flow.collect` |
-| 환경변수 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (GitHub Secrets) |
 
-**cron 시각 산정 근거:**
+### `flow-us.yml` — 미국장 일간 발송 (DST 자동 반영)
 
-| 시각 | 설명 |
+| 항목 | 내용 |
 |---|---|
-| KST 09:00 | 한국 주식 개장 |
-| KST 15:30 | 본장 마감 |
-| KST 18:00 | 시간외 거래 종료 |
-| **KST 18:10** | **cron 실행** — 시간외 종료 + 네이버 페이지 갱신 안정 마진 10분 |
-| UTC 09:10 | GitHub Actions cron 표현식 기준 |
+| 트리거 (EDT) | `cron '30 20 * * 1-5'` (UTC 20:30 = NYSE 16:00 EDT + 30분) |
+| 트리거 (EST) | `cron '30 21 * * 1-5'` (UTC 21:30 = NYSE 16:00 EST + 30분) |
+| `workflow_dispatch` | 수동 트리거 지원 (MARKET_SCHEDULE 미설정, 게이트 무시) |
+| 러너 | ubuntu-latest, Python 3.13 |
+| 작업 디렉터리 | `market_flow` |
+| 실행 명령 | `python daily_us.py` |
+| 환경변수 | `MARKET_SCHEDULE` (`edt`/`est`, `github.event.schedule`로 자동 분기), `GOLDENQUEENS_BOT_TOKEN`, `GOLDENQUEENS_CHAT_ID`, `TZ=Asia/Seoul` |
+| 타임아웃 | 5분 |
 
-평일/주말 구분 없음: 주말에도 네이버가 직전 영업일 데이터를 반환하므로 메시지 1회 더 발송될 뿐 비용 사실상 0.
+DST 게이트 동작: 두 cron이 모두 매일 트리거되지만, `MARKET_SCHEDULE` 값과 `is_us_in_dst()` 실제 판정이 불일치하면 즉시 `sys.exit(0)`. 한 시즌에 한 번만 발송.
 
-Secrets 없이도 cron은 정상 종료한다 (`collect.py`가 stdout만 출력하고 exit 0).
+### `flow-weekly.yml` — 주간 리포트 발송
 
----
+| 항목 | 내용 |
+|---|---|
+| 트리거 | `cron '30 9 * * 1-5'` (평일 KST 18:30) + `workflow_dispatch` |
+| 러너 | ubuntu-latest, Python 3.13 |
+| 작업 디렉터리 | `market_flow` |
+| 실행 명령 | `python weekly.py` |
+| 환경변수 | `GOLDENQUEENS_BOT_TOKEN`, `GOLDENQUEENS_CHAT_ID`, `TZ=Asia/Seoul` |
+| 타임아웃 | 5분 |
+| 비고 | 스크립트 내부 `is_last_kr_trading_day_of_week()` 게이트가 발송 여부 결정. 금요일 휴장 시 직전 거래일에 이월. |
 
-## Makefile 진입점
+### `test.yml` — CI 품질 검증
 
-```bash
-make [타겟] [변수=값 ...]
-```
-
-| 타겟 | 호출 명령 | 용도 |
-|---|---|---|
-| `help` | *(기본 타겟)* | 사용 가능한 명령 목록 출력 |
-| `install-dev` | `uv pip install pytest` 또는 `pip install pytest` | pytest 설치 (uv 우선, fallback pip). 실행 자체에는 불필요. |
-| `test` | `pytest tests/ -q --ignore=tests/test_live_smoke.py` | 단위 테스트 (mock + fixture, 네트워크 없음) |
-| `test-live` | `pytest tests/ -q` | 라이브 호출 포함 전체 테스트 (네이버 직접 호출) |
-| `test-cov` | `coverage run -m pytest ... && coverage report` | 커버리지 리포트 (coverage 패키지 필요) |
-| `collect` | `python -m naver_investor_flow.collect` | 9콜 통합 수집 + 텔레그램 (cron 진입점과 동일) |
-| `flow` | `python -m naver_investor_flow flow_day` | flow_day 단독 조회 (오늘 날짜 자동 주입) |
-| `rank` | `python -m naver_investor_flow deal_rank --market ... --investor ... --side ...` | deal_rank 단독 조회 — `MARKET`, `INVESTOR`, `SIDE` 변수 필수. 미입력 시 exit 64 |
-| `notify-test` | 인라인 Python | 텔레그램 헬로 메시지 1회 (환경변수 동작 확인) |
-| `smoke-headers` | 인라인 Python | HTTP 헤더 라이브 점검 (UA·Referer·Accept-Language 실제 전송 확인) |
-| `clean` | `find ... -exec rm -rf` | `__pycache__`·`.pytest_cache`·`htmlcov` 제거 |
-| `version` | `python -c "from naver_investor_flow import __version__; print(__version__)"` | 패키지 버전 출력 |
-
-**`make rank` 사용 예:**
-
-```bash
-make rank MARKET=kospi INVESTOR=foreign SIDE=buy
-make rank MARKET=kosdaq INVESTOR=institution SIDE=sell | python3 -m json.tool
-```
-
-**[HARD] `deal_rank`에 `--bizdate` 옵션 신설 금지.** Makefile `rank` 타겟에도 `BIZDATE` 변수를 추가하지 않는다. (SPEC REQ-020.4)
+| 항목 | 내용 |
+|---|---|
+| 트리거 | `push` (main), `pull_request` (main), `workflow_dispatch` |
+| 러너 | ubuntu-latest 단일 OS |
+| 매트릭스 | Python 3.10 / 3.11 / 3.12 (3잡) |
+| 실행 | `pytest tests/ -q -m "not live"` |
+| 옵션 | `fail-fast: false` |
 
 ---
 
-## exit code 체계
+## cron 시각 산정 근거
 
-| 코드 | 의미 | 발생 모듈 |
-|---|---|---|
-| 0 | 정상 (데이터 없는 empty 포함) | `cli.py`, `collect.py` |
-| 1 | 수집 전체 실패 (flow_day + 모든 deal_rank 전부 실패) | `collect.py` |
-| 2 | HTTP 오류 (4xx/5xx) | `cli.py` |
-| 3 | HTML 파싱 오류 | `cli.py` |
-| 4 | 네트워크 연결 실패 / 타임아웃 | `cli.py` |
-| 5 | EUC-KR·UTF-8 모두 디코딩 실패 | `cli.py` |
-| 64 | 사용법 오류 (인자 누락·오입력) | `cli.py`, `make rank` |
+| 워크플로우 | cron (UTC) | KST 변환 | 근거 |
+|---|---|---|---|
+| `flow-kr.yml` | `10 9 * * 1-5` | 평일 18:10 | 네이버 18:03 갱신 + 7분 마진 |
+| `flow-us.yml` EDT | `30 20 * * 1-5` | 익일 05:30 | NYSE 16:00 EDT + 30분 |
+| `flow-us.yml` EST | `30 21 * * 1-5` | 익일 06:30 | NYSE 16:00 EST + 30분 |
+| `flow-weekly.yml` | `30 9 * * 1-5` | 평일 18:30 | flow-kr 20분 후, 마지막 거래일 게이트 내장 |
 
-`collect.py`는 개별 호출 실패를 stderr에 출력하고 계속 진행한다. 텔레그램 전송 실패는 exit code 0 (collect 자체는 성공).
+---
+
+## GitHub Secrets 등록 위치
+
+```
+Repository → Settings → Secrets and variables → Actions
+  GOLDENQUEENS_BOT_TOKEN   (Telegram Bot 인증 토큰)
+  GOLDENQUEENS_CHAT_ID     (수신 chat_id, 채널은 -100 시작)
+```
+
+두 값 모두 있어야 텔레그램 발송 활성화. 하나라도 없으면 `telegram_push.py`가 `RuntimeError` 발생.
 
 ---
 
 ## 출처
 
-- `naver_investor_flow/cli.py` — 서브커맨드·옵션·exit code 직접 확인
-- `naver_investor_flow/collect.py` — `main()` 반환값·DEAL_RANK_COMBOS 직접 확인
-- `.github/workflows/daily.yml` — cron 표현식·환경변수 직접 확인
-- `Makefile` — 11개 타겟 직접 확인
-- `HANDOFF.md` §2.3 (cron 결정), §3.2 (deal_rank bizdate 금지), §4.3 (Makefile 사용 패턴)
-- `.moai/project/structure.md` 진입점 매핑 표
-- `.moai/project/tech.md` §8 (에러 코드 체계), §6 (cron 시각 산정)
+- `market_flow/daily_kr.py`, `daily_us.py`, `weekly.py`, `telegram_push.py` 직접 확인
+- `.github/workflows/flow-kr.yml`, `flow-us.yml`, `flow-weekly.yml`, `test.yml` 직접 확인
+- `Makefile` 직접 확인
+- `.moai/project/structure.md` 진입점 매핑 표, Makefile 타겟 표
+- `.moai/project/tech.md` §3 (cron 시각 산정), §4 (환경변수)
+- SPEC-MF-SCHED-001 (DST 자동 반영 + 휴장 인지)

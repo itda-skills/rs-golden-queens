@@ -2,7 +2,9 @@ name: 미국장 마감 푸시
 
 on:
   schedule:
-    # 한국 화~토 06:30 KST = UTC 월~금 21:30
+    # EDT (3월 둘째 일요일 ~ 11월 첫째 일요일): NYSE 16:00 EDT 마감 + 30분 = UTC 20:30
+    - cron: '30 20 * * 1-5'
+    # EST (11월 첫째 일요일 ~ 3월 둘째 일요일): NYSE 16:00 EST 마감 + 30분 = UTC 21:30
     - cron: '30 21 * * 1-5'
   workflow_dispatch:
 
@@ -28,6 +30,8 @@ jobs:
 
       - name: Send US market summary
         env:
+          # cron 표현식으로 시즌 식별 → 스크립트의 DST 게이트가 실제 시즌과 대조
+          MARKET_SCHEDULE: ${{ github.event.schedule == '30 20 * * 1-5' && 'edt' || (github.event.schedule == '30 21 * * 1-5' && 'est' || '') }}
           GOLDENQUEENS_BOT_TOKEN: ${{ secrets.GOLDENQUEENS_BOT_TOKEN }}
           GOLDENQUEENS_CHAT_ID:   ${{ secrets.GOLDENQUEENS_CHAT_ID }}
           TZ: Asia/Seoul

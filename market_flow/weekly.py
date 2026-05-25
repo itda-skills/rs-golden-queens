@@ -1,20 +1,30 @@
-"""주간 리포트 → 텔레그램 발송 (매주 금요일)
+"""주간 리포트 → 텔레그램 발송 (그 주 마지막 한국 거래일)
 
 - 코스피 5거래일 누적 (네이버 데스크탑 10일 페이지에서 최신 5일)
 - 미국 워치 ETF 5거래일 누적 등락 (yfinance 일별 데이터)
+
+SPEC-MF-SCHED-001: 평일 KST 18:30에 트리거되지만, "오늘이 그 주의 마지막
+한국 거래일"일 때만 발송. 금요일 휴장이면 직전 거래일에 이월 발송.
 """
+from __future__ import annotations
+
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 import yfinance as yf
 
+from calendar_utils import is_last_kr_trading_day_of_week
 from fetchers.naver_kr import fetch_kospi_daily
 from fetchers.us_market import WATCH
 from formatter import format_weekly
 from telegram_push import send
+
+_KST = ZoneInfo("Asia/Seoul")
 
 
 def _watch_5d_pct():
@@ -36,13 +46,23 @@ def _watch_5d_pct():
     return out
 
 
-def main():
-    bizdate = datetime.now().strftime("%Y%m%d")
+def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+    if now is None:
+        now = datetime.now(_KST)
+
+    # 마지막 거래일 게이트: 그 외 날에는 침묵 스킵
+    if not is_last_kr_trading_day_of_week(now):
+        return
+
+    bizdate = now.astimezone(_KST).strftime("%Y%m%d")
     kospi_daily = fetch_kospi_daily(bizdate)
     watch_5d = _watch_5d_pct()
     text = format_weekly(kospi_daily, watch_5d)
     resp = send(text)
-    print(f"✅ 주간 리포트 푸시: msg_id={resp['result']['message_id']}")
+    msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
+    print(f"✅ 주간 리포트 푸시: msg_id={msg_id}")
 
 
 if __name__ == "__main__":
