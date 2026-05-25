@@ -1,0 +1,14 @@
+{
+  "_fixture_note": "SPEC-MF-TEST-001 합성 fixture. KOSDAQ 응답. 모든 키에 정상 정수값을 부여하여 일반 경로를 검증.",
+  "dealTrendInfo": {
+    "bizdate": "20260525",
+    "personalValue": "-500",
+    "foreignValue": "+700",
+    "institutionalValue": "-200"
+  },
+  "programTrendInfo": {
+    "indexDifferenceReal": "+100",
+    "indexBiDifferenceReal": "-50",
+    "indexTotalReal": "+50"
+  }
+}

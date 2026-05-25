@@ -1,0 +1,14 @@
+{
+  "_fixture_note": "SPEC-MF-TEST-001 합성 fixture. 실 API 호출 없이 market_flow/fetchers/naver_kr.py:fetch_daily_summary 의 파싱 로직(dealTrendInfo / programTrendInfo 키 + bizdate / personalValue / foreignValue / institutionalValue / indexDifferenceReal / indexBiDifferenceReal / indexTotalReal)에서 스키마를 역추론하여 작성. None/빈 문자열/콤마/플러스 부호 정규화를 검증하기 위해 personalValue 에 콤마+부호, foreignValue 에 None, institutionalValue 에 빈 문자열 포함.",
+  "dealTrendInfo": {
+    "bizdate": "20260525",
+    "personalValue": "+1,234",
+    "foreignValue": null,
+    "institutionalValue": ""
+  },
+  "programTrendInfo": {
+    "indexDifferenceReal": "-2,500",
+    "indexBiDifferenceReal": "+3,100",
+    "indexTotalReal": "+600"
+  }
+}

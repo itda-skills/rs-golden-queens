@@ -1,0 +1,30 @@
+<!--
+  SPEC-MF-TEST-001 합성 fixture.
+  실 API 호출 없이 market_flow/fetchers/naver_kr.py:_parse_trend_rows
+  (정규식 ``<tr>\s*((?:<td[^>]*>[^<]*</td>\s*)+)</tr>`` + 11개 셀 추출)
+  의 파싱 로직에서 역추론한 최소 합성 HTML.
+
+  컬럼 순서: time, personal, foreign, institutional, finance, insurance,
+            trust, bank, other_fin, pension, other_corp
+
+  NOTE: 정규식은 <td> 만 매칭하므로 헤더는 <th> 로 작성하여 자연 무시.
+        그렇지 않으면 헤더 행의 문자열 "개인" 등이 int() 변환에서 실패.
+
+  - 정상 행 2개 (각각 11셀)
+  - 부족한 셀(<11) 행 1개 → 무시되어야 함
+  - "-" 값 1개 포함 → 0 정규화 검증
+-->
+<html>
+<body>
+<table>
+<thead>
+<tr><th>시간</th><th>개인</th><th>외국인</th><th>기관</th><th>금융투자</th><th>보험</th><th>투신</th><th>은행</th><th>기타금융</th><th>연기금</th><th>기타법인</th></tr>
+</thead>
+<tbody>
+<tr><td>15:30</td><td>-1,234</td><td>+5,678</td><td>+910</td><td>+100</td><td>+50</td><td>+200</td><td>+10</td><td>+20</td><td>+500</td><td>+30</td></tr>
+<tr><td>15:00</td><td>+2,000</td><td>-3,000</td><td>+1,000</td><td>-</td><td>+100</td><td>+200</td><td>+50</td><td>+10</td><td>+600</td><td>+40</td></tr>
+<tr><td>14:30</td><td>+1</td><td>+2</td></tr>
+</tbody>
+</table>
+</body>
+</html>

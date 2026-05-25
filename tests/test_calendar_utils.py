@@ -1,0 +1,150 @@
+"""SPEC-MF-SCHED-001: calendar_utils 결정론적 판정 테스트.
+
+시각 주입(`now: datetime`) 기반으로 DST/거래일/마지막 거래일을
+결정론적으로 검증한다. acceptance.md Section 1.5, 1.6, 5, 8 커버.
+"""
+from __future__ import annotations
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+import calendar_utils as cu
+
+KST = ZoneInfo("Asia/Seoul")
+ET = ZoneInfo("America/New_York")
+
+
+# ──────────────────────────────────────────────
+#  DST 판정 (is_us_in_dst)
+# ──────────────────────────────────────────────
+
+class TestIsUsInDst:
+    def test_edt_period_returns_true(self):
+        now = datetime(2025, 6, 15, 10, 0, tzinfo=ET)
+        assert cu.is_us_in_dst(now) is True
+
+    def test_est_period_returns_false(self):
+        now = datetime(2025, 12, 15, 10, 0, tzinfo=ET)
+        assert cu.is_us_in_dst(now) is False
+
+    def test_spring_forward_next_weekday_is_edt(self):
+        # 2025-03-09 일요일에 EST→EDT 전환 → 3-10 월요일은 EDT
+        now = datetime(2025, 3, 10, 16, 30, tzinfo=ET)
+        assert cu.is_us_in_dst(now) is True
+
+    def test_fall_back_next_weekday_is_est(self):
+        # 2025-11-02 일요일에 EDT→EST 전환 → 11-03 월요일은 EST
+        now = datetime(2025, 11, 3, 16, 30, tzinfo=ET)
+        assert cu.is_us_in_dst(now) is False
+
+    def test_accepts_utc_now(self):
+        # UTC 입력도 내부적으로 ET로 변환되어 판정되어야 한다
+        now = datetime(2025, 6, 15, 20, 0, tzinfo=ZoneInfo("UTC"))
+        assert cu.is_us_in_dst(now) is True
+
+    def test_default_now_returns_bool(self):
+        # 시각 미지정 시 현재 시각 기반 bool 반환 (예외 없음)
+        assert isinstance(cu.is_us_in_dst(), bool)
+
+
+# ──────────────────────────────────────────────
+#  미국 거래일 판정 (is_us_trading_day)
+# ──────────────────────────────────────────────
+
+class TestIsUsTradingDay:
+    def test_christmas_is_holiday(self):
+        now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is False
+
+    def test_independence_day_is_holiday(self):
+        now = datetime(2025, 7, 4, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is False
+
+    def test_thanksgiving_is_holiday(self):
+        now = datetime(2025, 11, 27, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is False
+
+    def test_day_after_thanksgiving_is_trading_day_even_early_close(self):
+        # 11/28은 반장이지만 거래일로 간주
+        now = datetime(2025, 11, 28, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is True
+
+    def test_regular_weekday_is_trading_day(self):
+        now = datetime(2025, 9, 15, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is True
+
+    def test_weekend_is_holiday(self):
+        now = datetime(2025, 5, 24, 16, 30, tzinfo=ET)  # 토요일
+        assert cu.is_us_trading_day(now) is False
+
+    def test_new_year_is_holiday(self):
+        now = datetime(2025, 1, 1, 16, 30, tzinfo=ET)
+        assert cu.is_us_trading_day(now) is False
+
+
+# ──────────────────────────────────────────────
+#  한국 거래일 판정 (is_kr_trading_day)
+# ──────────────────────────────────────────────
+
+class TestIsKrTradingDay:
+    def test_childrens_day_is_holiday(self):
+        now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_liberation_day_friday_is_holiday(self):
+        now = datetime(2025, 8, 15, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_foundation_day_friday_is_holiday(self):
+        now = datetime(2025, 10, 3, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_regular_monday_is_trading_day(self):
+        now = datetime(2025, 5, 26, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is True
+
+    def test_weekend_is_holiday(self):
+        now = datetime(2025, 5, 24, 18, 10, tzinfo=KST)  # 토요일
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_new_year_is_holiday(self):
+        now = datetime(2026, 1, 1, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_kr_christmas_is_holiday(self):
+        now = datetime(2025, 12, 25, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+
+# ──────────────────────────────────────────────
+#  마지막 거래일 판정 (is_last_kr_trading_day_of_week)
+# ──────────────────────────────────────────────
+
+class TestIsLastKrTradingDayOfWeek:
+    def test_friday_is_trading_day_returns_true_on_friday(self):
+        # 2025-09-19 금요일 정상 거래일
+        now = datetime(2025, 9, 19, 18, 30, tzinfo=KST)
+        assert cu.is_last_kr_trading_day_of_week(now) is True
+
+    def test_friday_is_trading_day_returns_false_on_thursday(self):
+        # 2025-09-18 목요일, 다음날 금요일 정상 거래일 → 목요일 False
+        now = datetime(2025, 9, 18, 18, 30, tzinfo=KST)
+        assert cu.is_last_kr_trading_day_of_week(now) is False
+
+    def test_friday_holiday_thursday_is_last_trading_day(self):
+        # 2025-08-14 목요일, 다음날 8/15 광복절 → 목요일이 마지막 거래일
+        now = datetime(2025, 8, 14, 18, 30, tzinfo=KST)
+        assert cu.is_last_kr_trading_day_of_week(now) is True
+
+    def test_friday_holiday_returns_false_on_friday(self):
+        # 2025-08-15 금요일 광복절 → 오늘이 거래일 아님 → False
+        now = datetime(2025, 8, 15, 18, 30, tzinfo=KST)
+        assert cu.is_last_kr_trading_day_of_week(now) is False
+
+    def test_monday_returns_false(self):
+        # 정상 주의 월요일은 그 주 마지막 거래일이 아님
+        now = datetime(2025, 9, 15, 18, 30, tzinfo=KST)
+        assert cu.is_last_kr_trading_day_of_week(now) is False
+
+    def test_default_now_returns_bool(self):
+        assert isinstance(cu.is_last_kr_trading_day_of_week(), bool)
