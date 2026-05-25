@@ -14,3 +14,4 @@ __pycache__/
 .moai/reports/
 .moai/state/
 HANDOFF.md
+.claude/scheduled_tasks.lock
