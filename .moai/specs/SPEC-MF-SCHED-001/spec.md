@@ -1,7 +1,7 @@
 ---
 id: SPEC-MF-SCHED-001
-version: 0.1.0
-status: draft
+version: 0.2.0
+status: completed
 created: 2026-05-25
 updated: 2026-05-25
 author: Chinseok
@@ -13,7 +13,54 @@ issue_number: 0
 
 ## HISTORY
 
+- 2026-05-25 (v0.2.0): 구현 완료. status `draft` → `completed`. RED-GREEN-REFACTOR TDD 사이클로 `market_flow/calendar_utils.py`(4개 공개 함수) 신설, 3개 스크립트(`daily_kr.py`, `daily_us.py`, `weekly.py`)에 휴장·DST·마지막 거래일 게이트 추가, `flow-us.yml` dual-cron + `MARKET_SCHEDULE` 환경변수 게이트, `flow-weekly.yml` cron 평일 확장. 46개 unit test 통과 (acceptance Must-pass 25/25 검증). `pykrx` 검증을 건너뛰고 `exchange_calendars`(XKRX) 채택. dry-run은 SPEC plan의 `_emit` 헬퍼 패턴 대신 기존 `MARKET_FLOW_DRY_RUN` 환경변수(`telegram_push.send` 내부 분기)를 재사용. 자세한 보정 사항은 아래 Implementation Notes 참조.
 - 2026-05-25 (v0.1.0): 초안 작성. `market_flow/`의 3개 텔레그램 봇(`daily_kr.py`, `daily_us.py`, `weekly.py`)과 3개 GitHub Actions 워크플로우(`flow-kr.yml`, `flow-us.yml`, `flow-weekly.yml`)에 대해 (a) 미국장 DST 자동 반영, (b) 한국·미국 휴장일 인지 및 한 줄 메시지 발송, (c) 주간 리포트의 그 주 마지막 거래일 자동 이월 발송을 명세. dual-cron + 환경변수 게이트 전략과 휴장 판정 라이브러리(`pandas_market_calendars` / `pykrx` 검증 후 `exchange_calendars` fallback) 도입을 포함. naver_investor_flow 제거(commit 8fd2c7f) 및 `--no-telegram` dry-run 추가(commit d78d0a6) 이후 상태를 전제. issue_number는 추후 결정.
+
+## Implementation Notes (2026-05-25)
+
+### 구현 산출물
+
+신규:
+- `market_flow/calendar_utils.py` — `is_us_in_dst`, `is_us_trading_day`, `is_kr_trading_day`, `is_last_kr_trading_day_of_week` 4개 공개 함수 (시각 주입 `now: datetime | None` 파라미터, 기본값은 해당 거래소 로컬 타임존의 `datetime.now()`)
+- `tests/test_calendar_utils.py` (26 tests), `tests/test_daily_kr.py` (5), `tests/test_daily_us.py` (10), `tests/test_weekly.py` (5) — 총 46개 단위 테스트
+
+수정:
+- `market_flow/daily_kr.py`: `main(argv=None, now=None)` 시그니처, KR 휴장 분기, 위치인자 `sys.argv[1]` 호환 유지
+- `market_flow/daily_us.py`: DST 게이트(`MARKET_SCHEDULE` env), US 휴장 분기, 시각 주입
+- `market_flow/weekly.py`: 마지막 KR 거래일 게이트, 시각 주입
+- `market_flow/requirements.txt`: `pandas_market_calendars>=4.4`, `exchange_calendars>=4.5` 추가
+- `.github/workflows/flow-us.yml`: dual-cron(`30 20 * * 1-5` EDT + `30 21 * * 1-5` EST) + `MARKET_SCHEDULE` env(`github.event.schedule`로 분기 주입)
+- `.github/workflows/flow-weekly.yml`: cron `30 9 * * 5` → `30 9 * * 1-5`로 확장
+- `.github/workflows/flow-kr.yml`: 변경 없음 (REQ-MF-SCHED-NEG-001 준수)
+
+### plan.md와의 의도적 보정 사항
+
+1. **dry-run 메커니즘 단순화**: plan.md의 `_emit(text, dry_run)` 헬퍼 패턴은 폐기. `telegram_push.send()`가 이미 `MARKET_FLOW_DRY_RUN=1` 환경변수를 내부적으로 분기하므로 각 스크립트는 휴장 메시지·정상 보고서 모두 단순히 `send()` 호출. 호출 측 dry-run 인지 불필요.
+2. **`pykrx` 검증 생략**: 코드 확인 결과 `pykrx`가 `requirements.txt`에 없고 fetchers도 네이버 스크래핑만 사용. plan.md R1의 검증 단계를 건너뛰고 바로 `exchange_calendars`(XKRX) 채택.
+3. **CLI 인자 호환성**: 기존 `python daily_kr.py 20260522` 위치인자 동작을 유지하기 위해 `argparse` 미도입. `argv` 파라미터는 `None`이면 `sys.argv[1:]` 사용, `now` 명시 시 우선.
+4. **Python 버전 호환**: CI 매트릭스가 Python 3.10/3.11/3.12이므로 모든 신규 모듈에 `from __future__ import annotations` 추가하여 `datetime | None` 표기 호환성 확보.
+5. **테스트 디렉터리 위치**: `tests/`가 존재하지 않아 신설했고, 이후 commit `406688c`(SPEC-MF-TEST-001)에서 `tests/unit/`, `tests/integration/`, `tests/live/`, `tests/fixtures/` 구조로 확장됨. 본 SPEC의 테스트는 `tests/test_*.py`(top-level)에 위치.
+
+### Acceptance 검증 결과
+
+acceptance.md의 25개 Must-pass 시나리오 모두 단위 테스트로 검증:
+- Section 1 DST 자동 반영: 6 scenarios → `test_calendar_utils.TestIsUsInDst` + `test_daily_us.TestDstGate`
+- Section 2 KR 휴장: 4 scenarios → `test_calendar_utils.TestIsKrTradingDay` + `test_daily_kr`
+- Section 3 US 휴장: 4 scenarios → `test_calendar_utils.TestIsUsTradingDay` + `test_daily_us`
+- Section 4 weekly 이월: 6 scenarios → `test_calendar_utils.TestIsLastKrTradingDayOfWeek` + `test_weekly`
+- Section 5 시각 주입: 2 scenarios → `test_default_now_returns_bool`
+- Section 6 dry-run 일관성: 2 scenarios → `MARKET_FLOW_DRY_RUN` 환경변수 + mock 검증
+- Section 7 절대 제약: 5 scenarios → `test_no_double_send_on_edt_season` + fetcher 미호출 검증
+- Section 8 캘린더 정확도: 2 scenarios → fixture 날짜 결정성 검증
+
+Scenario 4.5(금/목 연속 휴장 → 수요일 이월)는 2025년에 실제 fixture 날짜가 없어 알고리즘으로만 보장(`is_last_kr_trading_day_of_week`가 토/일 자연 처리 + 평일 휴장 거슬러 탐색). 후속 PR에서 monkeypatch 기반 명시 테스트 추가 권장.
+
+### 운영 후속 검증 (Should-pass)
+
+- 첫 EDT/EST 전환 직후 평일에 `flow-us.yml`의 두 cron 중 한 쪽만 발송하는지 GitHub Actions 로그 확인
+- 첫 한국·미국 휴장일에 텔레그램 한 줄 메시지 수신 확인
+- 첫 금요일 휴장 주에 직전 거래일에 weekly 발송 확인
+- `github.event.schedule == '...'` 표현식이 GitHub Actions에서 의도대로 동작하는지 확인 (manager-tdd 보고서의 미해결 항목 2번)
 
 ---
 
