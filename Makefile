@@ -21,8 +21,16 @@
 #   GOLDENQUEENS_BOT_TOKEN  텔레그램 봇 토큰
 #   GOLDENQUEENS_CHAT_ID    수신 chat_id (채널은 -100 으로 시작)
 
-PY ?= python3
 PKG_DIR := market_flow
+VENV_DIR := .venv
+VENV_PY := $(VENV_DIR)/bin/python
+
+# .venv 가 있으면 우선 사용, 없으면 시스템 python3
+ifeq ($(wildcard $(VENV_PY)),$(VENV_PY))
+PY ?= $(VENV_PY)
+else
+PY ?= python3
+endif
 
 # DRY=1 → 텔레그램 발송 없이 stdout 출력
 ifeq ($(DRY),1)
@@ -42,12 +50,27 @@ help:  ## 사용 가능한 명령 목록
 	@printf "  make daily-kr DATE=20260522\n"
 	@printf "  make daily-us DATE=2026-05-22\n"
 
-install:  ## 의존성 설치 (uv 우선, fallback pip)
-	@if command -v uv >/dev/null 2>&1; then \
-		uv pip install --system -r $(PKG_DIR)/requirements.txt; \
-	else \
-		$(PY) -m pip install -r $(PKG_DIR)/requirements.txt; \
+install:  ## 의존성 설치 (.venv 기반, 없으면 생성 확인 후 진행)
+	@if [ ! -x "$(VENV_PY)" ]; then \
+		printf "'$(VENV_DIR)' 가상환경이 없습니다. 생성할까요? [y/N] "; \
+		read ans; \
+		case "$$ans" in \
+			y|Y|yes|YES) ;; \
+			*) echo "취소되었습니다."; exit 1 ;; \
+		esac; \
+		if command -v uv >/dev/null 2>&1; then \
+			uv venv $(VENV_DIR); \
+		else \
+			python3 -m venv $(VENV_DIR); \
+		fi; \
+		echo "생성됨: $(VENV_DIR)"; \
 	fi
+	@if command -v uv >/dev/null 2>&1; then \
+		uv pip install --python $(VENV_PY) -r $(PKG_DIR)/requirements.txt; \
+	else \
+		$(VENV_PY) -m pip install -r $(PKG_DIR)/requirements.txt; \
+	fi
+	@echo "설치 완료 → $(VENV_PY)"
 
 daily-kr:  ## 한국장 매매동향 발송. DATE=YYYYMMDD 옵션
 	cd $(PKG_DIR) && $(PY) daily_kr.py $(DATE)
