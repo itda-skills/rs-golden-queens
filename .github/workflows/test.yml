@@ -23,8 +23,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r market_flow/requirements.txt
+          python -m pip install pytest
 
       - name: Run tests (mock + fixture, no network)
         run: python -m pytest tests/ -q -m "not live"
