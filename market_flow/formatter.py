@@ -148,11 +148,11 @@ def kr_weekday(bizdate):
 # ───────────────────────────────────────────────
 
 def _kr_main_table(side):
-    """코스피/코스닥 외인·기관·개인 행."""
+    """코스피/코스닥 외인·기관·개인 행. 컬럼: 라벨, 숫자(우측), 마크."""
     return [
-        ["외인", mark(side["foreign"]),       signed(side["foreign"])],
-        ["기관", mark(side["institutional"]), signed(side["institutional"])],
-        ["개인", mark(side["personal"]),      signed(side["personal"])],
+        ["외인", signed(side["foreign"]),       mark(side["foreign"])],
+        ["기관", signed(side["institutional"]), mark(side["institutional"])],
+        ["개인", signed(side["personal"]),      mark(side["personal"])],
     ]
 
 
@@ -170,15 +170,15 @@ def _kr_detail_table(detail):
     ]
     for label, key in pairs:
         v = detail.get(key)
-        rows.append([label, mark(v), signed(v)])
+        rows.append([label, signed(v), mark(v)])
     return rows
 
 
 def _kr_program_table(side):
     return [
-        ["차익",   mark(side["program_arb"]),    signed(side["program_arb"])],
-        ["비차익", mark(side["program_nonarb"]), signed(side["program_nonarb"])],
-        ["합계",   mark(side["program_total"]),  signed(side["program_total"])],
+        ["차익",   signed(side["program_arb"]),    mark(side["program_arb"])],
+        ["비차익", signed(side["program_nonarb"]), mark(side["program_nonarb"])],
+        ["합계",   signed(side["program_total"]),  mark(side["program_total"])],
     ]
 
 
@@ -223,7 +223,7 @@ def format_kr_daily(data):
     L.append("_단위: 억원 (순매수)_")
     L.append("")
 
-    ALIGNS = ["l", "l", "r"]
+    ALIGNS = ["l", "r", "l"]
 
     L.append("🇰🇷 *코스피*")
     L.append(_card(_kr_main_table(kospi), ALIGNS))
@@ -249,9 +249,9 @@ def format_kr_daily(data):
         L.append("")
         L.append("🔁 *코스피 5거래일 누적*")
         rows = [
-            ["외인", mark(f5), signed(f5)],
-            ["기관", mark(i5), signed(i5)],
-            ["개인", mark(p5), signed(p5)],
+            ["외인", signed(f5), mark(f5)],
+            ["기관", signed(i5), mark(i5)],
+            ["개인", signed(p5), mark(p5)],
         ]
         L.append(_card(rows, ALIGNS))
 
@@ -274,13 +274,13 @@ WATCH = [("QQQ", "나스닥100"), ("SMH", "반도체"), ("NLR", "원자력"),
 
 
 def _us_price_table(catalog, source):
-    """지수/변동성/매크로 — (라벨, 방향, 종가, 등락률) 4열."""
+    """지수/변동성/매크로 — (라벨, 종가, 등락률, 마크) 4열."""
     rows = []
     for t, _ in catalog:
         d = source.get(t)
         if not d:
             continue
-        rows.append([d["label"], mark(d["pct"]), f"{d['close']:,.2f}", signed_pct(d["pct"])])
+        rows.append([d["label"], f"{d['close']:,.2f}", signed_pct(d["pct"]), mark(d["pct"])])
     return rows
 
 
@@ -387,7 +387,7 @@ def format_us_daily(data):
 
     L = [f"🇺🇸 *{target} 미국장 마감*", ""]
 
-    PRICE_ALIGNS = ["l", "l", "r", "r"]
+    PRICE_ALIGNS = ["l", "r", "r", "l"]
 
     L.append("📊 *주요 지수* _(종가 / 등락)_")
     L.append(_card(_us_price_table(INDICES, idx), PRICE_ALIGNS))
@@ -415,9 +415,9 @@ def format_us_daily(data):
     L.append("")
 
     L.append("💼 *섹터 (S&P 11)* _(등락 기준 정렬)_")
-    sec_rows = [[v["label"], mark(v["pct"]), signed_pct(v["pct"])]
+    sec_rows = [[v["label"], signed_pct(v["pct"]), mark(v["pct"])]
                 for _, v in sorted([(k, v) for k, v in sec.items() if v], key=lambda x: -x[1]["pct"])]
-    L.append(_card(sec_rows, ["l", "l", "r"]))
+    L.append(_card(sec_rows, ["l", "r", "l"]))
     L.append("")
 
     L.append("⭐ *워치 ETF* _(티커 · 테마 · 종가 · 등락 · 거래량강도)_")
@@ -433,12 +433,12 @@ def format_us_daily(data):
         watch_rows.append([
             t,
             d["label"],
-            mark(d["pct"]),
             f"${d['close']:,.2f}",
             signed_pct(d["pct"]),
             f"{vr_str}{hot}",
+            mark(d["pct"]),
         ])
-    L.append(_card(watch_rows, ["l", "l", "l", "r", "r", "r"]))
+    L.append(_card(watch_rows, ["l", "l", "r", "r", "r", "l"]))
 
     return "\n".join(L)
 
@@ -492,11 +492,11 @@ def format_weekly(kospi_daily, watch_5d):
         p = sum(r["personal"] for r in kospi_daily)
         L.append(f"🇰🇷 *코스피 {days}거래일 누적* (억원)")
         cum_rows = [
-            ["외인", mark(f), signed(f)],
-            ["기관", mark(i), signed(i)],
-            ["개인", mark(p), signed(p)],
+            ["외인", signed(f), mark(f)],
+            ["기관", signed(i), mark(i)],
+            ["개인", signed(p), mark(p)],
         ]
-        L.append(_card(cum_rows, ["l", "l", "r"]))
+        L.append(_card(cum_rows, ["l", "r", "l"]))
         L.append("")
 
         L.append("일별 _(일자 · 외인 · 기관)_:")
@@ -504,18 +504,18 @@ def format_weekly(kospi_daily, watch_5d):
         for r in kospi_daily:
             daily_rows_t.append([
                 r["date"],
-                mark(r["foreign"]),
                 signed(r["foreign"]),
-                mark(r["institutional"]),
+                mark(r["foreign"]),
                 signed(r["institutional"]),
+                mark(r["institutional"]),
             ])
-        L.append(_card(daily_rows_t, ["l", "l", "r", "l", "r"]))
+        L.append(_card(daily_rows_t, ["l", "r", "l", "r", "l"]))
         L.append("")
 
     if watch_5d:
         L.append("🇺🇸 *워치 ETF 5거래일 누적 등락*")
-        watch_rows = [[ticker, mark(pct), signed_pct(pct)]
+        watch_rows = [[ticker, signed_pct(pct), mark(pct)]
                       for ticker, pct in sorted(watch_5d.items(), key=lambda x: -x[1])]
-        L.append(_card(watch_rows, ["l", "l", "r"]))
+        L.append(_card(watch_rows, ["l", "r", "l"]))
 
     return "\n".join(L)
