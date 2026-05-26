@@ -83,7 +83,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         from market_flow.render.renderer import html_to_png
 
         html = render_us_daily_html(data)
-        png = html_to_png(html, width=720, height=3600)
+        png = html_to_png(html, width=720, height=4800)
         caption = f"🇺🇸 *{now.strftime('%-m/%-d')} 미국장 마감*{sources}"
         resp = send_photo(png, caption=caption)
     else:

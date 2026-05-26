@@ -51,7 +51,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         from market_flow.render.renderer import html_to_png
 
         html = render_kr_daily_html(data)
-        png = html_to_png(html, width=720, height=2400)
+        png = html_to_png(html, width=720, height=3200)
         caption = f"📊 *{kr_weekday(bizdate)} 마감 매매동향*{sources}"
         resp = send_photo(png, caption=caption)
     else:

@@ -72,7 +72,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         from market_flow.render.renderer import html_to_png
 
         html = render_weekly_html(kospi_daily, watch_5d)
-        png = html_to_png(html, width=720, height=3000)
+        png = html_to_png(html, width=720, height=4000)
         caption = f"📅 *주간 매매동향 리포트* ({datetime.now().strftime('%-m/%-d')} 기준){sources}"
         resp = send_photo(png, caption=caption)
     else:
