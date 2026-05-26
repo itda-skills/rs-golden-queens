@@ -20,12 +20,13 @@
     --accent: #ffb347;   /* 강조 (🔥, 위험선호 등) */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
   body {
     font-family: 'Noto Sans KR', sans-serif;
-    background: var(--bg);
     color: var(--text);
     padding: 36px;
-    width: 720px;
+    display: inline-block;       /* 콘텐츠 자연 폭으로 결정 */
+    min-width: 720px;            /* 작은 콘텐츠도 최소 폭 보장 */
   }
   body > * + * { margin-top: 26px; }
   header {

@@ -34,16 +34,19 @@ def render_template(name: str, context: dict) -> str:
 
 def html_to_png(
     html: str,
-    width: int = 720,
-    height: int = 1600,
+    width: int = 1400,
+    height: int = 4800,
     output_path: Optional[str] = None,
     trim_bg: Optional[tuple] = (15, 17, 21),
-    trim_padding: int = 24,
+    trim_padding: int = 0,
 ) -> bytes:
     """HTML → PNG bytes.
 
-    - viewport: ``width × height`` 로 캡처 (height 는 콘텐츠 최대 추정치)
-    - trim_bg 지정 시 하단 배경색 영역을 자동 trim (padding 만큼 여백 보존)
+    body 는 ``display: inline-block`` 으로 콘텐츠 자연 폭/높이를 가지므로,
+    viewport(``width × height``) 는 충분히 크게 잡고 trim 으로 정확히 잘라낸다.
+
+    - trim_bg 지정 시 4방향 배경색 영역을 자동 trim
+    - trim_padding 만큼 외곽 여백 보존 (body padding 외에 추가 여백)
     - output_path 지정 시 해당 경로에도 동시 저장
     """
     with tempfile.TemporaryDirectory() as td:
@@ -63,33 +66,61 @@ def html_to_png(
             data = f.read()
 
     if trim_bg is not None:
-        data = _trim_bottom(data, bg_color=trim_bg, padding=trim_padding)
+        data = _trim_borders(data, bg_color=trim_bg, padding=trim_padding)
 
     if output_path:
         Path(output_path).write_bytes(data)
     return data
 
 
-def _trim_bottom(png_bytes: bytes, bg_color: tuple, padding: int, tol: int = 6) -> bytes:
-    """이미지 하단의 배경색 영역을 잘라낸다. tol 만큼 색상 오차 허용."""
+def _trim_borders(png_bytes: bytes, bg_color: tuple, padding: int = 0, tol: int = 6) -> bytes:
+    """이미지의 4방향 배경색 영역을 모두 잘라낸다.
+
+    tol 만큼 색상 오차 허용. 콘텐츠 박스 외곽에 padding 만큼 여백 보존.
+    """
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
     w, h = img.size
     px = img.load()
-    last_y = 0
-    for y in range(h - 1, -1, -1):
-        for x in range(0, w, 4):  # 샘플링 (속도)
-            r, g, b = px[x, y]
-            if (abs(r - bg_color[0]) > tol or
-                abs(g - bg_color[1]) > tol or
-                abs(b - bg_color[2]) > tol):
-                last_y = y
-                break
-        if last_y:
+
+    def is_bg(x, y):
+        r, g, b = px[x, y]
+        return (abs(r - bg_color[0]) <= tol and
+                abs(g - bg_color[1]) <= tol and
+                abs(b - bg_color[2]) <= tol)
+
+    # 상하좌우 배경색 영역의 경계 찾기 (샘플링 4픽셀 간격)
+    step = 4
+    top = h
+    for y in range(h):
+        if any(not is_bg(x, y) for x in range(0, w, step)):
+            top = y
             break
-    if not last_y:
-        return png_bytes
-    new_h = min(h, last_y + padding)
-    cropped = img.crop((0, 0, w, new_h))
+    bottom = 0
+    for y in range(h - 1, -1, -1):
+        if any(not is_bg(x, y) for x in range(0, w, step)):
+            bottom = y
+            break
+    left = w
+    for x in range(w):
+        if any(not is_bg(x, y) for y in range(0, h, step)):
+            left = x
+            break
+    right = 0
+    for x in range(w - 1, -1, -1):
+        if any(not is_bg(x, y) for y in range(0, h, step)):
+            right = x
+            break
+
+    if bottom <= top or right <= left:
+        return png_bytes  # 콘텐츠 없음 → 원본 반환
+
+    box = (
+        max(0, left - padding),
+        max(0, top - padding),
+        min(w, right + 1 + padding),
+        min(h, bottom + 1 + padding),
+    )
+    cropped = img.crop(box)
     buf = io.BytesIO()
     cropped.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
