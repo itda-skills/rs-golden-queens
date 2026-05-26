@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fetchers import naver_kr  # noqa: E402
+from market_flow.fetchers import naver_kr  # noqa: E402
 
 
 def _mock_urlopen_response(text):
@@ -41,7 +41,7 @@ def _mock_urlopen_bytes(raw_bytes):
 class TestFetchDailySummary:
     def test_returns_seven_keys(self, naver_mobile_kospi_json):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -58,7 +58,7 @@ class TestFetchDailySummary:
     def test_strips_commas_and_plus_sign(self, naver_mobile_kospi_json):
         # fixture: personalValue="+1,234" → 1234
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -67,7 +67,7 @@ class TestFetchDailySummary:
     def test_none_value_remains_none(self, naver_mobile_kospi_json):
         # fixture: foreignValue=null → None
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -76,7 +76,7 @@ class TestFetchDailySummary:
     def test_empty_string_becomes_none(self, naver_mobile_kospi_json):
         # fixture: institutionalValue="" → None
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -84,7 +84,7 @@ class TestFetchDailySummary:
 
     def test_bizdate_preserved(self, naver_mobile_kospi_json):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -92,7 +92,7 @@ class TestFetchDailySummary:
 
     def test_program_keys_parsed(self, naver_mobile_kospi_json):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kospi_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSPI")
@@ -102,7 +102,7 @@ class TestFetchDailySummary:
 
     def test_kosdaq_parses_all_numeric(self, naver_mobile_kosdaq_json):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_response(naver_mobile_kosdaq_json),
         ):
             result = naver_kr.fetch_daily_summary("KOSDAQ")
@@ -203,7 +203,7 @@ class TestParseTrendRows:
 class TestFetchKospiHtmlPaths:
     def test_intraday_returns_rows_with_time_key(self, naver_intraday_html):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_bytes(naver_intraday_html.encode("euc-kr", errors="replace")),
         ):
             rows = naver_kr.fetch_kospi_intraday("20260525")
@@ -214,7 +214,7 @@ class TestFetchKospiHtmlPaths:
 
     def test_intraday_dash_cell_becomes_zero(self, naver_intraday_html):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_bytes(naver_intraday_html.encode("euc-kr", errors="replace")),
         ):
             rows = naver_kr.fetch_kospi_intraday("20260525")
@@ -224,7 +224,7 @@ class TestFetchKospiHtmlPaths:
 
     def test_daily_returns_rows_with_date_key(self, naver_daily_html):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_bytes(naver_daily_html.encode("euc-kr", errors="replace")),
         ):
             rows = naver_kr.fetch_kospi_daily("20260525")
@@ -235,7 +235,7 @@ class TestFetchKospiHtmlPaths:
 
     def test_daily_numeric_values_are_int(self, naver_daily_html):
         with patch(
-            "fetchers.naver_kr.urllib.request.urlopen",
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
             return_value=_mock_urlopen_bytes(naver_daily_html.encode("euc-kr", errors="replace")),
         ):
             rows = naver_kr.fetch_kospi_daily("20260525")

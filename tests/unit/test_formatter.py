@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-import formatter as F  # noqa: E402
+from market_flow import formatter as F  # noqa: E402
 
 
 # ──────────────────────────────────────────────

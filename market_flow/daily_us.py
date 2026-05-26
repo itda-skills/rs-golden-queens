@@ -14,16 +14,17 @@ from __future__ import annotations
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from calendar_utils import format_holiday_message, is_us_in_dst, is_us_trading_day
-from fetchers.us_market import fetch_us_close
-from formatter import format_us_daily
-from telegram_push import send
+from market_flow.calendar_utils import (
+    format_holiday_message,
+    is_us_in_dst,
+    is_us_trading_day,
+)
+from market_flow.fetchers.us_market import fetch_us_close
+from market_flow.formatter import format_us_daily
+from market_flow.telegram_push import send
 
 _ET = ZoneInfo("America/New_York")
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from fetchers import us_market  # noqa: E402
+from market_flow.fetchers import us_market  # noqa: E402
 
 
 @pytest.mark.live

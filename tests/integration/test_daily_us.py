@@ -12,7 +12,7 @@ from datetime import datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-import daily_us  # noqa: E402
+from market_flow import daily_us  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
 
@@ -67,9 +67,9 @@ def test_daily_us_main_dry_run_outputs_report(monkeypatch, capsys):
     # MARKET_SCHEDULE 미설정 → DST 게이트 우회
     monkeypatch.delenv("MARKET_SCHEDULE", raising=False)
 
-    with patch("daily_us.fetch_us_close", return_value=_fake_us_data()) as mock_fetch, \
-         patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("daily_us.is_us_trading_day", return_value=True):
+    with patch("market_flow.daily_us.fetch_us_close", return_value=_fake_us_data()) as mock_fetch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.daily_us.is_us_trading_day", return_value=True):
         daily_us.main(now=now)
 
     mock_urlopen.assert_not_called()
@@ -87,8 +87,8 @@ def test_daily_us_main_uses_argv_target_date(monkeypatch):
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
     monkeypatch.delenv("MARKET_SCHEDULE", raising=False)
 
-    with patch("daily_us.fetch_us_close", return_value=_fake_us_data()) as mock_fetch, \
-         patch("telegram_push.urllib.request.urlopen"), \
-         patch("daily_us.is_us_trading_day", return_value=True):
+    with patch("market_flow.daily_us.fetch_us_close", return_value=_fake_us_data()) as mock_fetch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen"), \
+         patch("market_flow.daily_us.is_us_trading_day", return_value=True):
         daily_us.main(argv=["2025-09-12"], now=now)
     mock_fetch.assert_called_once_with("2025-09-12")

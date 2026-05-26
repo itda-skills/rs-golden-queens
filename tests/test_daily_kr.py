@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 KST = ZoneInfo("Asia/Seoul")
 
 # daily_kr는 market_flow/ 내부 모듈 — conftest.py에서 sys.path에 추가됨
-import daily_kr  # noqa: E402
+from market_flow import daily_kr  # noqa: E402
 
 
 def _kr_holiday_msg(now: datetime) -> str:
@@ -23,8 +23,8 @@ def test_kr_holiday_sends_one_liner_childrens_day(monkeypatch):
     # 2025-05-05 어린이날 (월요일)
     now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_kr.send") as mock_send, \
-         patch("daily_kr.fetch_today") as mock_fetch:
+    with patch("market_flow.daily_kr.send") as mock_send, \
+         patch("market_flow.daily_kr.fetch_today") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
         mock_send.assert_called_once_with(_kr_holiday_msg(now))
@@ -35,8 +35,8 @@ def test_kr_holiday_sends_one_liner_liberation_day(monkeypatch):
     # 2025-08-15 광복절 (금요일)
     now = datetime(2025, 8, 15, 18, 10, tzinfo=KST)
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_kr.send") as mock_send, \
-         patch("daily_kr.fetch_today") as mock_fetch:
+    with patch("market_flow.daily_kr.send") as mock_send, \
+         patch("market_flow.daily_kr.fetch_today") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
         mock_send.assert_called_once_with(_kr_holiday_msg(now))
@@ -55,8 +55,8 @@ def test_kr_trading_day_sends_report(monkeypatch):
                    "program_arb": 5, "program_nonarb": 10, "program_total": 15},
         "kospi_daily": [],
     }
-    with patch("daily_kr.send") as mock_send, \
-         patch("daily_kr.fetch_today", return_value=fake_data) as mock_fetch:
+    with patch("market_flow.daily_kr.send") as mock_send, \
+         patch("market_flow.daily_kr.fetch_today", return_value=fake_data) as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
         mock_fetch.assert_called_once()
@@ -73,8 +73,8 @@ def test_kr_holiday_dry_run_via_env(monkeypatch, capsys):
     # urllib.request.urlopen을 mock하여 실제 텔레그램 API 미접촉을 검증한다.
     now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
-    with patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("daily_kr.fetch_today") as mock_fetch:
+    with patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.daily_kr.fetch_today") as mock_fetch:
         daily_kr.main(now=now)
         mock_urlopen.assert_not_called()
         mock_fetch.assert_not_called()
@@ -96,8 +96,8 @@ def test_kr_preserves_positional_date_argv(monkeypatch):
                    "program_arb": 0, "program_nonarb": 0, "program_total": 0},
         "kospi_daily": [],
     }
-    with patch("daily_kr.send") as mock_send, \
-         patch("daily_kr.fetch_today", return_value=fake_data) as mock_fetch:
+    with patch("market_flow.daily_kr.send") as mock_send, \
+         patch("market_flow.daily_kr.fetch_today", return_value=fake_data) as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(argv=["20250526"], now=now)
         # fetch_today가 위치 인자 "20250526"으로 호출되어야 한다

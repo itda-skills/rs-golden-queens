@@ -73,33 +73,22 @@ install:  ## 의존성 설치 (.venv 기반, 없으면 생성 확인 후 진행)
 	@echo "설치 완료 → $(VENV_PY)"
 
 daily-kr:  ## 한국장 매매동향 발송. DATE=YYYYMMDD 옵션
-	cd $(PKG_DIR) && $(PY) daily_kr.py $(DATE)
+	$(PY) main.py daily-kr $(DATE)
 
 daily-us:  ## 미국장 마감 요약 발송. DATE=YYYY-MM-DD 옵션
-	cd $(PKG_DIR) && $(PY) daily_us.py $(DATE)
+	$(PY) main.py daily-us $(DATE)
 
 weekly:  ## 주간 리포트 발송
-	cd $(PKG_DIR) && $(PY) weekly.py
+	$(PY) main.py weekly
 
 notify-test:  ## 텔레그램 핑 메시지 1회 (환경변수 동작 확인)
-	@cd $(PKG_DIR) && $(PY) -c "import datetime; \
-	from telegram_push import send; \
-	now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).isoformat(timespec='seconds'); \
-	r = send(f'[rs-golden-queens] notify-test ping at {now} (KST)'); \
-	print('OK' if r.get('ok') else r)"
+	@$(PY) main.py notify-test
 
 smoke-kr:  ## 네이버 fetch 단독 점검 (텔레그램 발송 없음)
-	@cd $(PKG_DIR) && $(PY) -c "from datetime import datetime; \
-	from fetchers.naver_kr import fetch_today; \
-	d = fetch_today(datetime.now().strftime('%Y%m%d')); \
-	keys = list(d.keys()) if isinstance(d, dict) else type(d).__name__; \
-	print('naver_kr OK:', keys)"
+	@$(PY) main.py smoke-kr
 
 smoke-us:  ## yfinance fetch 단독 점검 (텔레그램 발송 없음)
-	@cd $(PKG_DIR) && $(PY) -c "from fetchers.us_market import fetch_us_close; \
-	d = fetch_us_close(); \
-	keys = list(d.keys()) if isinstance(d, dict) else type(d).__name__; \
-	print('us_market OK:', keys)"
+	@$(PY) main.py smoke-us
 
 clean:  ## __pycache__ 제거
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

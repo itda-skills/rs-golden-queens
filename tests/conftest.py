@@ -1,35 +1,23 @@
 """pytest 공통 설정 (SPEC-MF-TEST-001 + SPEC-MF-SCHED-001 공용).
 
 역할:
-- ``market_flow/`` 디렉터리를 ``sys.path`` 에 추가하여 ``import formatter``,
-  ``import daily_kr``, ``from fetchers.naver_kr import ...`` 형태로 접근 가능하게 한다.
-- ``@pytest.mark.live`` 마커 등록 + 기본 실행 시 자동 deselect 훅
-  (REQ-MF-TEST-002).
+- ``@pytest.mark.live`` 마커 등록 + 기본 실행 시 자동 deselect 훅 (REQ-MF-TEST-002).
 - 환경변수 누수 차단 autouse 픽스처 — ``MARKET_FLOW_DRY_RUN`` /
   ``GOLDENQUEENS_BOT_TOKEN`` / ``GOLDENQUEENS_CHAT_ID`` / ``MARKET_SCHEDULE``
   을 매 테스트 시작 시 초기화 (REQ-MF-TEST-NEG-001).
 - 합성 fixture 로더 — 네이버/yfinance 응답을 ``tests/fixtures/`` 에서 로드.
 
-NOTE: 기존 SPEC-MF-SCHED-001 테스트(``tests/test_calendar_utils.py`` 등)는
-``market_flow/`` 가 sys.path 에 추가되어야 ``import daily_kr`` 가 동작한다.
-본 SPEC 추가 시 이 패턴을 보존한다.
+import 규약: 프로젝트 루트에서 ``pytest`` 를 실행하면 ``market_flow`` 패키지가
+자동 인식된다. 별도 sys.path 조작은 필요하지 않다.
 """
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-# ──────────────────────────────────────────────────────────────────
-#  sys.path 설정 — market_flow 패키지를 평탄(flat) import 가능하게
-# ──────────────────────────────────────────────────────────────────
-_ROOT = Path(__file__).resolve().parent.parent
-_MARKET_FLOW = _ROOT / "market_flow"
-if str(_MARKET_FLOW) not in sys.path:
-    sys.path.insert(0, str(_MARKET_FLOW))
-
+# 프로젝트 루트를 import 기준점으로 사용 (market_flow 패키지)
 # fixture 파일 경로
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

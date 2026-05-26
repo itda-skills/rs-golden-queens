@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import telegram_push as tp  # noqa: E402
+from market_flow import telegram_push as tp  # noqa: E402
 
 
 # ──────────────────────────────────────────────
@@ -66,7 +66,7 @@ class TestEnv:
 class TestSendDryRun:
     def test_does_not_call_urlopen(self, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
-        with patch("telegram_push.urllib.request.urlopen") as mock_urlopen:
+        with patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen:
             tp.send("hello world")
             mock_urlopen.assert_not_called()
 
@@ -122,20 +122,20 @@ class TestSendRealHttp:
 
     def test_calls_urlopen_exactly_once(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
             tp.send("test")
             assert mock_u.call_count == 1
 
     def test_url_contains_bot_token_and_sendmessage(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
             tp.send("test")
             request_arg = mock_u.call_args.args[0]
             assert request_arg.full_url == "https://api.telegram.org/botTEST_TOKEN/sendMessage"
 
     def test_payload_contains_required_keys(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
             tp.send("hello")
             request_arg = mock_u.call_args.args[0]
             data = request_arg.data.decode()
@@ -151,7 +151,7 @@ class TestSendRealHttp:
     def test_returns_parsed_response_json(self, monkeypatch):
         self._setup_env(monkeypatch)
         payload = {"ok": True, "result": {"message_id": 999}}
-        with patch("telegram_push.urllib.request.urlopen", return_value=self._make_mock_response(payload)):
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response(payload)):
             resp = tp.send("test")
             assert resp == payload
 
@@ -173,7 +173,7 @@ class TestSendRealHttp:
 
     def test_disable_notification_true_serialized(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
             tp.send("test", disable_notification=True)
             data = mock_u.call_args.args[0].data.decode()
             parsed = urllib.parse.parse_qs(data)

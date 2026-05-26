@@ -12,7 +12,7 @@ import pytest
 
 ET = ZoneInfo("America/New_York")
 
-import daily_us  # noqa: E402
+from market_flow import daily_us  # noqa: E402
 
 
 def _us_holiday_msg(now: datetime) -> str:
@@ -31,8 +31,8 @@ def test_edt_season_edt_job_passes(monkeypatch):
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     fake_data = {"indices": {}, "volatility": {}, "risk_onoff": {}, "macro": {},
                  "sectors": {}, "watch": {}}
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_fetch.assert_called_once()
@@ -43,8 +43,8 @@ def test_edt_season_est_job_blocked(monkeypatch):
     now = datetime(2025, 9, 15, 17, 30, tzinfo=ET)
     monkeypatch.setenv("MARKET_SCHEDULE", "est")
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close") as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close") as mock_fetch:
         with pytest.raises(SystemExit) as exc:
             daily_us.main(now=now)
         assert exc.value.code == 0
@@ -59,8 +59,8 @@ def test_est_season_est_job_passes(monkeypatch):
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     fake_data = {"indices": {}, "volatility": {}, "risk_onoff": {}, "macro": {},
                  "sectors": {}, "watch": {}}
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_fetch.assert_called_once()
@@ -71,8 +71,8 @@ def test_est_season_edt_job_blocked(monkeypatch):
     now = datetime(2025, 12, 15, 17, 30, tzinfo=ET)
     monkeypatch.setenv("MARKET_SCHEDULE", "edt")
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close") as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close") as mock_fetch:
         with pytest.raises(SystemExit) as exc:
             daily_us.main(now=now)
         assert exc.value.code == 0
@@ -87,8 +87,8 @@ def test_manual_dispatch_no_schedule_env_passes(monkeypatch):
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     fake_data = {"indices": {}, "volatility": {}, "risk_onoff": {}, "macro": {},
                  "sectors": {}, "watch": {}}
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close", return_value=fake_data):
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close", return_value=fake_data):
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_send.assert_called_once()
@@ -102,8 +102,8 @@ def test_us_christmas_sends_one_liner(monkeypatch):
     now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
     monkeypatch.setenv("MARKET_SCHEDULE", "est")
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close") as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_send.assert_called_once_with(_us_holiday_msg(now))
@@ -114,8 +114,8 @@ def test_us_independence_day_sends_one_liner(monkeypatch):
     now = datetime(2025, 7, 4, 16, 30, tzinfo=ET)
     monkeypatch.setenv("MARKET_SCHEDULE", "edt")
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close") as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_send.assert_called_once_with(_us_holiday_msg(now))
@@ -129,8 +129,8 @@ def test_us_thanksgiving_friday_is_normal_send(monkeypatch):
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     fake_data = {"indices": {}, "volatility": {}, "risk_onoff": {}, "macro": {},
                  "sectors": {}, "watch": {}}
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close", return_value=fake_data) as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
         mock_fetch.assert_called_once()
@@ -143,8 +143,8 @@ def test_us_holiday_dry_run(monkeypatch, capsys):
     now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
     monkeypatch.setenv("MARKET_SCHEDULE", "est")
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
-    with patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("daily_us.fetch_us_close") as mock_fetch:
+    with patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.daily_us.fetch_us_close") as mock_fetch:
         daily_us.main(now=now)
         mock_urlopen.assert_not_called()
         mock_fetch.assert_not_called()
@@ -162,8 +162,8 @@ def test_no_double_send_on_edt_season(monkeypatch):
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     fake_data = {"indices": {}, "volatility": {}, "risk_onoff": {}, "macro": {},
                  "sectors": {}, "watch": {}}
-    with patch("daily_us.send") as mock_send, \
-         patch("daily_us.fetch_us_close", return_value=fake_data):
+    with patch("market_flow.daily_us.send") as mock_send, \
+         patch("market_flow.daily_us.fetch_us_close", return_value=fake_data):
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         # EDT 잡 (통과)
         monkeypatch.setenv("MARKET_SCHEDULE", "edt")

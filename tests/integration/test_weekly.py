@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import pytest
 
-import weekly  # noqa: E402
+from market_flow import weekly  # noqa: E402
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -41,10 +41,10 @@ def test_weekly_main_dry_run_outputs_report(monkeypatch, capsys):
     now = datetime(2025, 9, 19, 18, 30, tzinfo=KST)
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
 
-    with patch("weekly.fetch_kospi_daily", return_value=_fake_kospi_daily()) as mock_kr, \
-         patch("weekly._watch_5d_pct", return_value={"QQQ": 2.5, "SMH": -1.5}) as mock_watch, \
-         patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("weekly.is_last_kr_trading_day_of_week", return_value=True):
+    with patch("market_flow.weekly.fetch_kospi_daily", return_value=_fake_kospi_daily()) as mock_kr, \
+         patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 2.5, "SMH": -1.5}) as mock_watch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=True):
         weekly.main(now=now)
 
     mock_urlopen.assert_not_called()
@@ -64,10 +64,10 @@ def test_weekly_main_skips_when_not_last_trading_day(monkeypatch, capsys):
     now = datetime(2025, 9, 18, 18, 30, tzinfo=KST)  # 목요일
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
 
-    with patch("weekly.fetch_kospi_daily") as mock_kr, \
-         patch("weekly._watch_5d_pct") as mock_watch, \
-         patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("weekly.is_last_kr_trading_day_of_week", return_value=False):
+    with patch("market_flow.weekly.fetch_kospi_daily") as mock_kr, \
+         patch("market_flow.weekly._watch_5d_pct") as mock_watch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=False):
         weekly.main(now=now)
 
     # 모든 함수가 호출되지 않아야 함
@@ -106,7 +106,7 @@ def test_watch_5d_pct_calculates_5day_cumulative_return():
             closes[t] = [50.0] * 6  # 0% 변동
     df = _build_watch_df(all_tickers, closes)
 
-    with patch("weekly.yf.download", return_value=df):
+    with patch("market_flow.weekly.yf.download", return_value=df):
         result = weekly._watch_5d_pct()
 
     assert "QQQ" in result
@@ -121,7 +121,7 @@ def test_watch_5d_pct_skips_ticker_with_insufficient_data():
     closes = {t: [100.0, 105.0] for t in all_tickers}  # 모두 2개만
     df = _build_watch_df(all_tickers, closes)
 
-    with patch("weekly.yf.download", return_value=df):
+    with patch("market_flow.weekly.yf.download", return_value=df):
         result = weekly._watch_5d_pct()
     # 어떤 ticker 도 6개 close 가 없으므로 결과는 빈 dict
     assert result == {}
@@ -132,7 +132,7 @@ def test_watch_5d_pct_handles_per_ticker_exception():
     # QQQ 만 정상 데이터, 나머지는 DataFrame 에 없음
     df = _build_watch_df(["QQQ"], {"QQQ": [100.0] * 5 + [110.0]})
 
-    with patch("weekly.yf.download", return_value=df):
+    with patch("market_flow.weekly.yf.download", return_value=df):
         result = weekly._watch_5d_pct()
 
     assert "QQQ" in result

@@ -1,0 +1,107 @@
+"""rs-golden-queens — 최상위 CLI 엔트리.
+
+사용:
+    python main.py daily-kr [DATE]            # DATE: YYYYMMDD
+    python main.py daily-us [DATE]            # DATE: YYYY-MM-DD
+    python main.py weekly
+    python main.py notify-test
+    python main.py smoke-kr
+    python main.py smoke-us
+
+향후 다른 패키지(xxx_flow)가 추가되면 본 파일에 subcommand 만 등록한다.
+각 subcommand 의 실제 로직은 해당 패키지의 ``main(argv)`` 함수에 위임한다.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import Optional
+
+
+def _cmd_daily_kr(args: argparse.Namespace) -> None:
+    from market_flow import daily_kr
+
+    argv = [args.date] if args.date else []
+    daily_kr.main(argv)
+
+
+def _cmd_daily_us(args: argparse.Namespace) -> None:
+    from market_flow import daily_us
+
+    argv = [args.date] if args.date else []
+    daily_us.main(argv)
+
+
+def _cmd_weekly(args: argparse.Namespace) -> None:
+    from market_flow import weekly
+
+    weekly.main([])
+
+
+def _cmd_notify_test(args: argparse.Namespace) -> None:
+    import datetime as dt
+
+    from market_flow.telegram_push import send
+
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).isoformat(timespec="seconds")
+    resp = send(f"[rs-golden-queens] notify-test ping at {now} (KST)")
+    print("OK" if resp.get("ok") else resp)
+
+
+def _cmd_smoke_kr(args: argparse.Namespace) -> None:
+    from datetime import datetime
+
+    from market_flow.fetchers.naver_kr import fetch_today
+
+    data = fetch_today(datetime.now().strftime("%Y%m%d"))
+    keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+    print("naver_kr OK:", keys)
+
+
+def _cmd_smoke_us(args: argparse.Namespace) -> None:
+    from market_flow.fetchers.us_market import fetch_us_close
+
+    data = fetch_us_close()
+    keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+    print("us_market OK:", keys)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="main.py",
+        description="rs-golden-queens 시장 알림 CLI",
+    )
+    sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
+
+    p_kr = sub.add_parser("daily-kr", help="한국장 매매동향 발송")
+    p_kr.add_argument("date", nargs="?", help="YYYYMMDD (기본: 오늘)")
+    p_kr.set_defaults(func=_cmd_daily_kr)
+
+    p_us = sub.add_parser("daily-us", help="미국장 마감 요약 발송")
+    p_us.add_argument("date", nargs="?", help="YYYY-MM-DD (기본: 최신 거래일)")
+    p_us.set_defaults(func=_cmd_daily_us)
+
+    p_weekly = sub.add_parser("weekly", help="주간 리포트 발송")
+    p_weekly.set_defaults(func=_cmd_weekly)
+
+    p_ping = sub.add_parser("notify-test", help="텔레그램 핑 (환경변수 검증)")
+    p_ping.set_defaults(func=_cmd_notify_test)
+
+    p_skr = sub.add_parser("smoke-kr", help="네이버 fetch 단독 점검")
+    p_skr.set_defaults(func=_cmd_smoke_kr)
+
+    p_sus = sub.add_parser("smoke-us", help="yfinance fetch 단독 점검")
+    p_sus.set_defaults(func=_cmd_smoke_us)
+
+    return parser
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

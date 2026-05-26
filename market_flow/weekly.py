@@ -10,19 +10,16 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-sys.path.insert(0, str(Path(__file__).parent))
-
 import yfinance as yf
 
-from calendar_utils import is_last_kr_trading_day_of_week
-from fetchers.naver_kr import fetch_kospi_daily
-from fetchers.us_market import WATCH
-from formatter import format_weekly
-from telegram_push import send
+from market_flow.calendar_utils import is_last_kr_trading_day_of_week
+from market_flow.fetchers.naver_kr import fetch_kospi_daily
+from market_flow.fetchers.us_market import WATCH
+from market_flow.formatter import format_weekly
+from market_flow.telegram_push import send
 
 _KST = ZoneInfo("Asia/Seoul")
 

@@ -11,16 +11,13 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from calendar_utils import format_holiday_message, is_kr_trading_day
-from fetchers.naver_kr import fetch_today
-from formatter import format_kr_daily
-from telegram_push import send
+from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
+from market_flow.fetchers.naver_kr import fetch_today
+from market_flow.formatter import format_kr_daily
+from market_flow.telegram_push import send
 
 _KST = ZoneInfo("Asia/Seoul")
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import calendar_utils as cu
+from market_flow import calendar_utils as cu
 
 KST = ZoneInfo("Asia/Seoul")
 ET = ZoneInfo("America/New_York")

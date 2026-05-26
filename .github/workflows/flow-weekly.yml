@@ -8,10 +8,6 @@ on:
     - cron: '30 9 * * 1-5'
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: market_flow
-
 jobs:
   push:
     runs-on: ubuntu-latest
@@ -26,11 +22,11 @@ jobs:
           cache-dependency-path: market_flow/requirements.txt
 
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: pip install -r market_flow/requirements.txt
 
       - name: Send weekly report
         env:
           GOLDENQUEENS_BOT_TOKEN: ${{ secrets.GOLDENQUEENS_BOT_TOKEN }}
           GOLDENQUEENS_CHAT_ID:   ${{ secrets.GOLDENQUEENS_CHAT_ID }}
           TZ: Asia/Seoul
-        run: python weekly.py
+        run: python main.py weekly

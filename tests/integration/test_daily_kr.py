@@ -12,7 +12,7 @@ from datetime import datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-import daily_kr  # noqa: E402
+from market_flow import daily_kr  # noqa: E402
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -55,9 +55,9 @@ def test_daily_kr_main_dry_run_outputs_report(monkeypatch, capsys):
     # 2026-05-25 월요일 정상 거래일 가정
     now = datetime(2026, 5, 25, 18, 10, tzinfo=KST)
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
-    with patch("daily_kr.fetch_today", return_value=_fake_kr_data()) as mock_fetch, \
-         patch("telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("daily_kr.is_kr_trading_day", return_value=True):
+    with patch("market_flow.daily_kr.fetch_today", return_value=_fake_kr_data()) as mock_fetch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
+         patch("market_flow.daily_kr.is_kr_trading_day", return_value=True):
         # SystemExit 미발생 확인
         daily_kr.main(now=now)
 
@@ -79,8 +79,8 @@ def test_daily_kr_main_uses_argv_bizdate(monkeypatch, capsys):
     """argv[0] 의 bizdate 가 fetch_today 에 그대로 전달된다."""
     now = datetime(2026, 5, 25, 18, 10, tzinfo=KST)
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
-    with patch("daily_kr.fetch_today", return_value=_fake_kr_data()) as mock_fetch, \
-         patch("telegram_push.urllib.request.urlopen"), \
-         patch("daily_kr.is_kr_trading_day", return_value=True):
+    with patch("market_flow.daily_kr.fetch_today", return_value=_fake_kr_data()) as mock_fetch, \
+         patch("market_flow.telegram_push.urllib.request.urlopen"), \
+         patch("market_flow.daily_kr.is_kr_trading_day", return_value=True):
         daily_kr.main(argv=["20260520"], now=now)
     mock_fetch.assert_called_once_with("20260520")

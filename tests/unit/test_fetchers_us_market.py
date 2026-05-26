@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fetchers import us_market  # noqa: E402
+from market_flow.fetchers import us_market  # noqa: E402
 
 
 # ──────────────────────────────────────────────
@@ -67,7 +67,7 @@ class TestFetchYfBasic:
             {"^GSPC": [100.0, 110.0], "^IXIC": [200.0, 220.0]},
             {"^GSPC": [1000, 2000], "^IXIC": [3000, 4000]},
         )
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         for t, _ in tickers:
             assert t in result
@@ -76,7 +76,7 @@ class TestFetchYfBasic:
     def test_pct_calculation(self):
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([100.0, 110.0])
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         # (110 - 100) / 100 * 100 = 10.0
         assert result["^GSPC"]["pct"] == pytest.approx(10.0)
@@ -85,7 +85,7 @@ class TestFetchYfBasic:
     def test_label_propagated(self):
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([100.0, 110.0])
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"]["label"] == "S&P500"
 
@@ -93,7 +93,7 @@ class TestFetchYfBasic:
         tickers = [("^GSPC", "S&P500")]
         dates = pd.date_range("2026-05-20", periods=2, freq="B")
         df = _build_single_df([100.0, 110.0], dates=dates)
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         # 마지막 날짜의 ISO 형식 (YYYY-MM-DD)
         assert result["^GSPC"]["date"] == str(dates[-1].date())
@@ -112,7 +112,7 @@ class TestFetchYfVolRatio:
             close_values=[100.0] * 5 + [110.0],
             volume_values=[100, 100, 100, 100, 100, 200],
         )
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"]["vol_ratio"] == pytest.approx(2.0)
 
@@ -123,7 +123,7 @@ class TestFetchYfVolRatio:
             close_values=[100.0, 110.0, 120.0, 130.0, 140.0],
             volume_values=[100, 100, 100, 100, 100],
         )
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"]["vol_ratio"] is None
 
@@ -137,14 +137,14 @@ class TestFetchYfEdgeCases:
         """dropna 후 close 가 1개 이하면 ticker = None."""
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([100.0])  # 1개만
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"] is None
 
     def test_returns_none_when_close_all_nan(self):
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([float("nan"), float("nan")])
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"] is None
 
@@ -157,7 +157,7 @@ class TestFetchYfEdgeCases:
             {"^GSPC": [100.0, 110.0]},
             {"^GSPC": [1000, 2000]},
         )
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         # 정상 ticker 는 dict, 누락 ticker 는 None
         assert isinstance(result["^GSPC"], dict)
@@ -167,7 +167,7 @@ class TestFetchYfEdgeCases:
         """Volume 컬럼 자체가 없으면 vol_ratio = None."""
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([100.0, 110.0], volume_values=None)  # Volume 없음
-        with patch("fetchers.us_market.yf.download", return_value=df):
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df):
             result = us_market._fetch_yf(tickers)
         assert result["^GSPC"]["vol_ratio"] is None
 
@@ -180,7 +180,7 @@ class TestFetchYfTargetDate:
     def test_target_date_passed_through_to_yf_download(self):
         tickers = [("^GSPC", "S&P500")]
         df = _build_single_df([100.0, 110.0])
-        with patch("fetchers.us_market.yf.download", return_value=df) as mock_dl:
+        with patch("market_flow.fetchers.us_market.yf.download", return_value=df) as mock_dl:
             us_market._fetch_yf(tickers, target_date="2026-05-20")
             # start/end 인자가 전달되었는지 확인
             _, kwargs = mock_dl.call_args
@@ -196,19 +196,19 @@ class TestFetchUsClose:
     def test_returns_six_category_keys(self):
         """카테고리 6개 키가 모두 존재."""
         # _fetch_yf 자체를 mock 해서 카테고리별로 dict 반환
-        with patch("fetchers.us_market._fetch_yf", return_value={"X": None}):
+        with patch("market_flow.fetchers.us_market._fetch_yf", return_value={"X": None}):
             result = us_market.fetch_us_close()
         assert set(result.keys()) == {
             "indices", "volatility", "risk_onoff", "macro", "sectors", "watch",
         }
 
     def test_calls_fetch_yf_six_times(self):
-        with patch("fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
+        with patch("market_flow.fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
             us_market.fetch_us_close()
         assert mock_yf.call_count == 6
 
     def test_propagates_target_date(self):
-        with patch("fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
+        with patch("market_flow.fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
             us_market.fetch_us_close(target_date="2026-05-22")
         # 6번 호출 모두 target_date 전달
         for call in mock_yf.call_args_list:
@@ -221,7 +221,7 @@ class TestFetchUsClose:
 
 class TestFetchWatchHistory:
     def test_invokes_fetch_yf_with_watch_catalog(self):
-        with patch("fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
+        with patch("market_flow.fetchers.us_market._fetch_yf", return_value={}) as mock_yf:
             us_market.fetch_watch_history()
         mock_yf.assert_called_once()
         # 첫 인자가 WATCH 카탈로그
