@@ -55,7 +55,7 @@ help:  ## 사용 가능한 명령 목록
 	@printf "  make daily-kr DATE=20260522\n"
 	@printf "  make daily-us DATE=2026-05-22\n"
 
-install:  ## 의존성 설치 (.venv 기반, 없으면 생성 확인 후 진행)
+install:  ## 의존성 설치 (텍스트 기본). 이미지 모드는 IMG=1 추가
 	@if [ ! -x "$(VENV_PY)" ]; then \
 		printf "'$(VENV_DIR)' 가상환경이 없습니다. 생성할까요? [y/N] "; \
 		read ans; \
@@ -70,12 +70,15 @@ install:  ## 의존성 설치 (.venv 기반, 없으면 생성 확인 후 진행)
 		fi; \
 		echo "생성됨: $(VENV_DIR)"; \
 	fi
-	@if command -v uv >/dev/null 2>&1; then \
-		uv pip install --python $(VENV_PY) -r $(PKG_DIR)/requirements.txt; \
+	@req=requirements.txt; \
+	if [ "$(IMG)" = "1" ]; then req=requirements-image.txt; fi; \
+	echo "설치 대상: $$req"; \
+	if command -v uv >/dev/null 2>&1; then \
+		uv pip install --python $(VENV_PY) -r $$req; \
 	else \
-		$(VENV_PY) -m pip install -r $(PKG_DIR)/requirements.txt; \
-	fi
-	@echo "설치 완료 → $(VENV_PY)"
+		$(VENV_PY) -m pip install -r $$req; \
+	fi; \
+	echo "설치 완료 → $(VENV_PY)"
 
 daily-kr:  ## 한국장 매매동향 발송. DATE=YYYYMMDD 옵션
 	$(PY) main.py daily-kr $(DATE)
