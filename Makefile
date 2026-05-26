@@ -37,6 +37,11 @@ ifeq ($(DRY),1)
 export MARKET_FLOW_DRY_RUN := 1
 endif
 
+# IMG=1 → HTML→PNG 렌더 후 sendPhoto 로 이미지 발송 (daily-kr only, POC)
+ifeq ($(IMG),1)
+export MARKET_FLOW_RENDER := image
+endif
+
 .DEFAULT_GOAL := help
 .PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean
 

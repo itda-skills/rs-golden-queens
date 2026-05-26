@@ -85,6 +85,59 @@ def send(text, parse_mode="Markdown", disable_notification=False):
         return json.loads(r.read())
 
 
+def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notification=False):
+    """텔레그램으로 이미지(PNG bytes) 발송.
+
+    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 ./out/ 디렉터리에 저장 후 종료.
+    """
+    if _is_dry_run():
+        out_dir = Path.cwd() / "out"
+        out_dir.mkdir(exist_ok=True)
+        out_path = out_dir / "telegram-preview.png"
+        out_path.write_bytes(image_bytes)
+        print("─" * 60)
+        print(f"[DRY-RUN] sendPhoto → 저장 위치: {out_path}")
+        if caption:
+            print(f"[DRY-RUN] caption: {caption}")
+        print("─" * 60)
+        return {"ok": True, "dry_run": True, "result": {"message_id": 0}}
+
+    token = _env("GOLDENQUEENS_BOT_TOKEN")
+    chat_id = _env("GOLDENQUEENS_CHAT_ID")
+
+    # multipart/form-data 직접 구성 (urllib 표준 라이브러리만 사용)
+    boundary = "----rsgq" + os.urandom(8).hex()
+    parts = []
+
+    def add_field(name, value):
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        parts.append(str(value).encode())
+        parts.append(b"\r\n")
+
+    add_field("chat_id", chat_id)
+    if caption:
+        add_field("caption", caption)
+        add_field("parse_mode", parse_mode)
+    add_field("disable_notification", "true" if disable_notification else "false")
+
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(b'Content-Disposition: form-data; name="photo"; filename="report.png"\r\n')
+    parts.append(b"Content-Type: image/png\r\n\r\n")
+    parts.append(image_bytes)
+    parts.append(b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode())
+
+    body = b"".join(parts)
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendPhoto",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read())
+
+
 if __name__ == "__main__":
     text = sys.argv[1] if len(sys.argv) > 1 else "🤖 골든퀸즈 알리미 점검 메시지"
     resp = send(text)

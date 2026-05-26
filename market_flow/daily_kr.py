@@ -9,6 +9,7 @@ SPEC-MF-SCHED-001: 한국 휴장일에는 `[KR] YYYY-MM-DD (요일) 오늘은 �
 """
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime
 from typing import Optional
@@ -16,10 +17,14 @@ from zoneinfo import ZoneInfo
 
 from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
 from market_flow.fetchers.naver_kr import fetch_today
-from market_flow.formatter import format_kr_daily
-from market_flow.telegram_push import send
+from market_flow.formatter import format_kr_daily, render_kr_daily_html, kr_weekday
+from market_flow.telegram_push import send, send_photo
 
 _KST = ZoneInfo("Asia/Seoul")
+
+
+def _is_image_mode() -> bool:
+    return os.environ.get("MARKET_FLOW_RENDER", "").strip().lower() == "image"
 
 
 def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
@@ -35,8 +40,18 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
     bizdate = argv[0] if argv else now.astimezone(_KST).strftime("%Y%m%d")
     data = fetch_today(bizdate)
-    text = format_kr_daily(data)
-    resp = send(text)
+
+    if _is_image_mode():
+        from market_flow.render.renderer import html_to_png
+
+        html = render_kr_daily_html(data)
+        png = html_to_png(html, width=720, height=1600)
+        caption = f"📊 *{kr_weekday(bizdate)} 마감 매매동향*"
+        resp = send_photo(png, caption=caption)
+    else:
+        text = format_kr_daily(data)
+        resp = send(text)
+
     msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
     print(f"✅ 한국장 푸시: msg_id={msg_id}, bizdate={bizdate}")
 

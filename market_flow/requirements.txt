@@ -3,3 +3,6 @@ pandas>=2.0
 python-dotenv>=1.0
 pandas_market_calendars>=4.4
 exchange_calendars>=4.5
+Jinja2>=3.1
+html2image>=2.0
+Pillow>=10.0

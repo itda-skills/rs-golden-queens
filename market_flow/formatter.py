@@ -182,6 +182,34 @@ def _kr_program_table(side):
     ]
 
 
+def render_kr_daily_html(data):
+    """한국장 일간 매매동향 → HTML 문자열 (이미지 렌더용)."""
+    from market_flow.render.renderer import render_template
+
+    bizdate = data["bizdate"]
+    daily_rows = data.get("kospi_daily") or []
+    detail = daily_rows[0] if daily_rows else None
+
+    cum5 = None
+    if len(daily_rows) >= 5:
+        cum5 = {
+            "foreign": sum(r["foreign"] for r in daily_rows[:5]),
+            "institutional": sum(r["institutional"] for r in daily_rows[:5]),
+            "personal": sum(r["personal"] for r in daily_rows[:5]),
+        }
+
+    return render_template(
+        "kr_daily.html.j2",
+        {
+            "weekday": kr_weekday(bizdate),
+            "kospi": data["kospi"],
+            "kosdaq": data["kosdaq"],
+            "detail": detail,
+            "cum5": cum5,
+        },
+    )
+
+
 def format_kr_daily(data):
     """한국장 일간 매매동향. data = fetchers.naver_kr.fetch_today() 결과"""
     bizdate = data["bizdate"]
