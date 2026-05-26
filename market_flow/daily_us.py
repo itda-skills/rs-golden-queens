@@ -6,7 +6,8 @@ Usage:
 
 SPEC-MF-SCHED-001:
   - DST 게이트: 환경변수 MARKET_SCHEDULE(edt|est)와 실제 시즌이 불일치하면 즉시 종료
-  - 미국 휴장일: "[US] 오늘은 휴장입니다" 한 줄 발송
+  - 미국 휴장일: `[US] YYYY-MM-DD (요일) 오늘은 휴장입니다` 한 줄 발송
+    (날짜는 ET 로컬 기준, REQ-MF-HOL-004)
 """
 from __future__ import annotations
 
@@ -19,13 +20,12 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from calendar_utils import is_us_in_dst, is_us_trading_day
+from calendar_utils import format_holiday_message, is_us_in_dst, is_us_trading_day
 from fetchers.us_market import fetch_us_close
 from formatter import format_us_daily
 from telegram_push import send
 
 _ET = ZoneInfo("America/New_York")
-_US_HOLIDAY_MSG = "[US] 오늘은 휴장입니다"
 
 
 def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
@@ -44,7 +44,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
     # 휴장 게이트
     if not is_us_trading_day(now):
-        send(_US_HOLIDAY_MSG)
+        send(format_holiday_message("US", now))
         return
 
     target = argv[0] if argv else None

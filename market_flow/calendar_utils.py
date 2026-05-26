@@ -98,6 +98,33 @@ def _is_xkrx_session(d: date) -> bool:
     return bool(_XKRX.is_session(d.isoformat()))
 
 
+_WEEKDAY_KR = "월화수목금토일"
+
+
+def format_holiday_message(market: str, now: Optional[datetime] = None) -> str:
+    """휴장일 한 줄 메시지를 빌드한다.
+
+    형식: `[KR] 2026-05-25 (월) 오늘은 휴장입니다`
+    날짜 기준은 시장별 로컬 타임존(KR=KST, US=ET)이다. SPEC-MF-SCHED-001
+    REQ-MF-HOL-001/002/004에 따른다.
+
+    Args:
+        market: `"KR"` 또는 `"US"`.
+        now: 판정 기준 시각. None이면 해당 시장의 로컬 현재 시각.
+
+    Returns:
+        한 줄 한국어 메시지.
+    """
+    tz = _KST if market == "KR" else _ET
+    if now is None:
+        now = _now_in(tz)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=tz)
+    today = now.astimezone(tz).date()
+    weekday = _WEEKDAY_KR[today.weekday()]
+    return f"[{market}] {today.isoformat()} ({weekday}) 오늘은 휴장입니다"
+
+
 # @MX:ANCHOR: [AUTO] 주간 리포트 발송 게이트
 # @MX:REASON: fan_in >= 1 (weekly), 마지막 거래일 이월 발송 핵심 분기
 def is_last_kr_trading_day_of_week(now: Optional[datetime] = None) -> bool:

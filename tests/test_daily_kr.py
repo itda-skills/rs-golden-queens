@@ -14,7 +14,9 @@ KST = ZoneInfo("Asia/Seoul")
 import daily_kr  # noqa: E402
 
 
-KR_HOLIDAY_MSG = "[KR] 오늘은 휴장입니다"
+def _kr_holiday_msg(now: datetime) -> str:
+    weekday = "월화수목금토일"[now.astimezone(KST).weekday()]
+    return f"[KR] {now.astimezone(KST).date().isoformat()} ({weekday}) 오늘은 휴장입니다"
 
 
 def test_kr_holiday_sends_one_liner_childrens_day(monkeypatch):
@@ -25,7 +27,7 @@ def test_kr_holiday_sends_one_liner_childrens_day(monkeypatch):
          patch("daily_kr.fetch_today") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
-        mock_send.assert_called_once_with(KR_HOLIDAY_MSG)
+        mock_send.assert_called_once_with(_kr_holiday_msg(now))
         mock_fetch.assert_not_called()
 
 
@@ -37,7 +39,7 @@ def test_kr_holiday_sends_one_liner_liberation_day(monkeypatch):
          patch("daily_kr.fetch_today") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
-        mock_send.assert_called_once_with(KR_HOLIDAY_MSG)
+        mock_send.assert_called_once_with(_kr_holiday_msg(now))
         mock_fetch.assert_not_called()
 
 
@@ -61,7 +63,7 @@ def test_kr_trading_day_sends_report(monkeypatch):
         # 휴장 메시지가 아닌 정상 보고서가 발송되어야 함
         assert mock_send.call_count == 1
         sent_text = mock_send.call_args.args[0]
-        assert sent_text != KR_HOLIDAY_MSG
+        assert "오늘은 휴장입니다" not in sent_text
         assert "코스피" in sent_text or "마감" in sent_text
 
 
@@ -77,7 +79,7 @@ def test_kr_holiday_dry_run_via_env(monkeypatch, capsys):
         mock_urlopen.assert_not_called()
         mock_fetch.assert_not_called()
         captured = capsys.readouterr()
-        assert KR_HOLIDAY_MSG in captured.out
+        assert _kr_holiday_msg(now) in captured.out
 
 
 def test_kr_preserves_positional_date_argv(monkeypatch):

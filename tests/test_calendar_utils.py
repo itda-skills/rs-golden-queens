@@ -148,3 +148,45 @@ class TestIsLastKrTradingDayOfWeek:
 
     def test_default_now_returns_bool(self):
         assert isinstance(cu.is_last_kr_trading_day_of_week(), bool)
+
+
+class TestFormatHolidayMessage:
+    """SPEC-MF-SCHED-001 REQ-MF-HOL-001/002: 휴장 메시지 포맷.
+
+    형식: `[MARKET] YYYY-MM-DD (요일) 오늘은 휴장입니다`
+    날짜는 시장별 로컬 타임존(KR=KST, US=ET) 기준 (REQ-MF-HOL-004).
+    """
+
+    def test_kr_childrens_day(self):
+        now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
+        assert cu.format_holiday_message("KR", now) == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+
+    def test_kr_liberation_day_friday(self):
+        now = datetime(2025, 8, 15, 18, 10, tzinfo=KST)
+        assert cu.format_holiday_message("KR", now) == "[KR] 2025-08-15 (금) 오늘은 휴장입니다"
+
+    def test_us_christmas_thursday(self):
+        now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
+        assert cu.format_holiday_message("US", now) == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+
+    def test_us_independence_day_friday(self):
+        now = datetime(2025, 7, 4, 16, 30, tzinfo=ET)
+        assert cu.format_holiday_message("US", now) == "[US] 2025-07-04 (금) 오늘은 휴장입니다"
+
+    def test_us_uses_et_local_date_not_utc(self):
+        """ET 자정 직전 호출 시 ET 로컬 날짜를 사용하는지 검증."""
+        # 2025-12-25 23:30 ET → UTC로는 2025-12-26 04:30이지만 ET 로컬은 여전히 12-25
+        now = datetime(2025, 12, 25, 23, 30, tzinfo=ET)
+        assert cu.format_holiday_message("US", now) == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+
+    def test_kr_uses_kst_local_date(self):
+        """UTC로 받은 시각도 KST 로컬 날짜로 변환되는지 검증."""
+        from zoneinfo import ZoneInfo as _ZI
+        # 2025-05-04 22:00 UTC = 2025-05-05 07:00 KST (어린이날)
+        now = datetime(2025, 5, 4, 22, 0, tzinfo=_ZI("UTC"))
+        assert cu.format_holiday_message("KR", now) == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+
+    def test_default_now_returns_string(self):
+        msg = cu.format_holiday_message("KR")
+        assert msg.startswith("[KR] ")
+        assert msg.endswith(") 오늘은 휴장입니다")

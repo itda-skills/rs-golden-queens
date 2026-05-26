@@ -15,7 +15,9 @@ ET = ZoneInfo("America/New_York")
 import daily_us  # noqa: E402
 
 
-US_HOLIDAY_MSG = "[US] 오늘은 휴장입니다"
+def _us_holiday_msg(now: datetime) -> str:
+    weekday = "월화수목금토일"[now.astimezone(ET).weekday()]
+    return f"[US] {now.astimezone(ET).date().isoformat()} ({weekday}) 오늘은 휴장입니다"
 
 
 # ──────────────────────────────────────────────
@@ -104,7 +106,7 @@ def test_us_christmas_sends_one_liner(monkeypatch):
          patch("daily_us.fetch_us_close") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
-        mock_send.assert_called_once_with(US_HOLIDAY_MSG)
+        mock_send.assert_called_once_with(_us_holiday_msg(now))
         mock_fetch.assert_not_called()
 
 
@@ -116,7 +118,7 @@ def test_us_independence_day_sends_one_liner(monkeypatch):
          patch("daily_us.fetch_us_close") as mock_fetch:
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_us.main(now=now)
-        mock_send.assert_called_once_with(US_HOLIDAY_MSG)
+        mock_send.assert_called_once_with(_us_holiday_msg(now))
         mock_fetch.assert_not_called()
 
 
@@ -134,7 +136,7 @@ def test_us_thanksgiving_friday_is_normal_send(monkeypatch):
         mock_fetch.assert_called_once()
         assert mock_send.call_count == 1
         sent = mock_send.call_args.args[0]
-        assert sent != US_HOLIDAY_MSG
+        assert "오늘은 휴장입니다" not in sent
 
 
 def test_us_holiday_dry_run(monkeypatch, capsys):
@@ -147,7 +149,7 @@ def test_us_holiday_dry_run(monkeypatch, capsys):
         mock_urlopen.assert_not_called()
         mock_fetch.assert_not_called()
         out = capsys.readouterr().out
-        assert US_HOLIDAY_MSG in out
+        assert _us_holiday_msg(now) in out
 
 
 # ──────────────────────────────────────────────
