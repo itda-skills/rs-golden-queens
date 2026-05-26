@@ -150,9 +150,9 @@ def kr_weekday(bizdate):
 def _kr_main_table(side):
     """코스피/코스닥 외인·기관·개인 행. 컬럼: 라벨, 숫자(우측), 마크."""
     return [
-        ["외인", signed(side["foreign"]),       mark(side["foreign"])],
-        ["기관", signed(side["institutional"]), mark(side["institutional"])],
-        ["개인", signed(side["personal"]),      mark(side["personal"])],
+        ["외인", signed(side["foreign"]),       emoji(side["foreign"])],
+        ["기관", signed(side["institutional"]), emoji(side["institutional"])],
+        ["개인", signed(side["personal"]),      emoji(side["personal"])],
     ]
 
 
@@ -170,15 +170,15 @@ def _kr_detail_table(detail):
     ]
     for label, key in pairs:
         v = detail.get(key)
-        rows.append([label, signed(v), mark(v)])
+        rows.append([label, signed(v), emoji(v)])
     return rows
 
 
 def _kr_program_table(side):
     return [
-        ["차익",   signed(side["program_arb"]),    mark(side["program_arb"])],
-        ["비차익", signed(side["program_nonarb"]), mark(side["program_nonarb"])],
-        ["합계",   signed(side["program_total"]),  mark(side["program_total"])],
+        ["차익",   signed(side["program_arb"]),    emoji(side["program_arb"])],
+        ["비차익", signed(side["program_nonarb"]), emoji(side["program_nonarb"])],
+        ["합계",   signed(side["program_total"]),  emoji(side["program_total"])],
     ]
 
 
@@ -249,9 +249,9 @@ def format_kr_daily(data):
         L.append("")
         L.append("🔁 *코스피 5거래일 누적*")
         rows = [
-            ["외인", signed(f5), mark(f5)],
-            ["기관", signed(i5), mark(i5)],
-            ["개인", signed(p5), mark(p5)],
+            ["외인", signed(f5), emoji(f5)],
+            ["기관", signed(i5), emoji(i5)],
+            ["개인", signed(p5), emoji(p5)],
         ]
         L.append(_card(rows, ALIGNS))
 
@@ -280,7 +280,7 @@ def _us_price_table(catalog, source):
         d = source.get(t)
         if not d:
             continue
-        rows.append([d["label"], f"{d['close']:,.2f}", signed_pct(d["pct"]), mark(d["pct"])])
+        rows.append([d["label"], f"{d['close']:,.2f}", signed_pct(d["pct"]), emoji(d["pct"])])
     return rows
 
 
@@ -415,7 +415,7 @@ def format_us_daily(data):
     L.append("")
 
     L.append("💼 *섹터 (S&P 11)* _(등락 기준 정렬)_")
-    sec_rows = [[v["label"], signed_pct(v["pct"]), mark(v["pct"])]
+    sec_rows = [[v["label"], signed_pct(v["pct"]), emoji(v["pct"])]
                 for _, v in sorted([(k, v) for k, v in sec.items() if v], key=lambda x: -x[1]["pct"])]
     L.append(_card(sec_rows, ["l", "r", "l"]))
     L.append("")
@@ -436,7 +436,7 @@ def format_us_daily(data):
             f"${d['close']:,.2f}",
             signed_pct(d["pct"]),
             f"{vr_str}{hot}",
-            mark(d["pct"]),
+            emoji(d["pct"]),
         ])
     L.append(_card(watch_rows, ["l", "l", "r", "r", "r", "l"]))
 
@@ -492,9 +492,9 @@ def format_weekly(kospi_daily, watch_5d):
         p = sum(r["personal"] for r in kospi_daily)
         L.append(f"🇰🇷 *코스피 {days}거래일 누적* (억원)")
         cum_rows = [
-            ["외인", signed(f), mark(f)],
-            ["기관", signed(i), mark(i)],
-            ["개인", signed(p), mark(p)],
+            ["외인", signed(f), emoji(f)],
+            ["기관", signed(i), emoji(i)],
+            ["개인", signed(p), emoji(p)],
         ]
         L.append(_card(cum_rows, ["l", "r", "l"]))
         L.append("")
@@ -505,16 +505,16 @@ def format_weekly(kospi_daily, watch_5d):
             daily_rows_t.append([
                 r["date"],
                 signed(r["foreign"]),
-                mark(r["foreign"]),
+                emoji(r["foreign"]),
                 signed(r["institutional"]),
-                mark(r["institutional"]),
+                emoji(r["institutional"]),
             ])
         L.append(_card(daily_rows_t, ["l", "r", "l", "r", "l"]))
         L.append("")
 
     if watch_5d:
         L.append("🇺🇸 *워치 ETF 5거래일 누적 등락*")
-        watch_rows = [[ticker, signed_pct(pct), mark(pct)]
+        watch_rows = [[ticker, signed_pct(pct), emoji(pct)]
                       for ticker, pct in sorted(watch_5d.items(), key=lambda x: -x[1])]
         L.append(_card(watch_rows, ["l", "r", "l"]))
 
