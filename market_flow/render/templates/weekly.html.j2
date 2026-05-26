@@ -1,0 +1,75 @@
+{% extends "_base.html.j2" %}
+{% block title %}주간 매매동향 리포트{% endblock %}
+
+{% macro amt_row(label, value) %}
+  {% set cls = 'up' if value is not none and value > 0 else ('down' if value is not none and value < 0 else 'flat') %}
+  {% set arr = '▲' if value is not none and value > 0 else ('▼' if value is not none and value < 0 else '–') %}
+  <tr>
+    <td class="label">{{ label }}</td>
+    <td class="arrow {{ cls }}">{{ arr }}</td>
+    <td class="value {{ cls }}">{% if value is none %}-{% elif value >= 0 %}+{{ '{:,}'.format(value) }}{% else %}{{ '{:,}'.format(value) }}{% endif %}</td>
+  </tr>
+{% endmacro %}
+
+{% macro pct_row(label, pct) %}
+  {% set cls = 'up' if pct is not none and pct > 0 else ('down' if pct is not none and pct < 0 else 'flat') %}
+  {% set arr = '▲' if pct is not none and pct > 0 else ('▼' if pct is not none and pct < 0 else '–') %}
+  <tr>
+    <td class="label">{{ label }}</td>
+    <td class="arrow {{ cls }}">{{ arr }}</td>
+    <td class="value {{ cls }}">{% if pct is none %}-{% elif pct >= 0 %}+{{ '{:.2f}'.format(pct) }}%{% else %}{{ '{:.2f}'.format(pct) }}%{% endif %}</td>
+  </tr>
+{% endmacro %}
+
+{% block body %}
+<header>
+  <h1>📅 주간 매매동향 리포트</h1>
+  <span class="unit">{{ today_label }} 기준</span>
+</header>
+
+{% if cum %}
+<section>
+  <h2>🇰🇷 코스피 {{ days }}거래일 누적 <span class="unit">(억원)</span></h2>
+  <table>
+    {{ amt_row('외인', cum.foreign) }}
+    {{ amt_row('기관', cum.institutional) }}
+    {{ amt_row('개인', cum.personal) }}
+  </table>
+</section>
+{% endif %}
+
+{% if daily_rows %}
+<section>
+  <h2>📆 일별 외인·기관 순매수</h2>
+  <table>
+    <tr style="color: var(--muted); font-size: 12px;">
+      <td>일자</td>
+      <td colspan="2" style="text-align:right;">외인</td>
+      <td colspan="2" style="text-align:right;">기관</td>
+    </tr>
+    {% for r in daily_rows %}
+    {% set fcls = 'up' if r.foreign > 0 else ('down' if r.foreign < 0 else 'flat') %}
+    {% set farr = '▲' if r.foreign > 0 else ('▼' if r.foreign < 0 else '–') %}
+    {% set icls = 'up' if r.institutional > 0 else ('down' if r.institutional < 0 else 'flat') %}
+    {% set iarr = '▲' if r.institutional > 0 else ('▼' if r.institutional < 0 else '–') %}
+    <tr>
+      <td class="label">{{ r.date }}</td>
+      <td class="arrow {{ fcls }}">{{ farr }}</td>
+      <td class="value {{ fcls }}">{% if r.foreign >= 0 %}+{% endif %}{{ '{:,}'.format(r.foreign) }}</td>
+      <td class="arrow {{ icls }}">{{ iarr }}</td>
+      <td class="value {{ icls }}">{% if r.institutional >= 0 %}+{% endif %}{{ '{:,}'.format(r.institutional) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% if watch_5d %}
+<section>
+  <h2>🇺🇸 워치 ETF 5거래일 누적 등락</h2>
+  <table>
+    {% for ticker, pct in watch_5d %}{{ pct_row(ticker, pct) }}{% endfor %}
+  </table>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1b1f27;
+    --card-2: #232834;
+    --line: #2a2f3a;
+    --text: #e8ecf4;
+    --muted: #8a93a6;
+    --up: #ef5350;       /* 한국 컨벤션: 빨강=상승 */
+    --down: #42a5f5;     /* 파랑=하락 */
+    --flat: #9aa3b2;
+    --accent: #ffb347;   /* 강조 (🔥, 위험선호 등) */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    width: 720px;
+  }
+  body > * + * { margin-top: 16px; }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .unit {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  section h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  td {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.label {
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text);
+  }
+  td.sub {
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  td.arrow {
+    text-align: center;
+    font-size: 15px;
+    letter-spacing: 1px;
+    width: 24px;
+  }
+  td.value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  td.value-secondary {
+    text-align: right;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--flat); }
+  .accent { color: var(--accent); }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .badge.up   { background: rgba(239, 83, 80, 0.18); color: var(--up); }
+  .badge.down { background: rgba(66, 165, 245, 0.18); color: var(--down); }
+  .badge.flat { background: rgba(154, 163, 178, 0.18); color: var(--flat); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+<footer>rs-golden-queens · 빨강=상승 / 파랑=하락 (한국 컨벤션)</footer>
+</body>
+</html>

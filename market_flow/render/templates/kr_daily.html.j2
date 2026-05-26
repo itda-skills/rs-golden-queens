@@ -1,125 +1,21 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<title>{{ weekday }} 마감 매매동향</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0f1115;
-    --card: #1b1f27;
-    --card-2: #232834;
-    --line: #2a2f3a;
-    --text: #e8ecf4;
-    --muted: #8a93a6;
-    --up: #ef5350;       /* 한국 컨벤션: 빨강=상승 */
-    --down: #42a5f5;     /* 파랑=하락 */
-    --flat: #9aa3b2;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Noto Sans KR', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding: 24px;
-    width: 720px;
-  }
-  header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 4px;
-  }
-  h1 {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-  .unit {
-    color: var(--muted);
-    font-size: 13px;
-  }
-  body > * + * { margin-top: 16px; }
-  section {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 16px;
-  }
-  section h2 {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--muted);
-    margin-bottom: 10px;
-    letter-spacing: 0.3px;
-    text-transform: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    font-weight: 500;
-  }
-  td {
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  tr:last-child td { border-bottom: none; }
-  td.label {
-    font-family: 'Noto Sans KR', sans-serif;
-    color: var(--text);
-    width: 30%;
-  }
-  td.arrow {
-    text-align: center;
-    width: 24%;
-    font-size: 15px;
-    letter-spacing: 1px;
-  }
-  td.value {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-  }
-  .up { color: var(--up); }
-  .down { color: var(--down); }
-  .flat { color: var(--flat); }
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  footer {
-    margin-top: 18px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 11px;
-  }
-</style>
-</head>
-<body>
-
-<header>
-  <h1>📊 {{ weekday }} 마감 매매동향</h1>
-  <span class="unit">단위: 억원 (순매수)</span>
-</header>
+{% extends "_base.html.j2" %}
+{% block title %}{{ weekday }} 마감 매매동향{% endblock %}
 
 {% macro row(label, value) %}
   {% set cls = 'up' if value is not none and value > 0 else ('down' if value is not none and value < 0 else 'flat') %}
   {% set arr = '▲' if value is not none and value > 0 else ('▼' if value is not none and value < 0 else '–') %}
-  {% set sign = '+' if value is not none and value > 0 else ('' if value is none else '') %}
   <tr>
     <td class="label">{{ label }}</td>
     <td class="arrow {{ cls }}">{{ arr }}</td>
     <td class="value {{ cls }}">{% if value is none %}-{% elif value >= 0 %}+{{ '{:,}'.format(value) }}{% else %}{{ '{:,}'.format(value) }}{% endif %}</td>
   </tr>
 {% endmacro %}
+
+{% block body %}
+<header>
+  <h1>📊 {{ weekday }} 마감 매매동향</h1>
+  <span class="unit">단위: 억원 (순매수)</span>
+</header>
 
 <div class="grid-2">
   <section>
@@ -184,8 +80,4 @@
   </table>
 </section>
 {% endif %}
-
-<footer>rs-golden-queens · 빨강=상승 / 파랑=하락 (한국 컨벤션)</footer>
-
-</body>
-</html>
+{% endblock %}

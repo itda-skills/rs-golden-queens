@@ -29,7 +29,7 @@ def _is_image_mode() -> bool:
 
 def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
     if argv is None:
-        argv = sys.argv[1:]
+        argv = []
     if now is None:
         now = datetime.now(_KST)
 
@@ -41,15 +41,21 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     bizdate = argv[0] if argv else now.astimezone(_KST).strftime("%Y%m%d")
     data = fetch_today(bizdate)
 
+    sources = (
+        "\n\n출처: "
+        f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
+        f" · [모바일 통합](https://m.stock.naver.com/domestic/index/KOSPI/total)"
+    )
+
     if _is_image_mode():
         from market_flow.render.renderer import html_to_png
 
         html = render_kr_daily_html(data)
         png = html_to_png(html, width=720, height=1600)
-        caption = f"📊 *{kr_weekday(bizdate)} 마감 매매동향*"
+        caption = f"📊 *{kr_weekday(bizdate)} 마감 매매동향*{sources}"
         resp = send_photo(png, caption=caption)
     else:
-        text = format_kr_daily(data)
+        text = format_kr_daily(data) + sources
         resp = send(text)
 
     msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
@@ -57,4 +63,4 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

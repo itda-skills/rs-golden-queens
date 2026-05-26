@@ -23,17 +23,40 @@ from market_flow.calendar_utils import (
     is_us_trading_day,
 )
 from market_flow.fetchers.us_market import fetch_us_close
-from market_flow.formatter import format_us_daily
-from market_flow.telegram_push import send
+from market_flow.formatter import format_us_daily, render_us_daily_html
+from market_flow.telegram_push import send, send_photo
 
 _ET = ZoneInfo("America/New_York")
 
 
+def _is_image_mode() -> bool:
+    return os.environ.get("MARKET_FLOW_RENDER", "").strip().lower() == "image"
+
+
+def _parse_target_date(raw: str) -> Optional[datetime]:
+    """YYYY-MM-DD 또는 YYYYMMDD 문자열을 ET aware datetime 으로 파싱."""
+    for fmt in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(raw, fmt).replace(tzinfo=_ET)
+        except ValueError:
+            continue
+    return None
+
+
 def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
     if argv is None:
-        argv = sys.argv[1:]
+        argv = []
     if now is None:
         now = datetime.now(_ET)
+
+    # argv 로 날짜가 지정되면 휴장 게이트도 그 날짜 기준으로 판정
+    target: Optional[str] = None
+    if argv:
+        parsed = _parse_target_date(argv[0])
+        if parsed is None:
+            sys.exit(f"DATE 형식 오류: '{argv[0]}' (YYYY-MM-DD 또는 YYYYMMDD)")
+        now = parsed
+        target = parsed.strftime("%Y-%m-%d")
 
     schedule = os.environ.get("MARKET_SCHEDULE", "").strip().lower()
     # @MX:WARN: [AUTO] 이중 발송 방지 게이트
@@ -48,13 +71,28 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         send(format_holiday_message("US", now))
         return
 
-    target = argv[0] if argv else None
     data = fetch_us_close(target)
-    text = format_us_daily(data)
-    resp = send(text)
+
+    sources = (
+        "\n\n출처: "
+        "[Yahoo Finance](https://finance.yahoo.com/markets/)"
+        " · [S&P 섹터](https://finance.yahoo.com/sectors/)"
+    )
+
+    if _is_image_mode():
+        from market_flow.render.renderer import html_to_png
+
+        html = render_us_daily_html(data)
+        png = html_to_png(html, width=720, height=2400)
+        caption = f"🇺🇸 *{now.strftime('%-m/%-d')} 미국장 마감*{sources}"
+        resp = send_photo(png, caption=caption)
+    else:
+        text = format_us_daily(data) + sources
+        resp = send(text)
+
     msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
     print(f"✅ 미국장 푸시: msg_id={msg_id}")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
