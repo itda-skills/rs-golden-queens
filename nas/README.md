@@ -101,8 +101,7 @@ Container Manager는 기본적으로 Docker Hub에 연결되어 있으므로 별
 INFO [scheduler] scheduler started (TZ=Asia/Seoul, misfire_grace=1800s)
 INFO [scheduler]   job=daily-kr trigger=cron[day_of_week='mon-fri', hour='18', minute='10']
 INFO [scheduler]   job=weekly trigger=cron[day_of_week='mon-fri', hour='18', minute='30']
-INFO [scheduler]   job=daily-us-edt trigger=cron[day_of_week='tue-sat', hour='5', minute='30']
-INFO [scheduler]   job=daily-us-est trigger=cron[day_of_week='tue-sat', hour='6', minute='30']
+INFO [scheduler]   job=daily-us trigger=cron[day_of_week='tue-sat', hour='7', minute='0']
 INFO [apscheduler.scheduler] Scheduler started
 ```
 
@@ -136,8 +135,7 @@ python /app/main.py weekly
 |---|---|---|---|
 | `daily-kr` | 월~금 | 18:10 | 한국장 매매동향 |
 | `weekly` | 월~금 | 18:30 | 스크립트가 "이번 주 마지막 거래일"만 발송 |
-| `daily-us-edt` | 화~토 | 05:30 | 미국장 EDT 시즌만 (스크립트 DST 게이트) |
-| `daily-us-est` | 화~토 | 06:30 | 미국장 EST 시즌만 (스크립트 DST 게이트) |
+| `daily-us` | 화~토 | 07:00 | 미국장 마감 요약 (DST 시즌 무관 통합) |
 
 NAS 재부팅 등으로 누락 시 **misfire_grace_time=30분** 이내 자동 보충.
 

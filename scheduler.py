@@ -6,8 +6,7 @@
 |------------------|------------------|--------------------------------------|
 | 월-금 18:10      | daily-kr         | 한국장 매매동향                       |
 | 월-금 18:30      | weekly           | 주간 리포트 (스크립트 내부에서 게이트) |
-| 화-토 05:30      | daily-us (edt)   | 미국장 EDT 시즌 (스크립트 DST 게이트) |
-| 화-토 06:30      | daily-us (est)   | 미국장 EST 시즌                       |
+| 화-토 07:00      | daily-us         | 미국장 (DST 시즌 무관 통합 시각)      |
 
 환경변수:
     GOLDENQUEENS_BOT_TOKEN  Telegram bot token (필수)
@@ -109,19 +108,13 @@ def main() -> int:
         misfire_grace_time=MISFIRE_GRACE,
         coalesce=True,
     )
+    # 미국장: DST 시즌 무관 KST 07:00 단일 트리거.
+    # MARKET_SCHEDULE 미설정 시 daily_us.py의 DST 게이트가 자동 통과.
     sched.add_job(
         run_command,
-        CronTrigger(day_of_week="tue-sat", hour=5, minute=30, timezone=KST),
-        args=("daily-us", "edt"),
-        id="daily-us-edt",
-        misfire_grace_time=MISFIRE_GRACE,
-        coalesce=True,
-    )
-    sched.add_job(
-        run_command,
-        CronTrigger(day_of_week="tue-sat", hour=6, minute=30, timezone=KST),
-        args=("daily-us", "est"),
-        id="daily-us-est",
+        CronTrigger(day_of_week="tue-sat", hour=7, minute=0, timezone=KST),
+        args=("daily-us",),
+        id="daily-us",
         misfire_grace_time=MISFIRE_GRACE,
         coalesce=True,
     )

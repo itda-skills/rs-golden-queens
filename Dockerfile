@@ -38,9 +38,10 @@ RUN pip install -r requirements.txt
 COPY . .
 RUN chmod +x /app/entrypoint.sh
 
-# 헬스체크: scheduler 프로세스 생존 확인 (1분 주기)
+# 헬스체크: PID 1이 python(scheduler.py) 인지 확인 (1분 주기).
+# /proc/1/comm 은 slim 이미지에도 항상 존재 — pgrep/ps 같은 외부 도구 불필요.
 HEALTHCHECK --interval=1m --timeout=10s --start-period=20s --retries=3 \
-    CMD pgrep -f "python.*scheduler.py" >/dev/null || exit 1
+    CMD grep -q python /proc/1/comm || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["scheduler"]
