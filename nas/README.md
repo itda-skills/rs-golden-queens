@@ -1,218 +1,203 @@
-# 시놀러지 NAS — Docker 기반 스케줄링 가이드
+# 시놀러지 NAS — 상시 컨테이너 방식 (권장)
 
-GitHub Actions의 cron 지연 문제를 회피하기 위해, 시놀러지 NAS의 DSM 작업 스케줄러가 분 단위 정확도로 컨테이너를 실행하는 구성입니다.
+GitHub Actions cron 지연 문제를 회피하기 위한 NAS 운영 가이드.
+`v*` 태그를 푸시하면 ghcr.io에 자동 빌드되는 **APScheduler 내장 이미지**를 사용합니다.
 
-- **이미지 빌드 없음** — 공식 `python:3.14.5-slim`을 그대로 사용
-- **매 실행 시 git pull** — 항상 최신 코드 반영
-- **venv·pip cache 영구 보관** — 두 번째 실행부터 의존성 설치 생략
-- **DSM 작업 스케줄러가 cron 역할** — 분 단위 정확
+- **NAS는 이미지만 받아서 컨테이너 1개 띄우면 끝** — 디렉터리/파일 생성 없음
+- **환경변수는 Container Manager GUI에서 입력** — `.env` 파일 불필요
+- **DSM Task Scheduler 불필요** — 컨테이너 내부 APScheduler가 KST 정시 발화
+- **DSM 7.2+의 자동 업데이트로 새 릴리스 자동 반영**
+
+> 기존 `nas/run.sh` + DSM Task Scheduler 방식은 부록(§B)으로 유지합니다.
 
 ---
 
 ## 사전 요구
 
-- 시놀러지 DSM 7.x + Container Manager 패키지
-- SSH 활성화 (제어판 → 터미널 및 SNMP)
-- 사용자 `admin` 또는 `root` sudo 권한
+- DSM 7.2+ (Container Manager 자동 업데이트 기능)
+- Container Manager 패키지 설치
+- 인터넷 접근 (Yahoo Finance, Naver, Telegram, ghcr.io)
 
 ---
 
-## 1. NAS 디렉터리 초기화 (1회)
-
-SSH 접속 후 root로:
+## 1. 새 버전 릴리스 (개발자 측 작업)
 
 ```bash
-ROOT=/volume1/docker/rs-golden-queens
-sudo mkdir -p "$ROOT"/{venv,pip-cache,logs}
-cd "$ROOT"
-
-# 1-1) 저장소 clone (alpine/git 컨테이너 사용 — NAS에 git 설치 불요)
-sudo docker run --rm \
-  -v "$ROOT":/work \
-  -w /work \
-  alpine/git clone https://github.com/itda-skills/rs-golden-queens.git repo
-
-# 1-2) .env 작성
-sudo tee "$ROOT/.env" > /dev/null <<'EOF'
-GOLDENQUEENS_BOT_TOKEN=여기에_봇_토큰
-GOLDENQUEENS_CHAT_ID=여기에_챗_ID
-MARKET_FLOW_RENDER=text
-EOF
-sudo chmod 600 "$ROOT/.env"
-
-# 1-3) scheduler.sh 작성 (Task Scheduler가 호출)
-sudo tee "$ROOT/scheduler.sh" > /dev/null <<'SH'
-#!/usr/bin/env bash
-# Task Scheduler가 호출하는 래퍼.
-# 사용: scheduler.sh <command> [args...]
-#   ex) scheduler.sh daily-kr
-#       MARKET_SCHEDULE=edt scheduler.sh daily-us
-
-set -euo pipefail
-
-ROOT=/volume1/docker/rs-golden-queens
-DOCKER=/usr/local/bin/docker
-LOGDIR="$ROOT/logs"
-TS=$(date +%Y-%m-%dT%H:%M:%S%z)
-
-CMD="${1:-}"
-[ -z "$CMD" ] && { echo "usage: scheduler.sh <command> [args...]" >&2; exit 2; }
-shift || true
-
-# 명령별 로그 파일
-LOG="$LOGDIR/${CMD}.log"
-mkdir -p "$LOGDIR"
-
-{
-    echo "===== $TS scheduler.sh $CMD $* ====="
-
-    # 1) git pull
-    "$DOCKER" run --rm \
-        -v "$ROOT/repo":/git \
-        -w /git \
-        alpine/git pull --rebase --quiet 2>&1 || echo "[scheduler] git pull 실패 — 기존 코드로 진행"
-
-    # 2) python 실행
-    "$DOCKER" run --rm \
-        --name "flow-${CMD}-$$" \
-        -v "$ROOT/repo":/app \
-        -v "$ROOT/venv":/venv \
-        -v "$ROOT/pip-cache":/root/.cache/pip \
-        --env-file "$ROOT/.env" \
-        -e TZ=Asia/Seoul \
-        -e MARKET_SCHEDULE="${MARKET_SCHEDULE:-}" \
-        -w /app \
-        python:3.14.5-slim \
-        bash nas/run.sh "$CMD" "$@"
-
-    echo "===== $(date +%Y-%m-%dT%H:%M:%S%z) done ====="
-    echo
-} >> "$LOG" 2>&1
-SH
-sudo chmod +x "$ROOT/scheduler.sh"
-
-# 1-4) 이미지 사전 pull (Task Scheduler 첫 실행 지연 방지)
-sudo docker pull alpine/git
-sudo docker pull python:3.14.5-slim
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
+→ GitHub Actions가 `.github/workflows/build-image.yml`을 실행:
+- `linux/amd64` + `linux/arm64` 멀티 아키텍처 빌드
+- ghcr.io에 푸시되는 태그:
+  - `ghcr.io/itda-skills/rs-golden-queens:v1.0.0`
+  - `ghcr.io/itda-skills/rs-golden-queens:1.0.0`
+  - `ghcr.io/itda-skills/rs-golden-queens:1.0`
+  - `ghcr.io/itda-skills/rs-golden-queens:1`
+  - `ghcr.io/itda-skills/rs-golden-queens:latest`
+
+수동 빌드: GitHub Actions 페이지 → "컨테이너 이미지 빌드 및 푸시" → **Run workflow**.
+
 ---
 
-## 2. 수동 검증
+## 2. NAS 셋업 (1회)
 
-스케줄러 등록 전 동작 확인:
+### 2-1. 이미지 다운로드
 
-```bash
-# 한국장 푸시 (KST 18시 이후 KRX 데이터 확정된 시간에 수동 실행)
-sudo /volume1/docker/rs-golden-queens/scheduler.sh daily-kr
+**Container Manager** → **레지스트리** 탭 → 검색창에 `itda-skills/rs-golden-queens` 입력.
 
-# 로그 확인
-tail -50 /volume1/docker/rs-golden-queens/logs/daily-kr.log
-
-# 환경변수 ping (의존성 캐시 + Telegram 연결 검증)
-sudo /volume1/docker/rs-golden-queens/scheduler.sh notify-test
+찾기 어려우면 검색창에 정확한 경로:
+```
+ghcr.io/itda-skills/rs-golden-queens
 ```
 
-첫 실행에서 venv 생성 + pip install로 1~2분 소요. **두 번째 실행부터는 5~10초**.
+다운로드 클릭 → 태그 선택 시 `latest` 입력 (또는 특정 버전 `v1.0.0`).
+
+> **이미지가 검색에 안 잡힐 때**: Container Manager의 레지스트리에 ghcr.io가 등록 안 되어 있을 수 있습니다. **레지스트리** 탭 → **설정** → **추가** → 이름 `ghcr.io`, URL `https://ghcr.io` 등록 후 재시도.
+
+### 2-2. 컨테이너 생성
+
+**Container Manager** → **컨테이너** 탭 → **생성**
+
+| 단계 | 입력 |
+|---|---|
+| 이미지 선택 | `ghcr.io/itda-skills/rs-golden-queens:latest` |
+| 컨테이너 이름 | `rs-golden-queens` |
+| 자동 다시 시작 활성화 | ✅ |
+| 리소스 제한 | 메모리 256MB 권장 (선택) |
+| 자동 업데이트 활성화 | ✅ (DSM 7.2+, 매일 자정 새 이미지 확인) |
+
+**고급 설정**:
+
+- **포트 설정**: 매핑 없음 (외부 노출 불필요)
+- **볼륨 설정**: 마운트 없음 (상태 무함)
+- **네트워크**: 기본 `bridge`
+- **환경 변수**: 4개 입력
+
+| 변수 | 값 |
+|---|---|
+| `GOLDENQUEENS_BOT_TOKEN` | 텔레그램 봇 토큰 |
+| `GOLDENQUEENS_CHAT_ID` | 텔레그램 챗 ID |
+| `MARKET_FLOW_RENDER` | `text` |
+| `TZ` | `Asia/Seoul` |
+
+**완료** → **적용** → 컨테이너 자동 시작.
 
 ---
 
-## 3. DSM 작업 스케줄러 등록
+## 3. 동작 확인
 
-DSM → **제어판** → **작업 스케줄러** → **만들기** → **예약된 작업** → **사용자 정의 스크립트**
+### 3-1. 로그 확인
 
-공통 설정:
-- 사용자: `root`
-- 알림: 작업 편집 → **알림** 탭에서 "오류가 발생한 경우에만 메일 보내기" 체크 (DSM 메일 설정 필요)
+**Container Manager** → **컨테이너** → `rs-golden-queens` 선택 → **로그** 탭
 
-### 한국장
+정상 동작 시 다음과 같이 출력:
 
-| 항목 | 값 |
-|---|---|
-| 작업 이름 | `flow-kr` |
-| 스케줄 | 매주 월·화·수·목·금, 18:10 |
-| 사용자 정의 스크립트 | `/volume1/docker/rs-golden-queens/scheduler.sh daily-kr` |
-
-### 미국장 EDT 시즌 (3월 둘째 일요일 ~ 11월 첫째 일요일)
-
-| 항목 | 값 |
-|---|---|
-| 작업 이름 | `flow-us-edt` |
-| 스케줄 | 매주 화·수·목·금·토, 05:30 (전날 NYSE 마감 기준) |
-| 사용자 정의 스크립트 | `MARKET_SCHEDULE=edt /volume1/docker/rs-golden-queens/scheduler.sh daily-us` |
-
-### 미국장 EST 시즌
-
-| 항목 | 값 |
-|---|---|
-| 작업 이름 | `flow-us-est` |
-| 스케줄 | 매주 화·수·목·금·토, 06:30 |
-| 사용자 정의 스크립트 | `MARKET_SCHEDULE=est /volume1/docker/rs-golden-queens/scheduler.sh daily-us` |
-
-> EDT/EST 두 작업을 모두 등록해두면, `daily_us.py`의 DST 게이트가 시즌에 맞지 않는 트리거를 자동으로 skip합니다.
-
-### 주간 리포트
-
-| 항목 | 값 |
-|---|---|
-| 작업 이름 | `flow-weekly` |
-| 스케줄 | 매주 금요일, 18:30 |
-| 사용자 정의 스크립트 | `/volume1/docker/rs-golden-queens/scheduler.sh weekly` |
-
-> 현 GitHub Actions의 `flow-weekly.yml`은 평일 매일 실행되지만, 주간 리포트는 보통 금요일 한 번이면 충분합니다. 매일 보내야 하면 스케줄을 평일 매일로 변경.
-
----
-
-## 4. 로그 회전 (선택)
-
-`/volume1/docker/rs-golden-queens/logs/*.log`가 누적되므로 매일 새벽 1회 정리:
-
-| 항목 | 값 |
-|---|---|
-| 작업 이름 | `flow-log-rotate` |
-| 스케줄 | 매일 03:00 |
-| 사용자 정의 스크립트 | `find /volume1/docker/rs-golden-queens/logs -name "*.log" -mtime +30 -delete` |
-
----
-
-## 5. GitHub Actions 정리
-
-NAS 운영이 1주일 이상 안정적으로 검증되면, 기존 워크플로우의 `schedule` 블록을 제거합니다. `workflow_dispatch`는 비상용으로 남겨두는 것을 권장.
-
-```yaml
-# .github/workflows/flow-kr.yml (예)
-on:
-  workflow_dispatch:   # schedule 블록 제거
+```
+INFO [scheduler] scheduler started (TZ=Asia/Seoul, misfire_grace=1800s)
+INFO [scheduler]   job=daily-kr trigger=cron[day_of_week='mon-fri', hour='18', minute='10']
+INFO [scheduler]   job=weekly trigger=cron[day_of_week='mon-fri', hour='18', minute='30']
+INFO [scheduler]   job=daily-us-edt trigger=cron[day_of_week='tue-sat', hour='5', minute='30']
+INFO [scheduler]   job=daily-us-est trigger=cron[day_of_week='tue-sat', hour='6', minute='30']
+INFO [apscheduler.scheduler] Scheduler started
 ```
 
+### 3-2. 수동 테스트 (Telegram 핑)
+
+**Container Manager** → **컨테이너** → `rs-golden-queens` 선택 → **세부 정보** → **터미널** → **명령 생성**
+
+```
+python /app/main.py notify-test
+```
+
+Telegram에 `[rs-golden-queens] notify-test ping at ...` 메시지가 도착하면 정상.
+
+다른 명령도 같은 방식으로 즉시 검증:
+
+```
+python /app/main.py daily-kr
+python /app/main.py daily-us
+python /app/main.py weekly
+```
+
+### 3-3. 컨테이너 자체 상태
+
+**컨테이너** 탭에서 `rs-golden-queens`의 상태가 **Running**(healthy) — 헬스체크는 1분 주기로 scheduler 프로세스 생존을 확인합니다.
+
 ---
 
-## 트러블슈팅
+## 4. 정기 발화 시각 (KST)
+
+| 작업 | 요일 | 시각 | 비고 |
+|---|---|---|---|
+| `daily-kr` | 월~금 | 18:10 | 한국장 매매동향 |
+| `weekly` | 월~금 | 18:30 | 스크립트가 "이번 주 마지막 거래일"만 발송 |
+| `daily-us-edt` | 화~토 | 05:30 | 미국장 EDT 시즌만 (스크립트 DST 게이트) |
+| `daily-us-est` | 화~토 | 06:30 | 미국장 EST 시즌만 (스크립트 DST 게이트) |
+
+NAS 재부팅 등으로 누락 시 **misfire_grace_time=30분** 이내 자동 보충.
+
+---
+
+## 5. 업데이트 흐름
+
+### 5-1. 자동 업데이트 (권장)
+
+DSM 7.2+의 Container Manager는 매일 자정 새 이미지를 확인. `latest` 태그가 갱신되어 있으면 자동으로 컨테이너 재생성 → 재시작.
+
+### 5-2. 수동 업데이트
+
+**Container Manager** → **이미지** → `ghcr.io/itda-skills/rs-golden-queens` 선택 → **다운로드** (새 버전 받기) → **컨테이너** 탭에서 `rs-golden-queens` 선택 → **작업** → **재설정**.
+
+---
+
+## 6. GitHub Actions schedule 정리
+
+NAS 운영이 1주일 이상 안정적으로 검증되면 별도 PR로 `.github/workflows/flow-*.yml`의 `schedule` 블록 제거. `workflow_dispatch`는 비상용으로 유지.
+
+---
+
+## 7. 트러블슈팅
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| `docker: command not found` | `docker` 경로가 다름 | `which docker` 확인 후 `scheduler.sh`의 `DOCKER=` 수정 |
-| `permission denied` (Volume mount) | NAS 사용자/그룹 권한 | `sudo chown -R root:root /volume1/docker/rs-golden-queens` |
-| venv 손상 (Python 버전 mismatch 등) | base image 업데이트 영향 | `sudo rm -rf /volume1/docker/rs-golden-queens/venv` 후 재실행 (자동 재생성) |
-| pip install이 매번 실행됨 | venv 해시 파일 권한 문제 | `/volume1/docker/rs-golden-queens/venv/.requirements.sha256` 권한 확인 |
-| `git pull` 실패 | 인증 필요 (private repo) | HTTPS PAT URL로 clone하거나 SSH 키 마운트 |
+| 이미지 검색 실패 | ghcr.io 레지스트리 미등록 | §2-1 참고하여 ghcr.io 등록 |
+| `Unauthorized` (private repo) | GHCR가 private이면 인증 필요 | 레지스트리 설정에 GitHub PAT 등록 (Read packages 권한) |
+| 컨테이너 즉시 종료 | 필수 환경변수 누락 | 로그에 "필수 환경변수 누락" 메시지 확인 후 §2-2 환경변수 점검 |
+| Telegram 미발송 | 토큰/챗ID 오류 또는 봇 차단 | `notify-test`로 분리 진단 |
+| KST가 아닌 다른 시각 발화 | TZ 미설정 | 환경변수 `TZ=Asia/Seoul` 확인 |
+| 헬스체크 unhealthy | scheduler 프로세스 사망 | 로그 확인 후 컨테이너 재시작 |
 
 ---
 
-## 동작 흐름 요약
+# 부록 A. 외부 모니터링 추가 (선택, 권장)
 
-```
-DSM Task Scheduler (정확한 시각에 발화)
-    ↓
-/volume1/docker/rs-golden-queens/scheduler.sh daily-kr
-    ↓
-docker run alpine/git pull            ← 코드 동기화 (~3초)
-    ↓
-docker run python:3.14.5-slim
-    └─ bash nas/run.sh daily-kr
-       ├─ venv 준비 (있으면 skip)
-       ├─ requirements.txt 해시 변경 시만 pip install
-       └─ python main.py daily-kr     ← 실제 작업
-            ↓
-        Telegram 푸시
-```
+NAS 자체가 다운되면 위 구성은 감지 불가. [healthchecks.io](https://healthchecks.io) 같은 외부 모니터링으로 보완 가능.
+
+1. healthchecks.io에 4개 check 생성 (cron schedule 동일하게 설정)
+2. 발급받은 ping URL을 환경변수로 추가:
+
+| 변수 | 값 |
+|---|---|
+| `HC_DAILY_KR` | `https://hc-ping.com/<uuid>` |
+| `HC_DAILY_US` | `https://hc-ping.com/<uuid>` |
+| `HC_WEEKLY` | `https://hc-ping.com/<uuid>` |
+
+3. `scheduler.py`의 `run_command()`에 ping 호출 추가 (별도 PR 필요)
+
+예정 시각에 ping이 안 오면 healthchecks.io가 메일/Slack/Telegram으로 알림.
+
+---
+
+# 부록 B. 기존 방식 (`nas/run.sh` + DSM Task Scheduler)
+
+상시 컨테이너 방식 대신, 매 실행 시 git pull + pip install + main.py 실행하는 구성도 유지됩니다. 차이는 다음과 같습니다.
+
+| 항목 | 상시 컨테이너 (본문) | nas/run.sh (이 부록) |
+|---|---|---|
+| 코드 갱신 반영 | 이미지 자동 업데이트 (일 1회) | git pull (매 실행 시) |
+| NAS에 만들 파일 | 0개 | 6개 (.env, scheduler.sh, 4 디렉터리) |
+| 스케줄러 | 컨테이너 내부 APScheduler | DSM Task Scheduler |
+| 적합한 경우 | 일반적인 운영 | 환경 변수 변경이 잦거나 commit 단위로 즉시 반영하고 싶을 때 |
+
+자세한 셋업은 `nas/run.sh`의 헤더 주석을 참고하세요. (이 부록은 의도적으로 간략화)
