@@ -2,7 +2,7 @@
 
 GitHub Actions의 cron 지연 문제를 회피하기 위해, 시놀러지 NAS의 DSM 작업 스케줄러가 분 단위 정확도로 컨테이너를 실행하는 구성입니다.
 
-- **이미지 빌드 없음** — 공식 `python:3.13-slim`을 그대로 사용
+- **이미지 빌드 없음** — 공식 `python:3.14.5-slim`을 그대로 사용
 - **매 실행 시 git pull** — 항상 최신 코드 반영
 - **venv·pip cache 영구 보관** — 두 번째 실행부터 의존성 설치 생략
 - **DSM 작업 스케줄러가 cron 역할** — 분 단위 정확
@@ -82,7 +82,7 @@ mkdir -p "$LOGDIR"
         -e TZ=Asia/Seoul \
         -e MARKET_SCHEDULE="${MARKET_SCHEDULE:-}" \
         -w /app \
-        python:3.13-slim \
+        python:3.14.5-slim \
         bash nas/run.sh "$CMD" "$@"
 
     echo "===== $(date +%Y-%m-%dT%H:%M:%S%z) done ====="
@@ -93,7 +93,7 @@ sudo chmod +x "$ROOT/scheduler.sh"
 
 # 1-4) 이미지 사전 pull (Task Scheduler 첫 실행 지연 방지)
 sudo docker pull alpine/git
-sudo docker pull python:3.13-slim
+sudo docker pull python:3.14.5-slim
 ```
 
 ---
@@ -208,7 +208,7 @@ DSM Task Scheduler (정확한 시각에 발화)
     ↓
 docker run alpine/git pull            ← 코드 동기화 (~3초)
     ↓
-docker run python:3.13-slim
+docker run python:3.14.5-slim
     └─ bash nas/run.sh daily-kr
        ├─ venv 준비 (있으면 skip)
        ├─ requirements.txt 해시 변경 시만 pip install
