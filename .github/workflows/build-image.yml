@@ -1,7 +1,11 @@
 name: 컨테이너 이미지 빌드 및 푸시
 
-# v* 태그가 푸시되면 ghcr.io에 멀티 아키텍처(amd64+arm64) 이미지 빌드/푸시.
+# v* 태그가 푸시되면 Docker Hub에 멀티 아키텍처(amd64+arm64) 이미지 푸시.
 # 수동 트리거(workflow_dispatch)도 가능 — 이 경우 latest 태그는 안 붙고 sha 태그만.
+#
+# 필요한 시크릿 (Repository Settings → Secrets and variables → Actions):
+#   DOCKERHUB_USERNAME  Docker Hub 사용자명
+#   DOCKERHUB_TOKEN     Docker Hub Access Token (Read & Write 권한)
 
 on:
   push:
@@ -11,13 +15,27 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+env:
+  DOCKERHUB_REPO: rs-golden-queens
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: 시크릿 사전 검증
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DH_USER" ] || [ -z "$DH_TOKEN" ]; then
+            echo "::error::DOCKERHUB_USERNAME 또는 DOCKERHUB_TOKEN 시크릿이 설정되지 않았습니다."
+            echo "::error::Repository Settings → Secrets and variables → Actions 에서 등록하세요."
+            exit 1
+          fi
+          echo "Docker Hub 시크릿 OK: user=$DH_USER (token 마스킹)"
+
       - name: 체크아웃
         uses: actions/checkout@v4
 
@@ -27,18 +45,17 @@ jobs:
       - name: Buildx 설정
         uses: docker/setup-buildx-action@v3
 
-      - name: GHCR 로그인
+      - name: Docker Hub 로그인
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: 이미지 메타데이터 / 태그 생성
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPO }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -63,7 +80,11 @@ jobs:
 
       - name: 결과 요약
         run: |
-          echo "## 푸시된 이미지" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## 푸시된 이미지"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo ""
+            echo "- Docker Hub: https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPO }}"
+          } >> "$GITHUB_STEP_SUMMARY"

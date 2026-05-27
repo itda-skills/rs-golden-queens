@@ -1,7 +1,7 @@
 # 시놀러지 NAS — 상시 컨테이너 방식 (권장)
 
 GitHub Actions cron 지연 문제를 회피하기 위한 NAS 운영 가이드.
-`v*` 태그를 푸시하면 ghcr.io에 자동 빌드되는 **APScheduler 내장 이미지**를 사용합니다.
+`v*` 태그를 푸시하면 Docker Hub에 자동 빌드되는 **APScheduler 내장 이미지**를 사용합니다.
 
 - **NAS는 이미지만 받아서 컨테이너 1개 띄우면 끝** — 디렉터리/파일 생성 없음
 - **환경변수는 Container Manager GUI에서 입력** — `.env` 파일 불필요
@@ -16,7 +16,7 @@ GitHub Actions cron 지연 문제를 회피하기 위한 NAS 운영 가이드.
 
 - DSM 7.2+ (Container Manager 자동 업데이트 기능)
 - Container Manager 패키지 설치
-- 인터넷 접근 (Yahoo Finance, Naver, Telegram, ghcr.io)
+- 인터넷 접근 (Yahoo Finance, Naver, Telegram, Docker Hub)
 
 ---
 
@@ -29,14 +29,23 @@ git push origin v1.0.0
 
 → GitHub Actions가 `.github/workflows/build-image.yml`을 실행:
 - `linux/amd64` + `linux/arm64` 멀티 아키텍처 빌드
-- ghcr.io에 푸시되는 태그:
-  - `ghcr.io/itda-skills/rs-golden-queens:v1.0.0`
-  - `ghcr.io/itda-skills/rs-golden-queens:1.0.0`
-  - `ghcr.io/itda-skills/rs-golden-queens:1.0`
-  - `ghcr.io/itda-skills/rs-golden-queens:1`
-  - `ghcr.io/itda-skills/rs-golden-queens:latest`
+- **Docker Hub** (`allieus/rs-golden-queens`)에 푸시
+- 생성되는 태그: `v1.0.0`, `1.0.0`, `1.0`, `1`, `latest`
 
 수동 빌드: GitHub Actions 페이지 → "컨테이너 이미지 빌드 및 푸시" → **Run workflow**.
+
+### 사전 시크릿 등록 (1회)
+
+Repository **Settings** → **Secrets and variables** → **Actions**:
+
+| 시크릿 이름 | 값 |
+|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub 사용자명 |
+| `DOCKERHUB_TOKEN` | Docker Hub Access Token (Read & Write 권한) |
+
+Docker Hub Access Token 발급: [hub.docker.com/settings/security](https://hub.docker.com/settings/security) → **New Access Token**.
+
+Docker Hub에 미리 빈 public 저장소 `allieus/rs-golden-queens` 생성 권장 (자동 생성도 되지만 명시적 생성이 안전).
 
 ---
 
@@ -44,16 +53,11 @@ git push origin v1.0.0
 
 ### 2-1. 이미지 다운로드
 
-**Container Manager** → **레지스트리** 탭 → 검색창에 `itda-skills/rs-golden-queens` 입력.
+**Container Manager** → **레지스트리** 탭 → 검색창에 `allieus/rs-golden-queens` 입력.
 
-찾기 어려우면 검색창에 정확한 경로:
-```
-ghcr.io/itda-skills/rs-golden-queens
-```
+Container Manager는 기본적으로 Docker Hub에 연결되어 있으므로 별도 레지스트리 등록은 불필요합니다.
 
 다운로드 클릭 → 태그 선택 시 `latest` 입력 (또는 특정 버전 `v1.0.0`).
-
-> **이미지가 검색에 안 잡힐 때**: Container Manager의 레지스트리에 ghcr.io가 등록 안 되어 있을 수 있습니다. **레지스트리** 탭 → **설정** → **추가** → 이름 `ghcr.io`, URL `https://ghcr.io` 등록 후 재시도.
 
 ### 2-2. 컨테이너 생성
 
@@ -61,7 +65,7 @@ ghcr.io/itda-skills/rs-golden-queens
 
 | 단계 | 입력 |
 |---|---|
-| 이미지 선택 | `ghcr.io/itda-skills/rs-golden-queens:latest` |
+| 이미지 선택 | `allieus/rs-golden-queens:latest` |
 | 컨테이너 이름 | `rs-golden-queens` |
 | 자동 다시 시작 활성화 | ✅ |
 | 리소스 제한 | 메모리 256MB 권장 (선택) |
@@ -147,7 +151,7 @@ DSM 7.2+의 Container Manager는 매일 자정 새 이미지를 확인. `latest`
 
 ### 5-2. 수동 업데이트
 
-**Container Manager** → **이미지** → `ghcr.io/itda-skills/rs-golden-queens` 선택 → **다운로드** (새 버전 받기) → **컨테이너** 탭에서 `rs-golden-queens` 선택 → **작업** → **재설정**.
+**Container Manager** → **이미지** → `allieus/rs-golden-queens` 선택 → **다운로드** (새 버전 받기) → **컨테이너** 탭에서 `rs-golden-queens` 선택 → **작업** → **재설정**.
 
 ---
 
@@ -161,8 +165,8 @@ NAS 운영이 1주일 이상 안정적으로 검증되면 별도 PR로 `.github/
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| 이미지 검색 실패 | ghcr.io 레지스트리 미등록 | §2-1 참고하여 ghcr.io 등록 |
-| `Unauthorized` (private repo) | GHCR가 private이면 인증 필요 | 레지스트리 설정에 GitHub PAT 등록 (Read packages 권한) |
+| 이미지 검색 실패 | 사용자명 오타 또는 Docker Hub 저장소가 private | Docker Hub에서 저장소가 public인지 확인 |
+| GitHub Actions에서 `denied: requested access to the resource is denied` | `DOCKERHUB_TOKEN` 권한 부족 | Access Token을 **Read & Write** 권한으로 재발급 |
 | 컨테이너 즉시 종료 | 필수 환경변수 누락 | 로그에 "필수 환경변수 누락" 메시지 확인 후 §2-2 환경변수 점검 |
 | Telegram 미발송 | 토큰/챗ID 오류 또는 봇 차단 | `notify-test`로 분리 진단 |
 | KST가 아닌 다른 시각 발화 | TZ 미설정 | 환경변수 `TZ=Asia/Seoul` 확인 |
