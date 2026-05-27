@@ -139,6 +139,26 @@ python /app/main.py weekly
 
 NAS 재부팅 등으로 누락 시 **misfire_grace_time=30분** 이내 자동 보충.
 
+### 스케줄 변경 방법
+
+스케줄은 코드가 아니라 저장소 최상위의 **`schedule.toml`** 파일에 정의됩니다.
+
+```toml
+[[job]]
+id = "daily-kr"
+command = "daily-kr"
+day_of_week = "mon-fri"
+hour = 18
+minute = 10
+```
+
+변경 절차:
+1. `schedule.toml` 수정 + 커밋 + push
+2. `v*` 태그 푸시 → GitHub Actions 자동 빌드 → Docker Hub
+3. NAS 자동 업데이트 또는 §5의 수동 업데이트로 반영
+
+지원 필드: `id`, `command`, `day_of_week`, `hour`, `minute`, `description`(선택), `env`(선택, 작업별 환경변수).
+
 ---
 
 ## 5. 업데이트 흐름
