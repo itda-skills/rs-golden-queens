@@ -81,9 +81,11 @@ Container Manager는 기본적으로 Docker Hub에 연결되어 있으므로 별
 | 변수 | 값 |
 |---|---|
 | `GOLDENQUEENS_BOT_TOKEN` | 텔레그램 봇 토큰 |
-| `GOLDENQUEENS_CHAT_ID` | 텔레그램 챗 ID |
+| `GOLDENQUEENS_CHAT_ID` | 텔레그램 챗 ID. **콤마로 여러 개 지정 가능** — 예: `42478249,-1001234567890,@channelname` (공백 트림됨, 빈 항목 무시) |
 | `MARKET_FLOW_RENDER` | `text` |
 | `TZ` | `Asia/Seoul` |
+
+> **다중 chat_id 동작**: 각 chat 에 순차 발송. 하나가 실패해도 나머지는 계속 진행하고 종료 코드는 0 (best-effort). 발송 결과는 `[telegram]` 로그에 상세 출력됨.
 
 **완료** → **적용** → 컨테이너 자동 시작.
 

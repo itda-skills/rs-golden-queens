@@ -63,8 +63,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         return
 
     bizdate = now.astimezone(_KST).strftime("%Y%m%d")
+    print(f"📥 코스피 일별 데이터 수집 시작 — bizdate={bizdate}")
     kospi_daily = fetch_kospi_daily(bizdate)
+    print(f"📊 코스피 일별 수집 완료 — rows={len(kospi_daily) if isinstance(kospi_daily, (list, dict)) else '?'}")
+    print(f"📥 워치 ETF 5거래일 누적 등락 수집 시작")
     watch_5d = _watch_5d_pct()
+    print(f"📊 워치 ETF 수집 완료 — tickers={list(watch_5d.keys())}")
 
     sources = (
         "\n\n출처: "
@@ -75,16 +79,22 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if _is_image_mode():
         from market_flow.render.renderer import html_to_png
 
+        print("🖼️  이미지 모드 — HTML→PNG 렌더")
         html = render_weekly_html(kospi_daily, watch_5d)
         png = html_to_png(html)
         caption = f"📅 *주간 매매동향 리포트* ({datetime.now().strftime('%-m/%-d')} 기준){sources}"
+        print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
         resp = send_photo(png, caption=caption)
     else:
         text = format_weekly(kospi_daily, watch_5d) + sources
+        print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
         resp = send(text)
 
     msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
-    print(f"✅ 주간 리포트 푸시: msg_id={msg_id}")
+    results = resp.get("results", []) if isinstance(resp, dict) else []
+    ok_n = sum(1 for r in results if r.get("ok"))
+    suffix = f" — 발송 {ok_n}/{len(results)} 성공" if results else ""
+    print(f"✅ 주간 리포트 푸시: msg_id={msg_id}{suffix}")
 
 
 if __name__ == "__main__":

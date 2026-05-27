@@ -6,6 +6,7 @@ market_flow/telegram_push.py 의 dry-run 분기 / 실 HTTP 분기 / 환경변수
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.parse
 from unittest.mock import MagicMock, patch
 
@@ -81,7 +82,14 @@ class TestSendDryRun:
     def test_returns_stub_response(self, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
         resp = tp.send("test")
-        assert resp == {"ok": True, "dry_run": True, "result": {"message_id": 0}}
+        # 백워드 호환: ok / result / dry_run 유지
+        assert resp["ok"] is True
+        assert resp["dry_run"] is True
+        assert resp["result"] == {"message_id": 0}
+        # 신규: 다중 발송 상세
+        assert isinstance(resp["results"], list)
+        assert len(resp["results"]) == 1
+        assert resp["results"][0]["dry_run"] is True
 
     def test_works_without_secrets(self, monkeypatch):
         """dry-run 시 토큰·chat_id 미설정이어도 RuntimeError 미발생."""
@@ -153,7 +161,13 @@ class TestSendRealHttp:
         payload = {"ok": True, "result": {"message_id": 999}}
         with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response(payload)):
             resp = tp.send("test")
-            assert resp == payload
+            # 백워드 호환 핵심 필드만 검증 (results 키가 추가됨)
+            assert resp["ok"] is True
+            assert resp["result"] == {"message_id": 999}
+            # 단일 chat_id 환경에서 results 는 1건
+            assert len(resp["results"]) == 1
+            assert resp["results"][0]["chat_id"] == "12345"
+            assert resp["results"][0]["ok"] is True
 
     def test_raises_when_token_missing(self, monkeypatch):
         monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
@@ -209,3 +223,157 @@ class TestColorize:
         out = tp._colorize_for_stdout("+1.5%")
         assert "\033[31m" in out
         assert "+1.5%" in out
+
+
+# ──────────────────────────────────────────────
+#  _chat_ids — 콤마 분리 파서 (SPEC-MF-MULTI-CHAT)
+# ──────────────────────────────────────────────
+
+class TestChatIds:
+    def test_single_value(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "42478249")
+        assert tp._chat_ids() == ["42478249"]
+
+    def test_multiple_comma_separated(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "1,2,3")
+        assert tp._chat_ids() == ["1", "2", "3"]
+
+    def test_strips_whitespace(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "1, 2 ,  3")
+        assert tp._chat_ids() == ["1", "2", "3"]
+
+    def test_filters_empty_entries(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "1,,2,,,3")
+        assert tp._chat_ids() == ["1", "2", "3"]
+
+    def test_filters_leading_trailing_comma(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", ",1,")
+        assert tp._chat_ids() == ["1"]
+
+    def test_channel_username_supported(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "42, @channelname, -100123")
+        assert tp._chat_ids() == ["42", "@channelname", "-100123"]
+
+    def test_raises_when_only_commas(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", ",,,")
+        with pytest.raises(RuntimeError) as exc:
+            tp._chat_ids()
+        assert "유효한 chat_id" in str(exc.value)
+
+    def test_raises_when_unset(self, monkeypatch):
+        monkeypatch.delenv("GOLDENQUEENS_CHAT_ID", raising=False)
+        with pytest.raises(RuntimeError):
+            tp._chat_ids()
+
+    def test_raises_when_empty(self, monkeypatch):
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "")
+        with pytest.raises(RuntimeError):
+            tp._chat_ids()
+
+
+# ──────────────────────────────────────────────
+#  send — 다중 chat_id 발송 (SPEC-MF-MULTI-CHAT)
+# ──────────────────────────────────────────────
+
+class TestSendMultiChat:
+    def _setup_env(self, monkeypatch, chat_ids):
+        monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
+        monkeypatch.setenv("GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", chat_ids)
+
+    def _make_mock_response(self, message_id=42):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(
+            {"ok": True, "result": {"message_id": message_id}}
+        ).encode()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        return mock_resp
+
+    def test_calls_urlopen_once_per_chat_id(self, monkeypatch):
+        self._setup_env(monkeypatch, "111,222,333")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            side_effect=[self._make_mock_response(m) for m in (10, 20, 30)],
+        ) as mock_u:
+            resp = tp.send("hello")
+            assert mock_u.call_count == 3
+
+    def test_each_call_uses_correct_chat_id(self, monkeypatch):
+        self._setup_env(monkeypatch, "111,222,333")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            side_effect=[self._make_mock_response(m) for m in (10, 20, 30)],
+        ) as mock_u:
+            tp.send("hello")
+            chat_ids_used = []
+            for call in mock_u.call_args_list:
+                req = call.args[0]
+                parsed = urllib.parse.parse_qs(req.data.decode())
+                chat_ids_used.append(parsed["chat_id"][0])
+            assert chat_ids_used == ["111", "222", "333"]
+
+    def test_aggregate_response_format(self, monkeypatch):
+        self._setup_env(monkeypatch, "111,222")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            side_effect=[self._make_mock_response(10), self._make_mock_response(20)],
+        ):
+            resp = tp.send("hello")
+            assert resp["ok"] is True
+            # 첫 성공의 message_id 가 백워드 호환 result 에 노출
+            assert resp["result"] == {"message_id": 10}
+            assert len(resp["results"]) == 2
+            assert resp["results"][0]["chat_id"] == "111"
+            assert resp["results"][0]["result"]["message_id"] == 10
+            assert resp["results"][1]["chat_id"] == "222"
+            assert resp["results"][1]["result"]["message_id"] == 20
+
+    def test_partial_failure_continues_remaining(self, monkeypatch):
+        """첫 chat 실패해도 나머지 chat 으로 발송 진행."""
+        self._setup_env(monkeypatch, "bad,good")
+
+        def side_effect(*args, **kwargs):
+            req = args[0]
+            parsed = urllib.parse.parse_qs(req.data.decode())
+            cid = parsed["chat_id"][0]
+            if cid == "bad":
+                raise urllib.error.HTTPError(
+                    url=req.full_url, code=400, msg="Bad Request", hdrs=None, fp=None
+                )
+            return self._make_mock_response(99)
+
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen", side_effect=side_effect
+        ) as mock_u:
+            resp = tp.send("hello")
+            assert mock_u.call_count == 2  # 두 chat 모두 시도
+            assert resp["ok"] is False  # 하나 실패했으니 False
+            # 백워드 호환: 첫 성공의 message_id 가 result 에 노출
+            assert resp["result"] == {"message_id": 99}
+            assert resp["results"][0]["ok"] is False
+            assert "HTTPError" in resp["results"][0]["error"]
+            assert resp["results"][1]["ok"] is True
+
+    def test_all_failures_yields_result_message_id_zero(self, monkeypatch):
+        self._setup_env(monkeypatch, "x,y")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            side_effect=RuntimeError("boom"),
+        ):
+            resp = tp.send("hello")
+            assert resp["ok"] is False
+            assert resp["result"] == {"message_id": 0}
+            assert all(r["ok"] is False for r in resp["results"])
+
+    def test_dry_run_shows_all_chat_ids(self, monkeypatch, capsys):
+        monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "111,222,333")
+        resp = tp.send("hello")
+        out = capsys.readouterr().out
+        # chat_ids 리스트가 dry-run 헤더에 표시되어야 함
+        assert "111" in out and "222" in out and "333" in out
+        # 응답 results 도 3건
+        assert len(resp["results"]) == 3
+
+

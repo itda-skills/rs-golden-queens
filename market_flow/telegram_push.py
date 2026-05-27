@@ -1,8 +1,19 @@
 """골든퀸즈봇 텔레그램 발송
 
-환경변수 우선 (GitHub Actions 호환):
-  1. os.environ — GitHub Actions Secrets
+환경변수 우선 (GitHub Actions / NAS 컨테이너 호환):
+  1. os.environ — GitHub Actions Secrets / Container Manager 환경변수
   2. .env 파일 — 로컬 개발
+
+GOLDENQUEENS_CHAT_ID 는 **콤마로 구분된 여러 chat_id** 를 지원합니다.
+  예: "42478249"                 → 1곳
+      "42478249,-1001234567890"  → 2곳
+      "42478249, @channel, 123"  → 3곳 (공백 트림)
+
+부분 실패 정책:
+  - 한 chat_id 발송이 실패해도 나머지 chat_id 에 대한 발송은 계속됨
+  - 모든 발송 결과는 results 리스트에 기록되며 stderr 에 경고 출력
+  - ok 필드는 "전부 성공" 일 때만 True
+  - 호출자는 종료 코드를 받지 않음 (best-effort)
 """
 import json
 import os
@@ -20,6 +31,16 @@ except ImportError:
     pass
 
 
+def _log(msg):
+    """telegram_push 내부 진행 로그 (stdout)."""
+    print(f"[telegram] {msg}", flush=True)
+
+
+def _warn(msg):
+    """경고 로그 (stderr)."""
+    print(f"[telegram] WARN {msg}", file=sys.stderr, flush=True)
+
+
 def _env(key):
     val = os.environ.get(key, "").strip()
     if not val:
@@ -28,6 +49,28 @@ def _env(key):
             f"로컬: .env 파일 / GitHub Actions: repo Secrets 에 등록 필요."
         )
     return val
+
+
+def _chat_ids():
+    """GOLDENQUEENS_CHAT_ID 를 콤마로 분리한 리스트 반환.
+
+    빈 값/공백은 제외. 환경변수 자체가 비었거나 유효한 항목이 0개면 RuntimeError.
+
+    예시:
+        "42478249"               → ["42478249"]
+        "1,2,3"                  → ["1", "2", "3"]
+        "1, 2 , 3"               → ["1", "2", "3"]
+        "1,,2"                   → ["1", "2"]
+        ",1,"                    → ["1"]
+        ","                      → RuntimeError
+    """
+    raw = _env("GOLDENQUEENS_CHAT_ID")
+    ids = [s.strip() for s in raw.split(",") if s.strip()]
+    if not ids:
+        raise RuntimeError(
+            "GOLDENQUEENS_CHAT_ID 에 유효한 chat_id 가 하나도 없음 (콤마만 있거나 빈 항목)"
+        )
+    return ids
 
 
 def _is_dry_run():
@@ -55,22 +98,8 @@ def _colorize_for_stdout(text):
     return _SIGNED_NUM_RE.sub(repl, text)
 
 
-def send(text, parse_mode="Markdown", disable_notification=False):
-    """텔레그램 채널/그룹/개인으로 메시지 발송
-
-    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 실제 발송 없이 stdout 출력.
-    """
-    if _is_dry_run():
-        print("─" * 60)
-        print(f"[DRY-RUN] parse_mode={parse_mode} silent={disable_notification}")
-        print("─" * 60)
-        print(_colorize_for_stdout(text))
-        print("─" * 60)
-        return {"ok": True, "dry_run": True, "result": {"message_id": 0}}
-
-    token = _env("GOLDENQUEENS_BOT_TOKEN")
-    chat_id = _env("GOLDENQUEENS_CHAT_ID")
-
+def _post_message(token, chat_id, text, parse_mode, disable_notification):
+    """단일 chat_id 에 sendMessage 호출. 실패 시 예외 그대로 전파."""
     payload = urllib.parse.urlencode({
         "chat_id": chat_id,
         "text": text,
@@ -85,27 +114,8 @@ def send(text, parse_mode="Markdown", disable_notification=False):
         return json.loads(r.read())
 
 
-def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notification=False):
-    """텔레그램으로 이미지(PNG bytes) 발송.
-
-    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 ./out/ 디렉터리에 저장 후 종료.
-    """
-    if _is_dry_run():
-        out_dir = Path.cwd() / "out"
-        out_dir.mkdir(exist_ok=True)
-        out_path = out_dir / "telegram-preview.png"
-        out_path.write_bytes(image_bytes)
-        print("─" * 60)
-        print(f"[DRY-RUN] sendPhoto → 저장 위치: {out_path}")
-        if caption:
-            print(f"[DRY-RUN] caption: {caption}")
-        print("─" * 60)
-        return {"ok": True, "dry_run": True, "result": {"message_id": 0}}
-
-    token = _env("GOLDENQUEENS_BOT_TOKEN")
-    chat_id = _env("GOLDENQUEENS_CHAT_ID")
-
-    # multipart/form-data 직접 구성 (urllib 표준 라이브러리만 사용)
+def _post_photo(token, chat_id, image_bytes, caption, parse_mode, disable_notification):
+    """단일 chat_id 에 sendPhoto 호출 (multipart/form-data). 실패 시 예외 그대로 전파."""
     boundary = "----rsgq" + os.urandom(8).hex()
     parts = []
 
@@ -138,7 +148,119 @@ def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notific
         return json.loads(r.read())
 
 
+def _aggregate(results):
+    """다중 chat_id 발송 결과를 백워드 호환 응답 dict 로 합친다.
+
+    - ok: 전부 성공이면 True, 하나라도 실패면 False
+    - result.message_id: 첫 성공의 message_id (기존 호출자 호환)
+    - results: per-chat 상세
+    """
+    all_ok = all(r["ok"] for r in results)
+    first_ok = next((r for r in results if r["ok"]), None)
+    first_result = first_ok.get("result", {}) if first_ok else {"message_id": 0}
+    return {
+        "ok": all_ok,
+        "result": first_result,
+        "results": results,
+    }
+
+
+def send(text, parse_mode="Markdown", disable_notification=False):
+    """텔레그램 채널/그룹/개인으로 메시지 발송. 다중 chat_id 지원.
+
+    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 실제 발송 없이 stdout 출력.
+
+    Returns:
+        {"ok": bool, "result": {"message_id": int}, "results": [per-chat ...]}
+    """
+    if _is_dry_run():
+        # dry-run 에서는 chat_id 가 설정되어 있으면 리스트로 표시, 없으면 placeholder
+        try:
+            ids = _chat_ids()
+        except RuntimeError:
+            ids = ["<unset>"]
+        print("─" * 60)
+        print(
+            f"[DRY-RUN] chat_ids={ids} parse_mode={parse_mode} "
+            f"silent={disable_notification} text_len={len(text)}"
+        )
+        print("─" * 60)
+        print(_colorize_for_stdout(text))
+        print("─" * 60)
+        results = [{"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True} for c in ids]
+        return {"ok": True, "dry_run": True, "result": {"message_id": 0}, "results": results}
+
+    token = _env("GOLDENQUEENS_BOT_TOKEN")
+    ids = _chat_ids()
+
+    _log(f"send() 시작 — chat_ids={ids} text_len={len(text)} parse_mode={parse_mode}")
+
+    results = []
+    for cid in ids:
+        try:
+            resp = _post_message(token, cid, text, parse_mode, disable_notification)
+            msg_id = (resp.get("result") or {}).get("message_id", 0)
+            _log(f"  → chat_id={cid} ok=True msg_id={msg_id}")
+            results.append({"chat_id": cid, "ok": True, "result": resp.get("result", {"message_id": msg_id})})
+        except Exception as e:
+            _warn(f"  → chat_id={cid} 발송 실패: {type(e).__name__}: {e}")
+            results.append({"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"})
+
+    ok_n = sum(1 for r in results if r["ok"])
+    _log(f"send() 완료 — 성공 {ok_n}/{len(results)}")
+    return _aggregate(results)
+
+
+def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notification=False):
+    """텔레그램으로 이미지(PNG bytes) 발송. 다중 chat_id 지원.
+
+    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 ./out/ 디렉터리에 저장 후 종료.
+
+    Returns:
+        {"ok": bool, "result": {"message_id": int}, "results": [per-chat ...]}
+    """
+    if _is_dry_run():
+        out_dir = Path.cwd() / "out"
+        out_dir.mkdir(exist_ok=True)
+        out_path = out_dir / "telegram-preview.png"
+        out_path.write_bytes(image_bytes)
+        try:
+            ids = _chat_ids()
+        except RuntimeError:
+            ids = ["<unset>"]
+        print("─" * 60)
+        print(f"[DRY-RUN] sendPhoto chat_ids={ids} → 저장 위치: {out_path}")
+        if caption:
+            print(f"[DRY-RUN] caption: {caption}")
+        print("─" * 60)
+        results = [{"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True} for c in ids]
+        return {"ok": True, "dry_run": True, "result": {"message_id": 0}, "results": results}
+
+    token = _env("GOLDENQUEENS_BOT_TOKEN")
+    ids = _chat_ids()
+
+    _log(
+        f"send_photo() 시작 — chat_ids={ids} image_bytes={len(image_bytes)} "
+        f"caption_len={len(caption) if caption else 0}"
+    )
+
+    results = []
+    for cid in ids:
+        try:
+            resp = _post_photo(token, cid, image_bytes, caption, parse_mode, disable_notification)
+            msg_id = (resp.get("result") or {}).get("message_id", 0)
+            _log(f"  → chat_id={cid} ok=True msg_id={msg_id}")
+            results.append({"chat_id": cid, "ok": True, "result": resp.get("result", {"message_id": msg_id})})
+        except Exception as e:
+            _warn(f"  → chat_id={cid} 사진 발송 실패: {type(e).__name__}: {e}")
+            results.append({"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"})
+
+    ok_n = sum(1 for r in results if r["ok"])
+    _log(f"send_photo() 완료 — 성공 {ok_n}/{len(results)}")
+    return _aggregate(results)
+
+
 if __name__ == "__main__":
     text = sys.argv[1] if len(sys.argv) > 1 else "🤖 골든퀸즈 알리미 점검 메시지"
     resp = send(text)
-    print(f"✅ msg_id={resp['result']['message_id']}")
+    print(f"✅ ok={resp['ok']} msg_id={resp['result']['message_id']} results={len(resp['results'])}")

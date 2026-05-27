@@ -77,7 +77,10 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         send(format_holiday_message("US", now))
         return
 
+    print(f"📥 yfinance 미국장 데이터 수집 시작 — target={target or 'latest'}")
     data = fetch_us_close(target)
+    section_counts = {k: sum(1 for v in (data.get(k) or {}).values() if v) for k in data} if isinstance(data, dict) else {}
+    print(f"📊 데이터 수집 완료 — sections={section_counts}")
 
     sources = (
         "\n\n출처: "
@@ -88,16 +91,22 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if _is_image_mode():
         from market_flow.render.renderer import html_to_png
 
+        print("🖼️  이미지 모드 — HTML→PNG 렌더")
         html = render_us_daily_html(data)
         png = html_to_png(html)
         caption = f"🇺🇸 *{now.strftime('%-m/%-d')} 미국장 마감*{sources}"
+        print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
         resp = send_photo(png, caption=caption)
     else:
         text = format_us_daily(data) + sources
+        print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
         resp = send(text)
 
     msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
-    print(f"✅ 미국장 푸시: msg_id={msg_id}")
+    results = resp.get("results", []) if isinstance(resp, dict) else []
+    ok_n = sum(1 for r in results if r.get("ok"))
+    suffix = f" — 발송 {ok_n}/{len(results)} 성공" if results else ""
+    print(f"✅ 미국장 푸시: msg_id={msg_id}{suffix}")
 
 
 if __name__ == "__main__":
