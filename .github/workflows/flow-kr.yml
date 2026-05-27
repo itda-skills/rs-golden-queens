@@ -1,9 +1,8 @@
 name: 한국장 매매동향 푸시
 
 on:
-  schedule:
-    # 평일 KST 18:10 = UTC 09:10 (월~금)
-    - cron: '10 9 * * 1-5'
+  # NAS 컨테이너 (allieus/rs-golden-queens) 의 APScheduler 로 정시 발화 이관.
+  # 이 워크플로우는 비상용 수동 실행만 유지.
   workflow_dispatch:
 
 jobs:
