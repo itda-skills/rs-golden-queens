@@ -64,10 +64,16 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if schedule in {"edt", "est"}:
         in_dst = is_us_in_dst(now)
         if (schedule == "edt" and not in_dst) or (schedule == "est" and in_dst):
+            actual_season = "EDT" if in_dst else "EST"
+            print(
+                f"⏭️  스킵: MARKET_SCHEDULE={schedule} 인데 실제 시즌은 {actual_season} — 발송 안 함"
+            )
             sys.exit(0)
 
     # 휴장 게이트
     if not is_us_trading_day(now):
+        date_str = now.strftime("%Y-%m-%d %A")
+        print(f"🏖️  미국 휴장일 — {date_str}: 휴장 안내 메시지만 발송")
         send(format_holiday_message("US", now))
         return
 

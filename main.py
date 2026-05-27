@@ -97,9 +97,49 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    import datetime as _dt
+    import traceback as _tb
+
     parser = build_parser()
     args = parser.parse_args(argv)
-    args.func(args)
+
+    _kst = _dt.timezone(_dt.timedelta(hours=9))
+    started = _dt.datetime.now(_kst)
+    started_iso = started.isoformat(timespec="seconds")
+    cmd = args.command
+
+    print(f"━━━ [START] command={cmd} at={started_iso} (KST) ━━━", flush=True)
+
+    try:
+        args.func(args)
+    except SystemExit as e:
+        # 명시적 sys.exit(N) 은 그대로 전파하되 종료 로그를 남김
+        ended = _dt.datetime.now(_kst)
+        duration = (ended - started).total_seconds()
+        code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        marker = "DONE" if code == 0 else "FAIL"
+        print(
+            f"━━━ [{marker}] command={cmd} exit={code} duration={duration:.1f}s ━━━",
+            flush=True,
+        )
+        raise
+    except BaseException as e:
+        ended = _dt.datetime.now(_kst)
+        duration = (ended - started).total_seconds()
+        print(
+            f"━━━ [FAIL] command={cmd} duration={duration:.1f}s — {type(e).__name__}: {e} ━━━",
+            file=sys.stderr,
+            flush=True,
+        )
+        _tb.print_exc(file=sys.stderr)
+        return 1
+
+    ended = _dt.datetime.now(_kst)
+    duration = (ended - started).total_seconds()
+    print(
+        f"━━━ [DONE] command={cmd} exit=0 duration={duration:.1f}s ━━━",
+        flush=True,
+    )
     return 0
 
 

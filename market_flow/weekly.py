@@ -43,8 +43,10 @@ def _watch_5d_pct():
                 # 최근 5거래일 누적 등락 = (오늘 / 6일전) - 1
                 pct = (float(close.iloc[-1]) / float(close.iloc[-6]) - 1) * 100
                 out[ticker] = pct
-        except Exception:
-            pass
+            else:
+                print(f"warn: watch_5d {ticker}: 거래일 부족 ({len(close)} < 6)", file=sys.stderr)
+        except Exception as e:
+            print(f"warn: watch_5d {ticker}: {type(e).__name__}: {e}", file=sys.stderr)
     return out
 
 
@@ -54,8 +56,10 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if now is None:
         now = datetime.now(_KST)
 
-    # 마지막 거래일 게이트: 그 외 날에는 침묵 스킵
+    # 마지막 거래일 게이트: 그 외 날에는 발송 없이 명시적으로 스킵 로그
     if not is_last_kr_trading_day_of_week(now):
+        weekday = now.astimezone(_KST).strftime("%A (%Y-%m-%d)")
+        print(f"⏭️  스킵: 이번 주 마지막 한국 거래일이 아님 — {weekday}")
         return
 
     bizdate = now.astimezone(_KST).strftime("%Y%m%d")

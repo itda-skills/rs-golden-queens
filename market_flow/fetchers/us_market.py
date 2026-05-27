@@ -64,7 +64,8 @@ def _fetch_yf(tickers, target_date=None):
                 "vol_ratio": vol_ratio,
                 "date": str(close.index[-1].date()),
             }
-        except Exception:
+        except Exception as e:
+            print(f"warn: fetch_yf {ticker}: {type(e).__name__}: {e}", file=sys.stderr)
             out[ticker] = None
     return out
 

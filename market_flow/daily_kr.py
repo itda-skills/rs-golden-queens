@@ -35,6 +35,8 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
     # 휴장 게이트: fetcher를 호출하지 않고 한 줄 메시지만 발송
     if not is_kr_trading_day(now):
+        date_str = now.astimezone(_KST).strftime("%Y-%m-%d %A")
+        print(f"🏖️  한국 휴장일 — {date_str}: 휴장 안내 메시지만 발송")
         send(format_holiday_message("KR", now))
         return
 
