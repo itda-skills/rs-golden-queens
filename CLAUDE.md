@@ -40,7 +40,7 @@ main.py                # 로컬·GitHub Actions CLI 진입점
 
 - 의존성: `make install` (가능하면 `.venv` 안에서)
 - 로컬 검증: `make daily-kr DRY=1`, `make daily-us DRY=1 DATE=2026-05-22`, `make weekly DRY=1`
-- 텔레그램 핑 점검: `make notify-test DRY=1`
+- 텔레그램 핑 점검: `make notify-test DRY=1`, 테스트 채널 실제 발송은 `make notify-test TEST=1`
 - 데이터 소스 단독 점검: `make smoke-kr`, `make smoke-us`
 - 테스트: `pytest` (unit/integration/live 분리; live는 외부 API 호출)
 - 린트: `ruff check .`, 포맷은 `ruff format` 또는 기존 스타일을 따른다.
@@ -51,13 +51,13 @@ main.py                # 로컬·GitHub Actions CLI 진입점
 2. **버그 수정 전 재현** — 가능한 한 실패하는 테스트를 먼저 추가하고 수정한다 (특히 캘린더·DST·휴장 로직).
 3. **시간 처리** — 날짜/시간 계산은 `calendar_utils.py` 의 함수를 우선 사용. tzinfo 없는 naive datetime 사용 지양.
 4. **외부 호출 격리** — yfinance·네이버·텔레그램 API 호출은 fetcher·publisher 레이어 안에 둔다. 비즈니스 로직과 섞지 않는다.
-5. **비밀키 금지** — `GOLDENQUEENS_BOT_TOKEN`, `GOLDENQUEENS_CHAT_ID`, `.env` 내용을 커밋·로그·메시지에 노출하지 않는다.
+5. **비밀키 금지** — `GOLDENQUEENS_*`, `TEST_GOLDENQUEENS_*`, `.env` 내용을 커밋·로그·메시지에 노출하지 않는다.
 6. **파괴적 명령 사전 확인** — `git push --force`, `git reset --hard`, `rm -rf`, 컨테이너/볼륨 삭제는 실행 전에 한 번 더 확인한다.
 7. **요청 범위 준수** — 요청 범위 밖의 리팩토링·정리는 별도 제안으로 분리한다.
 
 ## 통신·운영
 
-- 발송 대상은 `GOLDENQUEENS_CHAT_ID` (다중 chat_id 쉼표 구분 지원, `,` 로 split). 채널은 `-100` 으로 시작.
+- 발송 대상은 기본 `GOLDENQUEENS_CHAT_ID`, `--test` 실행 시 `TEST_GOLDENQUEENS_CHAT_ID` (다중 chat_id 쉼표 구분 지원, `,` 로 split). 채널은 `-100` 으로 시작.
 - 실패 시 침묵 종료 금지 — 시작/종료 마커와 에러를 stdout/stderr 로 노출한다 (기존 관측성 커밋 방향 유지).
 - GitHub Actions cron 은 제거됨. NAS 작업 스케줄러가 GitHub API/CLI로 `flow-*` 워크플로우의 `workflow_dispatch`를 호출한다.
 

@@ -49,8 +49,12 @@ rs-golden-queens/
 ├── tests/                            # pytest (unit/integration/live)
 └── .github/workflows/
     ├── flow-kr.yml                   # NAS dispatch 대상
+    ├── flow-kr-test.yml              # TEST_GOLDENQUEENS_* 한국장 테스트 푸시
     ├── flow-us.yml                   # NAS dispatch 대상
+    ├── flow-us-test.yml              # TEST_GOLDENQUEENS_* 미국장 테스트 푸시
     ├── flow-weekly.yml               # NAS dispatch 대상, 마지막 거래일 게이트
+    ├── flow-weekly-test.yml          # TEST_GOLDENQUEENS_* 주간 테스트 푸시
+    ├── flow-telegram-test.yml        # TEST_GOLDENQUEENS_* 테스트 핑
     └── test.yml                      # CI 테스트
 ```
 
@@ -69,14 +73,16 @@ rs-golden-queens/
 
 ### GitHub Secrets 등록
 
-저장소 Settings → Secrets and variables → Actions에 다음 두 값을 등록한다.
+저장소 Settings → Secrets and variables → Actions에 다음 값을 등록한다.
 
 | Secret 이름 | 의미 |
 |---|---|
 | `GOLDENQUEENS_BOT_TOKEN` | BotFather에서 발급받은 봇 토큰 |
 | `GOLDENQUEENS_CHAT_ID` | 수신 chat_id (채널은 `-100` 으로 시작) |
+| `TEST_GOLDENQUEENS_BOT_TOKEN` | `--test` 발송에 사용할 테스트 봇 토큰 |
+| `TEST_GOLDENQUEENS_CHAT_ID` | `--test` 발송에 사용할 테스트 수신 chat_id |
 
-둘 다 있어야 텔레그램 발송이 활성화된다. 하나라도 없으면 보고서를 stdout만 출력하고 정상 종료.
+운영 발송은 `GOLDENQUEENS_*` 둘 다 있어야 활성화된다. `--test` 발송은 `TEST_GOLDENQUEENS_*` 둘 다 있어야 활성화된다.
 
 ```bash
 # chat_id 확인
@@ -102,6 +108,7 @@ make daily-kr              # 한국장 (오늘)
 make daily-kr DATE=20260522
 make daily-us              # 미국장
 make daily-kr DRY=1        # dry-run (텔레그램 발송 없이 stdout)
+make notify-test TEST=1    # 테스트 봇/채널로 실제 핑 전송
 make smoke-kr              # 네이버 fetch 단독 점검
 make smoke-us              # yfinance fetch 단독 점검
 make notify-test           # 텔레그램 핑
@@ -111,6 +118,7 @@ make notify-test           # 텔레그램 핑
 
 NAS 작업 스케줄러는 GitHub API/CLI로 각 workflow의 `workflow_dispatch`를 호출한다.
 GitHub 저장소 Actions 탭 → 원하는 workflow → "Run workflow".
+테스트 봇/채널로 핑을 보내려면 `텔레그램 테스트 전송` workflow를 수동 실행한다.
 
 ## 워치 ETF 수정
 

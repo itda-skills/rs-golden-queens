@@ -33,8 +33,12 @@ market_flow/
 
 # 저장소 루트의 워크플로우/테스트
 .github/workflows/flow-kr.yml     # NAS dispatch 대상
+.github/workflows/flow-kr-test.yml # TEST_GOLDENQUEENS_* 한국장 테스트 푸시
 .github/workflows/flow-us.yml     # NAS dispatch 대상
+.github/workflows/flow-us-test.yml # TEST_GOLDENQUEENS_* 미국장 테스트 푸시
 .github/workflows/flow-weekly.yml # NAS dispatch 대상, 마지막 KR 거래일 게이트
+.github/workflows/flow-weekly-test.yml # TEST_GOLDENQUEENS_* 주간 테스트 푸시
+.github/workflows/flow-telegram-test.yml # TEST_GOLDENQUEENS_* 테스트 핑
 tests/                            # market_flow 단위 테스트 (mock 기반)
 ```
 
@@ -60,6 +64,8 @@ repo Settings → Secrets and variables → Actions → New repository secret
 |---|---|
 | `GOLDENQUEENS_BOT_TOKEN` | BotFather에서 받은 봇 토큰 |
 | `GOLDENQUEENS_CHAT_ID` | 채널 chat_id (`-100...` 음수) |
+| `TEST_GOLDENQUEENS_BOT_TOKEN` | `--test` 발송에 사용할 테스트 봇 토큰 |
+| `TEST_GOLDENQUEENS_CHAT_ID` | `--test` 발송에 사용할 테스트 채널 chat_id |
 
 > chat_id 확인: `curl "https://api.telegram.org/bot<TOKEN>/getUpdates"` 후 채널에서 메시지 한 줄 보내고 응답의 `chat.id` 추출
 
@@ -68,6 +74,7 @@ repo Settings → Secrets and variables → Actions → New repository secret
 NAS 작업 스케줄러가 GitHub API/CLI로 각 workflow의 `workflow_dispatch`를 호출한다.
 
 수동 실행: GitHub repo → Actions 탭 → 원하는 workflow → "Run workflow"
+테스트 전송: `한국장 매매동향 테스트 푸시`, `미국장 마감 테스트 푸시`, `주간 리포트 테스트 푸시`, 또는 `텔레그램 테스트 전송` workflow를 실행한다.
 
 ### 3. 로컬 개발/테스트
 
@@ -89,6 +96,7 @@ python daily_kr.py 20260522   # 특정일
 python daily_us.py            # 최신 미국장
 python daily_us.py 2026-05-22 # 특정일
 python weekly.py              # 주간 리포트
+python ../main.py notify-test --test  # TEST_GOLDENQUEENS_* 로 테스트 핑
 ```
 
 ## 메시지 컨벤션

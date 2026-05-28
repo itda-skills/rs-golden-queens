@@ -3,7 +3,9 @@
 역할:
 - ``@pytest.mark.live`` 마커 등록 + 기본 실행 시 자동 deselect 훅 (REQ-MF-TEST-002).
 - 환경변수 누수 차단 autouse 픽스처 — ``MARKET_FLOW_DRY_RUN`` /
-  ``GOLDENQUEENS_BOT_TOKEN`` / ``GOLDENQUEENS_CHAT_ID`` / ``MARKET_SCHEDULE``
+  ``GOLDENQUEENS_BOT_TOKEN`` / ``GOLDENQUEENS_CHAT_ID`` /
+  ``TEST_GOLDENQUEENS_BOT_TOKEN`` / ``TEST_GOLDENQUEENS_CHAT_ID`` /
+  ``MARKET_SCHEDULE``
   을 매 테스트 시작 시 초기화 (REQ-MF-TEST-NEG-001).
 - 합성 fixture 로더 — 네이버/yfinance 응답을 ``tests/fixtures/`` 에서 로드.
 
@@ -61,8 +63,12 @@ def pytest_collection_modifyitems(
 
 _ISOLATED_ENV_KEYS = (
     "MARKET_FLOW_DRY_RUN",
+    "MARKET_FLOW_TEST_SEND",
     "GOLDENQUEENS_BOT_TOKEN",
     "GOLDENQUEENS_CHAT_ID",
+    "TEST_GOLDENQUEENS_BOT_TOKEN",
+    "TEST_GOLDENQUEENS_CHAT_ID",
+    "TEST_GOLENDENQUEENS_CHAT_ID",
     "MARKET_SCHEDULE",
 )
 

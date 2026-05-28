@@ -36,6 +36,26 @@ class TestIsDryRun:
 
 
 # ──────────────────────────────────────────────
+#  MARKET_FLOW_TEST_SEND
+# ──────────────────────────────────────────────
+
+class TestIsTestSend:
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "YES", " 1 ", "True"])
+    def test_truthy_values(self, value, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", value)
+        assert tp._is_test_send() is True
+
+    @pytest.mark.parametrize("value", ["0", "false", "no", "", "random"])
+    def test_falsy_values(self, value, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", value)
+        assert tp._is_test_send() is False
+
+    def test_unset_returns_false(self, monkeypatch):
+        monkeypatch.delenv("MARKET_FLOW_TEST_SEND", raising=False)
+        assert tp._is_test_send() is False
+
+
+# ──────────────────────────────────────────────
 #  _env
 # ──────────────────────────────────────────────
 
@@ -106,6 +126,14 @@ class TestSendDryRun:
         out = capsys.readouterr().out
         assert "parse_mode=HTML" in out
         assert "silent=True" in out
+
+    def test_includes_chat_id_env_source_in_header(self, monkeypatch, capsys):
+        monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "111,222,333")
+        tp.send("hello")
+        out = capsys.readouterr().out
+        assert "chat_id_env=GOLDENQUEENS_CHAT_ID" in out
+        assert "chat_count=3" in out
 
 
 # ──────────────────────────────────────────────
@@ -192,6 +220,82 @@ class TestSendRealHttp:
             data = mock_u.call_args.args[0].data.decode()
             parsed = urllib.parse.parse_qs(data)
             assert parsed["disable_notification"] == ["true"]
+
+
+# ──────────────────────────────────────────────
+#  send — 테스트 secret 분기
+# ──────────────────────────────────────────────
+
+class TestSendWithTestSecrets:
+    def _make_mock_response(self, payload=None):
+        if payload is None:
+            payload = {"ok": True, "result": {"message_id": 42}}
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(payload).encode()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        return mock_resp
+
+    def test_uses_test_token_and_chat_id(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("GOLDENQUEENS_BOT_TOKEN", "PROD_TOKEN")
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "prod-chat")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+            tp.send("hello")
+
+        req = mock_u.call_args.args[0]
+        parsed = urllib.parse.parse_qs(req.data.decode())
+        assert req.full_url == "https://api.telegram.org/botTEST_TOKEN/sendMessage"
+        assert parsed["chat_id"] == ["test-chat"]
+
+    def test_logs_test_env_sources_without_values(self, monkeypatch, capsys):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+
+        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()):
+            tp.send("hello")
+
+        out = capsys.readouterr().out
+        assert "token_env=TEST_GOLDENQUEENS_BOT_TOKEN" in out
+        assert "chat_id_env=TEST_GOLDENQUEENS_CHAT_ID" in out
+        assert "chat_count=1" in out
+        assert "TEST_TOKEN" not in out
+        assert "test-chat" not in out
+
+    def test_test_chat_id_alias_typo_supported(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("TEST_GOLENDENQUEENS_CHAT_ID", "alias-chat")
+
+        assert tp._chat_ids() == ["alias-chat"]
+
+    def test_test_chat_id_canonical_wins_over_alias(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "canonical")
+        monkeypatch.setenv("TEST_GOLENDENQUEENS_CHAT_ID", "alias")
+
+        assert tp._chat_ids() == ["canonical"]
+
+    def test_raises_when_test_token_missing(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+
+        with pytest.raises(RuntimeError) as exc:
+            tp.send("test")
+
+        assert "TEST_GOLDENQUEENS_BOT_TOKEN" in str(exc.value)
+
+    def test_raises_when_test_chat_id_missing(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "tok")
+
+        with pytest.raises(RuntimeError) as exc:
+            tp.send("test")
+
+        assert "TEST_GOLDENQUEENS_CHAT_ID" in str(exc.value)
 
 
 # ──────────────────────────────────────────────
@@ -366,13 +470,13 @@ class TestSendMultiChat:
             assert resp["result"] == {"message_id": 0}
             assert all(r["ok"] is False for r in resp["results"])
 
-    def test_dry_run_shows_all_chat_ids(self, monkeypatch, capsys):
+    def test_dry_run_shows_chat_count_and_hides_chat_ids(self, monkeypatch, capsys):
         monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
         monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "111,222,333")
         resp = tp.send("hello")
         out = capsys.readouterr().out
-        # chat_ids 리스트가 dry-run 헤더에 표시되어야 함
-        assert "111" in out and "222" in out and "333" in out
+        assert "chat_id_env=GOLDENQUEENS_CHAT_ID" in out
+        assert "chat_count=3" in out
+        assert "111" not in out and "222" not in out and "333" not in out
         # 응답 results 도 3건
         assert len(resp["results"]) == 3
-

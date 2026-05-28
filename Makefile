@@ -16,10 +16,13 @@
 #   make daily-us DRY=1 DATE=2026-05-22
 #   make weekly DRY=1
 #   make notify-test DRY=1
+#   make notify-test TEST=1  # TEST_GOLDENQUEENS_* 로 실제 테스트 전송
 #
 # 환경변수 (.env 또는 export):
 #   GOLDENQUEENS_BOT_TOKEN  텔레그램 봇 토큰
 #   GOLDENQUEENS_CHAT_ID    수신 chat_id (채널은 -100 으로 시작)
+#   TEST_GOLDENQUEENS_BOT_TOKEN  테스트용 텔레그램 봇 토큰
+#   TEST_GOLDENQUEENS_CHAT_ID    테스트용 수신 chat_id
 
 PKG_DIR := market_flow
 VENV_DIR := .venv
@@ -42,6 +45,11 @@ ifeq ($(IMG),1)
 export MARKET_FLOW_RENDER := image
 endif
 
+TEST_ARG :=
+ifeq ($(TEST),1)
+TEST_ARG := --test
+endif
+
 .DEFAULT_GOAL := help
 .PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean
 
@@ -51,9 +59,11 @@ help:  ## 사용 가능한 명령 목록
 	@printf "\n환경변수:\n"
 	@printf "  GOLDENQUEENS_BOT_TOKEN  텔레그램 봇 토큰\n"
 	@printf "  GOLDENQUEENS_CHAT_ID    수신 chat_id (채널은 -100 으로 시작)\n"
+	@printf "  TEST_GOLDENQUEENS_*     TEST=1 또는 --test 발송 대상\n"
 	@printf "\n인자 예시:\n"
 	@printf "  make daily-kr DATE=20260522\n"
 	@printf "  make daily-us DATE=2026-05-22\n"
+	@printf "  make notify-test TEST=1\n"
 
 install:  ## 의존성 설치 (텍스트 기본). 이미지 모드는 IMG=1 추가
 	@if [ ! -x "$(VENV_PY)" ]; then \
@@ -81,16 +91,16 @@ install:  ## 의존성 설치 (텍스트 기본). 이미지 모드는 IMG=1 추�
 	echo "설치 완료 → $(VENV_PY)"
 
 daily-kr:  ## 한국장 매매동향 발송. DATE=YYYYMMDD 옵션
-	$(PY) main.py daily-kr $(DATE)
+		$(PY) main.py daily-kr $(DATE) $(TEST_ARG)
 
 daily-us:  ## 미국장 마감 요약 발송. DATE=YYYY-MM-DD 옵션
-	$(PY) main.py daily-us $(DATE)
+		$(PY) main.py daily-us $(DATE) $(TEST_ARG)
 
 weekly:  ## 주간 리포트 발송
-	$(PY) main.py weekly
+		$(PY) main.py weekly $(TEST_ARG)
 
 notify-test:  ## 텔레그램 핑 메시지 1회 (환경변수 동작 확인)
-	@$(PY) main.py notify-test
+		@$(PY) main.py notify-test $(TEST_ARG)
 
 smoke-kr:  ## 네이버 fetch 단독 점검 (텔레그램 발송 없음)
 	@$(PY) main.py smoke-kr
