@@ -9,13 +9,6 @@ __pycache__/
 .env
 .envrc
 
-# MoAI 런타임 임시 파일 (커밋 대상 아님)
-.moai/logs/
-.moai/reports/
-.moai/state/
-HANDOFF.md
-.claude/scheduled_tasks.lock
-
 # 이미지 렌더 출력 (로컬 dry-run 미리보기)
 out/
 
