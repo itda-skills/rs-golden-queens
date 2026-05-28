@@ -110,16 +110,22 @@ def _table(rows, aligns, header=None, sep_char="─"):
 # ───────────────────────────────────────────────
 
 def emoji(v):
-    if v is None: return "⚪"
-    if v > 0: return "🔴"
-    if v < 0: return "🔵"
+    if v is None:
+        return "⚪"
+    if v > 0:
+        return "🔴"
+    if v < 0:
+        return "🔵"
     return "⚪"
 
 
 def arrow(v):
-    if v is None: return "–"
-    if v > 0: return "▲"
-    if v < 0: return "▼"
+    if v is None:
+        return "–"
+    if v > 0:
+        return "▲"
+    if v < 0:
+        return "▼"
     return "–"
 
 
@@ -128,12 +134,14 @@ def mark(v):
 
 
 def signed(v, fmt="+,d"):
-    if v is None: return "-"
+    if v is None:
+        return "-"
     return format(v, fmt)
 
 
 def signed_pct(v):
-    if v is None: return "-"
+    if v is None:
+        return "-"
     return f"{v:+.2f}%"
 
 
@@ -376,7 +384,8 @@ def format_us_daily(data):
                 dt = datetime.strptime(d["date"], "%Y-%m-%d")
                 target = f"{dt.month}/{dt.day}({'월화수목금토일'[dt.weekday()]})"
                 break
-        if target: break
+        if target:
+            break
 
     idx = data.get("indices") or {}
     vol = data.get("volatility") or {}
@@ -397,7 +406,8 @@ def format_us_daily(data):
     L.append(_card(_us_price_table(VOLATILITY, vol), PRICE_ALIGNS))
     L.append("")
 
-    hyg = risk.get("HYG"); ief = risk.get("IEF")
+    hyg = risk.get("HYG")
+    ief = risk.get("IEF")
     if hyg and ief:
         diff = hyg["pct"] - ief["pct"]
         if diff > 0.2:

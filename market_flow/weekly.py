@@ -66,7 +66,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     print(f"📥 코스피 일별 데이터 수집 시작 — bizdate={bizdate}")
     kospi_daily = fetch_kospi_daily(bizdate)
     print(f"📊 코스피 일별 수집 완료 — rows={len(kospi_daily) if isinstance(kospi_daily, (list, dict)) else '?'}")
-    print(f"📥 워치 ETF 5거래일 누적 등락 수집 시작")
+    print("📥 워치 ETF 5거래일 누적 등락 수집 시작")
     watch_5d = _watch_5d_pct()
     print(f"📊 워치 ETF 수집 완료 — tickers={list(watch_5d.keys())}")
 

@@ -296,7 +296,7 @@ class TestSendMultiChat:
             "market_flow.telegram_push.urllib.request.urlopen",
             side_effect=[self._make_mock_response(m) for m in (10, 20, 30)],
         ) as mock_u:
-            resp = tp.send("hello")
+            tp.send("hello")
             assert mock_u.call_count == 3
 
     def test_each_call_uses_correct_chat_id(self, monkeypatch):
@@ -375,5 +375,4 @@ class TestSendMultiChat:
         assert "111" in out and "222" in out and "333" in out
         # 응답 results 도 3건
         assert len(resp["results"]) == 3
-
 

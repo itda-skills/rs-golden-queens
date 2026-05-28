@@ -1,8 +1,8 @@
 name: 주간 리포트 푸시
 
 on:
-  # NAS 컨테이너 (allieus/rs-golden-queens) 의 APScheduler 로 정시 발화 이관.
-  # 이 워크플로우는 비상용 수동 실행만 유지.
+  # NAS 작업 스케줄러가 GitHub API/CLI로 정시에 dispatch.
+  # 필요하면 Actions 탭에서 수동 실행 가능.
   workflow_dispatch:
 
 jobs:

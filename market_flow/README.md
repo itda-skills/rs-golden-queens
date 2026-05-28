@@ -1,16 +1,17 @@
 # 골든퀸즈 매매동향 봇 (rs-golden-queens)
 
-매일 한국장·미국장 마감 후 텔레그램 채널 `골든봇초대방`으로 매매동향 요약을 자동 푸시한다. GitHub Actions가 정해진 시각에 트리거.
+매일 한국장·미국장 마감 후 텔레그램 채널 `골든봇초대방`으로 매매동향 요약을 자동 푸시한다.
+NAS 작업 스케줄러가 GitHub Actions `flow-*` 워크플로우를 정시에 `workflow_dispatch`로 호출한다.
 
 ## 푸시 스케줄 (KST)
 
 | 작업 | 시각 | 요일 | 내용 |
 |---|---|---|---|
 | `flow-kr` | 18:10 | 월~금 | 코스피·코스닥 외인·기관·개인 + 프로그램매매 + 10거래일 추이 |
-| `flow-us` | 06:30 (EDT) / 07:30 (EST) | 화~토 | 지수·변동성·섹터 11개·워치ETF·매크로 — NYSE 마감(16:00 ET) + 30분, DST 자동 반영 |
+| `flow-us` | 07:00 | 화~토 | 지수·변동성·섹터 11개·워치ETF·매크로 |
 | `flow-weekly` | 18:30 | 그 주 마지막 KR 거래일 | 코스피 5거래일 누적 + 미국 워치ETF 5거래일 등락 (금요일 휴장 시 직전 거래일로 자동 이월) |
 
-휴장일에는 `[KR] 오늘은 휴장입니다` / `[US] 오늘은 휴장입니다` 한 줄 알림만 발송한다. 거래일 판정은 `exchange_calendars`(XKRX, 한국)와 `pandas_market_calendars`(NYSE, 미국)를 사용한다. 자세한 명세는 [`.moai/specs/SPEC-MF-SCHED-001/`](../.moai/specs/SPEC-MF-SCHED-001/) 참조.
+휴장일에는 `[KR] 오늘은 휴장입니다` / `[US] 오늘은 휴장입니다` 한 줄 알림만 발송한다. 거래일 판정은 `calendar_utils.py`에서 `exchange_calendars`(XKRX, 한국)와 `pandas_market_calendars`(NYSE, 미국)를 사용한다.
 
 ## 폴더 구조
 
@@ -31,9 +32,9 @@ market_flow/
 └── weekly.py                     # 주간 entry — 마지막 거래일 게이트
 
 # 저장소 루트의 워크플로우/테스트
-.github/workflows/flow-kr.yml     # 평일 KST 18:10
-.github/workflows/flow-us.yml     # dual-cron EDT/EST + MARKET_SCHEDULE env
-.github/workflows/flow-weekly.yml # 월~금 KST 18:30, 마지막 KR 거래일 게이트
+.github/workflows/flow-kr.yml     # NAS dispatch 대상
+.github/workflows/flow-us.yml     # NAS dispatch 대상
+.github/workflows/flow-weekly.yml # NAS dispatch 대상, 마지막 KR 거래일 게이트
 tests/                            # market_flow 단위 테스트 (mock 기반)
 ```
 
@@ -62,9 +63,9 @@ repo Settings → Secrets and variables → Actions → New repository secret
 
 > chat_id 확인: `curl "https://api.telegram.org/bot<TOKEN>/getUpdates"` 후 채널에서 메시지 한 줄 보내고 응답의 `chat.id` 추출
 
-### 2. 워크플로우 자동 시작
+### 2. 워크플로우 실행
 
-repo에 push되면 `.github/workflows/`가 자동 활성화. cron 시각에 자동 실행.
+NAS 작업 스케줄러가 GitHub API/CLI로 각 workflow의 `workflow_dispatch`를 호출한다.
 
 수동 실행: GitHub repo → Actions 탭 → 원하는 workflow → "Run workflow"
 
@@ -112,8 +113,8 @@ WATCH = [
 ## 휴장일 & 서머타임 (SPEC-MF-SCHED-001)
 
 - **휴장일 인지**: 한국·미국 각 거래소의 비거래일에는 `[KR] 오늘은 휴장입니다` / `[US] 오늘은 휴장입니다` 한 줄 메시지만 발송한다. 데이터 수집(네이버/yfinance 호출)은 건너뛴다.
-- **DST 자동 반영**: `flow-us.yml`은 EDT용(`30 20 * * 1-5` UTC) + EST용(`30 21 * * 1-5` UTC) 두 cron을 모두 등록하고, GitHub Actions가 `MARKET_SCHEDULE` 환경변수(`edt` 또는 `est`)를 주입한다. `daily_us.py`는 현재 `America/New_York`의 DST 여부와 환경변수가 일치하는 한 cron만 통과시켜 이중 발송을 방지한다.
-- **주간 리포트 이월**: `flow-weekly.yml`은 월~금 매일 트리거되지만, `weekly.py`가 "오늘이 그 주의 마지막 한국 거래일"일 때만 발송한다. 금요일이 휴장이면 직전 거래일(보통 목요일)에 자동 이월.
+- **DST 판정**: `flow-us.yml`은 `workflow_dispatch`만 제공하고, 정시 호출은 NAS 작업 스케줄러가 담당한다. `daily_us.py`는 NYSE 캘린더로 휴장 여부를 판정하며, `MARKET_SCHEDULE=edt|est`가 주입된 경우 실제 DST 시즌과 대조해 불일치 실행을 스킵한다.
+- **주간 리포트 이월**: NAS가 `flow-weekly.yml`을 월~금에 호출하고, `weekly.py`가 "오늘이 그 주의 마지막 한국 거래일"일 때만 발송한다. 금요일이 휴장이면 직전 거래일(보통 목요일)에 자동 이월.
 - 거래일 판정 라이브러리: 한국은 `exchange_calendars`(XKRX), 미국은 `pandas_market_calendars`(NYSE).
 
 ## 트러블슈팅

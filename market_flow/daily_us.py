@@ -60,7 +60,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
     schedule = os.environ.get("MARKET_SCHEDULE", "").strip().lower()
     # @MX:WARN: [AUTO] 이중 발송 방지 게이트
-    # @MX:REASON: dual-cron 구조에서 두 잡 중 하나만 진행해야 함
+    # @MX:REASON: MARKET_SCHEDULE 이 주입되는 실행 환경에서 불일치 실행을 스킵
     if schedule in {"edt", "est"}:
         in_dst = is_us_in_dst(now)
         if (schedule == "edt" and not in_dst) or (schedule == "est" and in_dst):

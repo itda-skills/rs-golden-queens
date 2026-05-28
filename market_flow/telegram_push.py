@@ -1,6 +1,6 @@
 """골든퀸즈봇 텔레그램 발송
 
-환경변수 우선 (GitHub Actions / NAS 컨테이너 호환):
+환경변수 우선 (GitHub Actions / 로컬 실행 호환):
   1. os.environ — GitHub Actions Secrets / Container Manager 환경변수
   2. .env 파일 — 로컬 개발
 
