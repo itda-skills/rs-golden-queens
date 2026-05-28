@@ -272,6 +272,133 @@ class TestFormatKrDaily:
         assert "기관 세부" in out
         assert "금융투자" in out
 
+    # ── 섹터 ETF 18종 ──
+    def test_no_sector_section_when_missing(self):
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+        }
+        out = F.format_kr_daily(data)
+        assert "섹터 ETF" not in out
+
+    def test_sector_section_when_present(self):
+        sectors = [
+            {"code": "091160", "label": "반도체", "close": 35000.0,
+             "pct": 2.5, "vol_ratio": 1.6, "trade_value_eok": 500.0, "date": "20260525"},
+            {"code": "132030", "label": "금", "close": 13000.0,
+             "pct": -1.2, "vol_ratio": 0.9, "trade_value_eok": 200.0, "date": "20260525"},
+        ]
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "sectors": sectors,
+        }
+        out = F.format_kr_daily(data)
+        assert "💼" in out
+        assert "섹터 ETF (18종)" in out
+        assert "반도체" in out
+        assert "+2.50%" in out
+        assert "🔥" in out  # vol_ratio 1.6 → 🔥 표시
+        assert "-1.20%" in out
+
+    def test_sector_section_handles_none_vol_ratio(self):
+        sectors = [
+            {"code": "091160", "label": "반도체", "close": 35000.0,
+             "pct": 1.0, "vol_ratio": None, "trade_value_eok": None, "date": "20260525"},
+        ]
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "sectors": sectors,
+        }
+        # vol_ratio None 이어도 예외 없이 렌더되어야 함
+        out = F.format_kr_daily(data)
+        assert "섹터 ETF" in out
+
+    # ── 동적 수급 워치 ──
+    def test_no_money_flow_section_when_empty(self):
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": {"etfs": [], "stocks": []},
+        }
+        out = F.format_kr_daily(data)
+        assert "오늘의 수급 Top" not in out
+        assert "ETF Top" not in out
+        assert "개별주 Top" not in out
+
+    def test_money_flow_etf_only(self):
+        mf = {
+            "etfs": [
+                {"code": "396500", "name": "TIGER 반도체TOP10", "grade": "B",
+                 "foreign_eok": -19.0, "orgn_eok": 688.0, "both_buy": False},
+            ],
+            "stocks": [],
+        }
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": mf,
+        }
+        out = F.format_kr_daily(data)
+        assert "오늘의 수급 Top" in out
+        assert "ETF Top" in out
+        assert "개별주 Top" not in out
+        assert "396500" in out
+        assert "TIGER 반도체TOP10" in out
+
+    def test_money_flow_both_sections_and_fire_marker(self):
+        mf = {
+            "etfs": [
+                {"code": "462330", "name": "KODEX 2차전지", "grade": "B",
+                 "foreign_eok": 23.0, "orgn_eok": 334.0, "both_buy": True},
+            ],
+            "stocks": [
+                {"code": "417010", "name": "나노팀", "grade": "S",
+                 "foreign_eok": 54.0, "orgn_eok": 0.0, "both_buy": False},
+            ],
+        }
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": mf,
+        }
+        out = F.format_kr_daily(data)
+        assert "ETF Top" in out
+        assert "개별주 Top" in out
+        assert "🔥" in out  # both_buy True → 🔥
+        assert "나노팀" in out
+
+    def test_money_flow_handles_missing_keys(self):
+        # KIS 응답 일부 키 누락에도 예외 없이 렌더
+        mf = {
+            "etfs": [
+                {"code": "000000", "name": "X"},  # grade·foreign_eok·orgn_eok 없음
+            ],
+            "stocks": [],
+        }
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": mf,
+        }
+        out = F.format_kr_daily(data)
+        assert "ETF Top" in out
+
 
 # ──────────────────────────────────────────────
 #  format_us_daily

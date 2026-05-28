@@ -18,3 +18,7 @@ HANDOFF.md
 
 # 이미지 렌더 출력 (로컬 dry-run 미리보기)
 out/
+
+# KIS 토큰 캐시 (홈디렉토리에 저장되지만 만일을 위해 보호)
+kis/.token_cache.json
+**/.token_cache.json

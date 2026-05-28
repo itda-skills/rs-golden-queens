@@ -23,7 +23,9 @@ jobs:
         env:
           TEST_GOLDENQUEENS_BOT_TOKEN: ${{ secrets.TEST_GOLDENQUEENS_BOT_TOKEN }}
           TEST_GOLDENQUEENS_CHAT_ID:   ${{ secrets.TEST_GOLDENQUEENS_CHAT_ID }}
-          TEST_GOLENDENQUEENS_CHAT_ID: ${{ secrets.TEST_GOLENDENQUEENS_CHAT_ID }}
+          KIS_APP_KEY:                 ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:              ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCOUNT:                 ${{ secrets.KIS_ACCOUNT }}
           MARKET_FLOW_RENDER: text
           TZ: Asia/Seoul
         run: python main.py daily-kr --test

@@ -45,6 +45,42 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     data = fetch_today(bizdate)
     print(f"📊 데이터 수집 완료 — keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
 
+    # KIS 기반 섹터 ETF 18종 + 동적 수급 워치 (실패해도 기존 메시지는 정상 발송).
+    # KIS fetcher 는 datetime.now() 기준으로만 동작하므로, 과거일 재발송 시에는
+    # 제목과 데이터 일자가 어긋나는 것을 막기 위해 KIS 섹션을 통째로 스킵한다.
+    data["sectors"] = None
+    data["money_flow"] = None
+    today_kst = now.astimezone(_KST).strftime("%Y%m%d")
+    if bizdate != today_kst:
+        print(
+            f"⏭️  KIS 섹션 스킵 — bizdate={bizdate} != today={today_kst} "
+            f"(과거일 재발송 모드: KIS 는 datetime.now() 기준이라 데이터 일자 불일치 위험)"
+        )
+    else:
+        try:
+            from kis import KISClient
+
+            from market_flow.fetchers.kr_etfs import fetch_kr_sectors
+            from market_flow.fetchers.kr_money_flow import fetch_money_flow_watch
+
+            print("📥 KIS 섹터 ETF 18종 수집 시작")
+            client = KISClient(svr="prod")
+            sectors = fetch_kr_sectors(client)
+            print(f"📊 섹터 ETF 수집 완료 — {len(sectors)}/18종")
+
+            print("📥 KIS 동적 수급 워치 스크리닝 시작 (top=40)")
+            money_flow = fetch_money_flow_watch(
+                client, window=1, top=40, etf_show=5, stock_show=5
+            )
+            n_etf = len(money_flow.get("etfs", []))
+            n_stock = len(money_flow.get("stocks", []))
+            print(f"📊 동적 워치 완료 — ETF {n_etf}종 + 개별주 {n_stock}종")
+
+            data["sectors"] = sectors
+            data["money_flow"] = money_flow
+        except Exception as e:
+            print(f"⚠️  섹터/수급 fetch 실패 (메시지에서 제외): {e}", file=sys.stderr)
+
     sources = (
         "\n\n출처: "
         f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"

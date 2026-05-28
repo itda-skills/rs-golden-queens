@@ -18,6 +18,7 @@ from datetime import datetime
 
 # 자주 쓰는 이모지 폭 매핑 (unicodedata만으로는 'N' 분류되어 폭 1로 잘못 잡힘)
 _WIDE_EMOJI = set("🔴🔵⚪🔥🇰🇷🇺🇸📊📈📉📅⭐💵💹💼🌡️🔁")
+# 카드 컬럼 정렬용 ASCII 별표(⭐ 대비 폭 1)는 그대로 1칸 처리
 
 
 def _vw(s):
@@ -263,7 +264,59 @@ def format_kr_daily(data):
         ]
         L.append(_card(rows, ALIGNS))
 
+    # 섹터 ETF (18종)
+    sectors = data.get("sectors") or []
+    if sectors:
+        L.append("")
+        L.append("💼 *섹터 ETF (18종)* _(등락 기준 정렬)_")
+        rows = []
+        for s in sectors:
+            vr = s.get("vol_ratio")
+            vr_str = f"×{vr:.2f}" if vr else "-"
+            hot = "🔥" if vr and vr >= 1.5 else ""
+            rows.append([s["label"], signed_pct(s["pct"]), f"{vr_str}{hot}", emoji(s["pct"])])
+        L.append(_card(rows, ["l", "r", "l", "l"]))
+
+    # 동적 수급 워치 (오늘의 수급 Top)
+    money_flow = data.get("money_flow") or {}
+    etfs = money_flow.get("etfs") or []
+    stocks = money_flow.get("stocks") or []
+    if etfs or stocks:
+        L.append("")
+        L.append("🔥 *오늘의 수급 Top (자동 스크리닝)*")
+        L.append("_거래대금 상위 + 외인·기관 합산 (당일 / 단위: 억원)_")
+
+    if etfs:
+        L.append("")
+        L.append("⭐ *ETF Top*")
+        L.append(_card(_money_flow_rows(etfs), ["l", "l", "l", "r", "r", "l"]))
+
+    if stocks:
+        L.append("")
+        L.append("📈 *개별주 Top*")
+        L.append(_card(_money_flow_rows(stocks), ["l", "l", "l", "r", "r", "l"]))
+
     return "\n".join(L)
+
+
+def _money_flow_rows(items):
+    """동적 워치 행: [코드, 종목명(14자), 등급, 외인(억), 기관(억), 🔥]."""
+    rows = []
+    for r in items:
+        name = (r.get("name") or "")[:14]
+        grade = r.get("grade") or "-"
+        f_eok = r.get("foreign_eok") or 0
+        o_eok = r.get("orgn_eok") or 0
+        both = "🔥" if r.get("both_buy") else ""
+        rows.append([
+            r.get("code", "-"),
+            name,
+            grade,
+            f"외{f_eok:+.0f}",
+            f"기{o_eok:+.0f}",
+            both,
+        ])
+    return rows
 
 
 # ───────────────────────────────────────────────
