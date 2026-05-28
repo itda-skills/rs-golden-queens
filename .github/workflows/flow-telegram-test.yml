@@ -23,7 +23,6 @@ jobs:
         env:
           TEST_GOLDENQUEENS_BOT_TOKEN: ${{ secrets.TEST_GOLDENQUEENS_BOT_TOKEN }}
           TEST_GOLDENQUEENS_CHAT_ID:   ${{ secrets.TEST_GOLDENQUEENS_CHAT_ID }}
-          TEST_GOLENDENQUEENS_CHAT_ID: ${{ secrets.TEST_GOLENDENQUEENS_CHAT_ID }}
           MARKET_FLOW_RENDER: text
           TZ: Asia/Seoul
         run: python main.py notify-test --test

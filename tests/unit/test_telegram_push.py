@@ -266,19 +266,6 @@ class TestSendWithTestSecrets:
         assert "TEST_TOKEN" not in out
         assert "test-chat" not in out
 
-    def test_test_chat_id_alias_typo_supported(self, monkeypatch):
-        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
-        monkeypatch.setenv("TEST_GOLENDENQUEENS_CHAT_ID", "alias-chat")
-
-        assert tp._chat_ids() == ["alias-chat"]
-
-    def test_test_chat_id_canonical_wins_over_alias(self, monkeypatch):
-        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
-        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "canonical")
-        monkeypatch.setenv("TEST_GOLENDENQUEENS_CHAT_ID", "alias")
-
-        assert tp._chat_ids() == ["canonical"]
-
     def test_raises_when_test_token_missing(self, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
         monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")

@@ -55,8 +55,7 @@ def _env_names_for(base_key):
     if base_key == "GOLDENQUEENS_BOT_TOKEN":
         return ("TEST_GOLDENQUEENS_BOT_TOKEN",)
     if base_key == "GOLDENQUEENS_CHAT_ID":
-        # TEST_GOLENDENQUEENS_CHAT_ID 는 과거 오타 호환용 alias.
-        return ("TEST_GOLDENQUEENS_CHAT_ID", "TEST_GOLENDENQUEENS_CHAT_ID")
+        return ("TEST_GOLDENQUEENS_CHAT_ID",)
     return (f"TEST_{base_key}",)
 
 
