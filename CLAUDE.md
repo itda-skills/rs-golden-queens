@@ -1,68 +1,55 @@
-# rs-golden-queens — 작업 규약
+# rs-golden-queens 지침
 
-한국장·미국장 마감 후 텔레그램 채널로 매매동향 요약을 자동 푸시하는 개인 투자 데이터 봇.
-NAS 작업 스케줄러가 GitHub Actions의 `flow-*` 워크플로우를 `workflow_dispatch`로 호출한다.
-운영 수집 데이터는 영구 저장하지 않고 즉시 발송한다.
+이 저장소에서 항상 필요한 최소 지침이다. 작업 절차는 사용자의 현재 요청과 필요 시 붙여넣는 작업별 지시가 우선한다.
 
-## 언어·톤
+rs-golden-queens는 한국장·미국장 마감 후 시장 매매동향 요약을 텔레그램으로 보내는 개인 투자 데이터 봇이다. NAS 작업 스케줄러가 GitHub Actions `flow-*` 워크플로우를 `workflow_dispatch`로 호출한다.
 
-- 사용자 응답은 한국어. 코드/식별자/파일명은 영어.
-- 커밋 메시지·코드 주석·문서는 한국어 허용.
+## 기본
 
-## 프로젝트 레이아웃
+- 사용자 응답은 한국어 우선. 코드 식별자, 파일명, 공개 API 이름은 기존 영어 규칙을 유지한다.
+- 작업 전 현재 작업트리 상태를 확인하고, 사용자 변경을 되돌리지 않는다.
+- 큰 기능, 공개 계약 변경, 불명확한 설계는 목표·비목표·인수 조건부터 정리한다.
+- 커밋, 브랜치 생성, 푸시, PR 생성은 사용자가 요청할 때만 한다.
 
-```
-market_flow/           # 메인 패키지 (KR/US 매매동향, 주간 리포트)
-  daily_kr.py          # 한국장 매매동향 진입점
-  daily_us.py          # 미국장 마감 요약 진입점
-  weekly.py            # 주간 리포트 진입점
-  calendar_utils.py    # DST·거래일·마지막 거래일 판정
-  formatter.py         # 색 컨벤션 (🔴▲ 상승 / 🔵▼ 하락)
-  telegram_push.py     # Telegram sendMessage/sendPhoto + DRY_RUN 분기
-  fetchers/, render/   # 데이터 수집·렌더링
-naver_investor_flow/   # 네이버 투자자 동향 (보조 데이터 소스)
-tests/                 # pytest (unit/integration/live)
-main.py                # 로컬·GitHub Actions CLI 진입점
-.github/workflows/     # GitHub Actions (flow-* dispatch 대상, test CI)
-```
+## 탐색 지도
 
-진입점 세부는 `README.md`, `market_flow/README.md` 참조. 정시 호출 스케줄은 repo 밖의 NAS 작업 스케줄러에서 관리한다.
+필요한 만큼만 읽는다.
 
-## 도메인 규약
+1. 사용자 요청과 `git status --short`.
+2. `README.md`, `market_flow/README.md`, `Makefile`.
+3. 실행 흐름: `main.py`, `market_flow/daily_kr.py`, `market_flow/daily_us.py`, `market_flow/weekly.py`.
+4. 공통 규칙: `market_flow/calendar_utils.py`, `market_flow/formatter.py`, `market_flow/telegram_push.py`.
+5. 데이터·렌더링: `market_flow/fetchers/`, `market_flow/render/`, `.github/workflows/`.
+6. 관련 테스트: `tests/`의 unit/integration/live 구분을 확인한다.
 
-- **사실 데이터만** — 투자 권유·종목 추천·매수/매도 시점 판단을 출력하지 않는다.
-- **저장 금지** — 운영 수집 데이터는 디스크에 영구 저장하지 않고 텔레그램으로만 전송. 명시적인 DRY_RUN/debug 산출물만 예외.
-- **휴장 처리** — KR/US 비거래일에는 "[KR/US] 오늘은 휴장입니다" 한 줄 발송. 캘린더 판단은 `calendar_utils.py` 경유.
-- **DST 자동 반영** — 미국장 날짜·휴장·DST 판단은 `calendar_utils.py`/`daily_us.py` 경유. 계절별 시각·게이트 하드코딩 금지.
-- **발송 단일 경로** — Telegram 전송은 반드시 `telegram_push.py` 를 통한다. `MARKET_FLOW_DRY_RUN=1` 은 실제 발송하지 않으며, 텍스트는 stdout 출력·이미지는 `out/` 프리뷰 저장으로 처리한다.
+대용량 로그, 캐시, 로컬 출력물은 현재 작업에 직접 필요할 때만 본다.
 
-## 개발 워크플로우
+## 도메인 불변성
 
-- 의존성: `make install` (가능하면 `.venv` 안에서)
-- 로컬 검증: `make daily-kr DRY=1`, `make daily-us DRY=1 DATE=2026-05-22`, `make weekly DRY=1`
-- 텔레그램 핑 점검: `make notify-test DRY=1`, 테스트 채널 실제 발송은 `make notify-test TEST=1`
-- 데이터 소스 단독 점검: `make smoke-kr`, `make smoke-us`
-- 테스트: `pytest` (unit/integration/live 분리; live는 외부 API 호출)
-- 린트: `ruff check .`, 포맷은 `ruff format` 또는 기존 스타일을 따른다.
+- 사실 데이터만 출력한다. 투자 권유, 종목 추천, 매수·매도 시점 판단을 추가하지 않는다.
+- 운영 수집 데이터는 디스크에 영구 저장하지 않는다. 명시적 dry-run/debug 출력과 `out/` 프리뷰만 예외다.
+- KR/US 비거래일에는 해당 fetcher를 호출하지 않고 `[KR] ... 오늘은 휴장입니다` 또는 `[US] ... 오늘은 휴장입니다` 한 줄만 보낸다.
+- 거래일, 휴장, 미국 DST 판단은 `calendar_utils.py`와 `daily_us.py` 경로를 사용한다. 계절별 시각이나 게이트를 하드코딩하지 않는다.
+- 시장 날짜·시간 계산에는 시장별 timezone-aware `datetime`을 사용한다. naive datetime을 새로 늘리지 않는다.
+- Telegram 전송은 `market_flow/telegram_push.py`를 통한다. `MARKET_FLOW_DRY_RUN=1`에서는 실제 발송하지 않는다.
+- yfinance, 네이버, 텔레그램 같은 외부 호출은 fetcher/publisher 레이어에 둔다.
+- 실패 시 침묵 종료하지 않는다. 시작/종료 마커와 에러가 stdout/stderr에 남아야 한다.
+- `GOLDENQUEENS_*`, `TEST_GOLDENQUEENS_*`, `.env` 값은 출력하거나 커밋하지 않는다.
 
-## 작업 안전 규칙
+## 검증 지도
 
-1. **계획 우선** — 3개 이상 파일을 수정해야 하는 작업은 변경 범위와 순서를 먼저 공유하고 동의를 받은 뒤 진행한다.
-2. **버그 수정 전 재현** — 가능한 한 실패하는 테스트를 먼저 추가하고 수정한다 (특히 캘린더·DST·휴장 로직).
-3. **시간 처리** — 날짜/시간 계산은 `calendar_utils.py` 의 함수를 우선 사용. tzinfo 없는 naive datetime 사용 지양.
-4. **외부 호출 격리** — yfinance·네이버·텔레그램 API 호출은 fetcher·publisher 레이어 안에 둔다. 비즈니스 로직과 섞지 않는다.
-5. **비밀키 금지** — `GOLDENQUEENS_*`, `TEST_GOLDENQUEENS_*`, `.env` 내용을 커밋·로그·메시지에 노출하지 않는다.
-6. **파괴적 명령 사전 확인** — `git push --force`, `git reset --hard`, `rm -rf`, 컨테이너/볼륨 삭제는 실행 전에 한 번 더 확인한다.
-7. **요청 범위 준수** — 요청 범위 밖의 리팩토링·정리는 별도 제안으로 분리한다.
+- 설치: `make install`
+- 전체 테스트: `pytest`
+- 관련 단위 테스트: `pytest tests/test_calendar_utils.py tests/test_daily_us.py`
+- dry-run: `make daily-kr DRY=1`, `make daily-us DRY=1 DATE=2026-05-22`, `make weekly DRY=1`
+- 알림 점검: `make notify-test DRY=1`, 실제 테스트 채널은 `make notify-test TEST=1`
+- 데이터 소스 스모크: `make smoke-kr`, `make smoke-us`
+- 린트/포맷: `ruff check .`, `ruff format`
 
-## 통신·운영
+외부 네트워크나 실 텔레그램 발송이 필요한 검증은 실행 여부와 남은 공백을 분리해 보고한다.
 
-- 발송 대상은 기본 `GOLDENQUEENS_CHAT_ID`, `--test` 실행 시 `TEST_GOLDENQUEENS_CHAT_ID` (다중 chat_id 쉼표 구분 지원, `,` 로 split). 채널은 `-100` 으로 시작.
-- 실패 시 침묵 종료 금지 — 시작/종료 마커와 에러를 stdout/stderr 로 노출한다 (기존 관측성 커밋 방향 유지).
-- GitHub Actions cron 은 제거됨. NAS 작업 스케줄러가 GitHub API/CLI로 `flow-*` 워크플로우의 `workflow_dispatch`를 호출한다.
+## 금지선
 
-## 도구 사용 (Claude Code 기준)
-
-- 파일 탐색: `Glob` → `Grep` → `Read` 순서. `find`/`grep` 셸 호출 지양.
-- 파일 편집은 `Edit` 우선, 신규 파일만 `Write`.
-- 큰 PDF/로그는 페이지·라인 범위 지정해서 읽는다.
+- 비밀키, 토큰, `.env` 내용, 사용자 홈 설정을 커밋하거나 로그에 노출하지 않는다.
+- `git reset --hard`, 강제 푸시, 루트 대상 `rm -rf`, 컨테이너/볼륨 삭제는 사용자가 명시적으로 요청하고 재확인한 경우에만 한다.
+- 요청 범위 밖의 리팩토링과 정리는 별도 제안으로 분리한다.

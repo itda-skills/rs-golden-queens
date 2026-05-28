@@ -30,7 +30,6 @@ def _now_in(tz: ZoneInfo) -> datetime:
     return datetime.now(tz)
 
 
-# @MX:NOTE: [AUTO] DST 시즌 판정 (America/New_York 기준)
 def is_us_in_dst(now: Optional[datetime] = None) -> bool:
     """현재 미국 동부 시각이 DST(EDT) 시즌인지 판정.
 
@@ -50,8 +49,6 @@ def is_us_in_dst(now: Optional[datetime] = None) -> bool:
     return now.dst() != timedelta(0)
 
 
-# @MX:ANCHOR: [AUTO] 미국 거래일 판정 진입점
-# @MX:REASON: fan_in >= 3 (daily_us, calendar_utils 내부 다른 함수에서 호출 가능)
 def is_us_trading_day(now: Optional[datetime] = None) -> bool:
     """NYSE 거래일 여부 판정 (반장일도 거래일로 간주).
 
@@ -75,8 +72,6 @@ def _is_nyse_session(d: date) -> bool:
     return not schedule.empty
 
 
-# @MX:ANCHOR: [AUTO] 한국 거래일 판정 진입점
-# @MX:REASON: fan_in >= 3 (daily_kr, weekly, calendar_utils 내부 호출)
 def is_kr_trading_day(now: Optional[datetime] = None) -> bool:
     """XKRX 거래일 여부 판정.
 
@@ -125,8 +120,6 @@ def format_holiday_message(market: str, now: Optional[datetime] = None) -> str:
     return f"[{market}] {today.isoformat()} ({weekday}) 오늘은 휴장입니다"
 
 
-# @MX:ANCHOR: [AUTO] 주간 리포트 발송 게이트
-# @MX:REASON: fan_in >= 1 (weekly), 마지막 거래일 이월 발송 핵심 분기
 def is_last_kr_trading_day_of_week(now: Optional[datetime] = None) -> bool:
     """오늘이 이번 주 (월~금)의 마지막 한국 거래일인지 판정.
 
