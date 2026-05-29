@@ -151,6 +151,9 @@ def is_last_kr_trading_day_of_week(now: Optional[datetime] = None) -> bool:
 
     for offset in range(1, 5 - weekday):  # 다음날 ~ 금요일
         candidate = today + timedelta(days=offset)
+        if _is_xkrx_session(candidate):
+            return False
+    return True
 
 
 def kr_trading_days(start: date, end: date) -> list[str]:
@@ -160,7 +163,9 @@ def kr_trading_days(start: date, end: date) -> list[str]:
     재구현하지 않도록 단일 출처를 제공한다 (SPEC-MF-SCHED-001 일관성).
     """
     sessions = _XKRX.sessions_in_range(start.isoformat(), end.isoformat())
-    return [s.date().isoformat() if hasattr(s, "date") else str(s)[:10] for s in sessions]
+    return [
+        s.date().isoformat() if hasattr(s, "date") else str(s)[:10] for s in sessions
+    ]
 
 
 def us_trading_days(start: date, end: date) -> list[str]:
