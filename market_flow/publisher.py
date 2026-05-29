@@ -161,13 +161,57 @@ def build_weekly_snapshot(
     return snap
 
 
+def build_calendar_snapshot(
+    now: datetime,
+    months_back: int = 6,
+    months_fwd: int = 1,
+) -> dict[str, Any]:
+    """거래일/휴장 캘린더 스냅샷.
+
+    거래일 판정은 calendar_utils(XKRX/NYSE)에 위임한다 — 웹은 이 결과만 표시하고
+    휴장 로직을 재구현하지 않는다(불변성).
+
+    범위: now(KST) 기준 [months_back 개월 전 1일, months_fwd 개월 후 말일].
+    """
+    import calendar as _cal
+    import datetime as _dt
+
+    from market_flow import calendar_utils as cu
+
+    kst_now = now.astimezone(_KST)
+    y, m = kst_now.year, kst_now.month
+    # 시작: months_back 개월 전 1일
+    sy, sm = y, m - months_back
+    while sm <= 0:
+        sm += 12
+        sy -= 1
+    start = _dt.date(sy, sm, 1)
+    # 끝: months_fwd 개월 후 말일
+    ey, em = y, m + months_fwd
+    while em > 12:
+        em -= 12
+        ey += 1
+    end = _dt.date(ey, em, _cal.monthrange(ey, em)[1])
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": now.isoformat(timespec="seconds"),
+        "range": {"start": start.isoformat(), "end": end.isoformat()},
+        "kr": cu.kr_trading_days(start, end),
+        "us": cu.us_trading_days(start, end),
+    }
+
+
 def snapshot_path(snapshot: dict[str, Any]) -> str:
     """스냅샷이 발행될 저장소 내 상대 경로를 돌려준다.
 
     kr/us → snapshots/<market>/<date>.json
     weekly → snapshots/weekly/<week>.json
+    calendar → snapshots/calendar.json
     """
-    market = snapshot["market"]
+    market = snapshot.get("market")
+    if market is None and "range" in snapshot:
+        return "snapshots/calendar.json"
     if market == "weekly":
         return f"snapshots/weekly/{snapshot['week']}.json"
     return f"snapshots/{market}/{snapshot['date']}.json"

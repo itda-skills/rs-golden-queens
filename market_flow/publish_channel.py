@@ -100,8 +100,11 @@ def _trigger_revalidate(snapshot: dict[str, Any]) -> None:
     if not url or not secret:
         return
 
-    market = snapshot["market"]
-    entry = snapshot["week"] if market == "weekly" else snapshot["date"]
+    market = snapshot.get("market") or "calendar"
+    if market == "calendar":
+        entry = "calendar"
+    else:
+        entry = snapshot["week"] if market == "weekly" else snapshot["date"]
     payload = _json.dumps({"secret": secret, "market": market, "id": entry}).encode()
     req = urllib.request.Request(
         url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
@@ -126,13 +129,20 @@ def _data_branch() -> str:
 # ──────────────────────────────────────────────
 
 
+def _is_calendar(snapshot: dict[str, Any]) -> bool:
+    """캘린더 스냅샷 여부 (market 키 없이 range 보유)."""
+    return snapshot.get("market") is None and "range" in snapshot
+
+
 def _market_key(snapshot: dict[str, Any]) -> str:
     """index/latest 에서 쓰는 시장 키."""
     return snapshot["market"]
 
 
 def _entry_id(snapshot: dict[str, Any]) -> str:
-    """index 목록에 들어갈 식별자 (kr/us=date, weekly=week)."""
+    """index 목록에 들어갈 식별자 (kr/us=date, weekly=week, calendar=calendar)."""
+    if _is_calendar(snapshot):
+        return "calendar"
     return snapshot["week"] if snapshot["market"] == "weekly" else snapshot["date"]
 
 
@@ -143,6 +153,9 @@ def update_index(
     out = dict(index)
     out.setdefault("schema_version", P.SCHEMA_VERSION)
     out["updated_at"] = now.isoformat(timespec="seconds")
+    if _is_calendar(snapshot):
+        # 캘린더는 시장별 목록을 갖지 않는다 — updated_at 만 갱신.
+        return out
     key = _market_key(snapshot)
     ids = set(out.get(key) or [])
     ids.add(_entry_id(snapshot))
@@ -157,6 +170,9 @@ def update_latest(
     out = dict(latest)
     out.setdefault("schema_version", P.SCHEMA_VERSION)
     out["updated_at"] = now.isoformat(timespec="seconds")
+    if _is_calendar(snapshot):
+        out["calendar"] = {"path": P.snapshot_path(snapshot)}
+        return out
     key = _market_key(snapshot)
     entry = {"path": P.snapshot_path(snapshot)}
     if snapshot["market"] == "weekly":
@@ -198,9 +214,10 @@ class GitPublisher:
             now = datetime.now(_KST)
         rel_path = P.snapshot_path(snapshot)
         entry = _entry_id(snapshot)
+        label = f"{snapshot.get('market', 'calendar')} {entry}"
 
         if _is_dry_run():
-            _log(f"[DRY-RUN] {snapshot['market']} {entry} → {rel_path} (push 안 함)")
+            _log(f"[DRY-RUN] {label} → {rel_path} (push 안 함)")
             _log(f"[DRY-RUN] 미리보기 {len(P.to_json(snapshot))} chars")
             return True
 
@@ -239,9 +256,9 @@ class GitPublisher:
                 self._git(repo_dir, "add", "-A")
                 status = self._git(repo_dir, "status", "--porcelain").stdout.strip()
                 if not status:
-                    _log(f"변경 없음 — {snapshot['market']} {entry} 이미 최신")
+                    _log(f"변경 없음 — {label} 이미 최신")
                     return True
-                msg = f"publish: {snapshot['market']} {entry}"
+                msg = f"publish: {label}"
                 self._git(
                     repo_dir,
                     "-c",

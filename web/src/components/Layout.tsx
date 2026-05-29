@@ -18,6 +18,12 @@ export function SiteHeader() {
           >
             아카이브
           </Link>
+          <Link
+            href="/calendar"
+            className="hover:text-neutral-900 dark:hover:text-white"
+          >
+            캘린더
+          </Link>
         </nav>
       </div>
     </header>

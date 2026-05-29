@@ -11,6 +11,7 @@
 향후 다른 패키지(xxx_flow)가 추가되면 본 파일에 subcommand 만 등록한다.
 각 subcommand 의 실제 로직은 해당 패키지의 ``main(argv)`` 함수에 위임한다.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,9 @@ def _cmd_notify_test(args: argparse.Namespace) -> None:
 
     from market_flow.telegram_push import send
 
-    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).isoformat(timespec="seconds")
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).isoformat(
+        timespec="seconds"
+    )
     mode = "test" if os.environ.get(_TEST_SEND_ENV) else "prod"
     resp = send(f"[rs-golden-queens] notify-test ({mode}) ping at {now} (KST)")
     print("OK" if resp.get("ok") else resp)
@@ -78,6 +81,26 @@ def _cmd_smoke_us(args: argparse.Namespace) -> None:
     data = fetch_us_close()
     keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
     print("us_market OK:", keys)
+
+
+def _cmd_publish_calendar(args: argparse.Namespace) -> None:
+    """거래일/휴장 캘린더 스냅샷 발행 (텔레그램 발송 없음).
+
+    MARKET_FLOW_PUBLISH 가 활성일 때만 실제 발행한다.
+    """
+    import datetime as _dt
+    from zoneinfo import ZoneInfo
+
+    from market_flow.publish_channel import maybe_publish
+    from market_flow.publisher import build_calendar_snapshot
+
+    now = _dt.datetime.now(ZoneInfo("Asia/Seoul"))
+    snap = build_calendar_snapshot(now)
+    print(
+        f"📅 캘린더 스냅샷 — range={snap['range']['start']}~{snap['range']['end']} "
+        f"KR={len(snap['kr'])} US={len(snap['us'])}"
+    )
+    maybe_publish(snap, now)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,6 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_sus = sub.add_parser("smoke-us", help="yfinance fetch 단독 점검")
     p_sus.set_defaults(func=_cmd_smoke_us)
 
+    p_cal = sub.add_parser("publish-calendar", help="거래일/휴장 캘린더 스냅샷 발행")
+    p_cal.set_defaults(func=_cmd_publish_calendar)
+
     return parser
 
 
@@ -135,7 +161,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     use_test_env = bool(getattr(args, "use_test_env", False))
 
     mode = "test" if use_test_env else "prod"
-    print(f"━━━ [START] command={cmd} mode={mode} at={started_iso} (KST) ━━━", flush=True)
+    print(
+        f"━━━ [START] command={cmd} mode={mode} at={started_iso} (KST) ━━━", flush=True
+    )
 
     had_previous_test_env = _TEST_SEND_ENV in os.environ
     previous_test_env = os.environ.get(_TEST_SEND_ENV)

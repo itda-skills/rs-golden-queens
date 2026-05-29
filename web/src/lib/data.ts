@@ -3,6 +3,7 @@
 // 채널 추상화: 현재는 GitHub raw content. 후속에 Blob/Supabase로 교체 시 이 파일만 수정.
 
 import type {
+  CalendarSnapshot,
   IndexFile,
   KrSnapshot,
   LatestFile,
@@ -52,6 +53,10 @@ export function getWeeklySnapshot(week: string): Promise<WeeklySnapshot | null> 
 
 export function getSnapshotByPath(path: string): Promise<Snapshot | null> {
   return fetchJson<Snapshot>(path);
+}
+
+export function getCalendar(): Promise<CalendarSnapshot | null> {
+  return fetchJson<CalendarSnapshot>("snapshots/calendar.json");
 }
 
 export { REVALIDATE_SECONDS };

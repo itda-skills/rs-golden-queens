@@ -100,6 +100,15 @@ export interface WeeklySnapshot extends SnapshotBase {
 
 export type Snapshot = KrSnapshot | UsSnapshot | WeeklySnapshot;
 
+// ── calendar ──
+export interface CalendarSnapshot {
+  schema_version: number;
+  generated_at: string;
+  range: { start: string; end: string };
+  kr: string[]; // 거래일 ISO 날짜
+  us: string[];
+}
+
 // ── index / latest ──
 export interface IndexFile {
   schema_version: number;
