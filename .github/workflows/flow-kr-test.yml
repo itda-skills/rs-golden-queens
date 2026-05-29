@@ -10,9 +10,9 @@ jobs:
     env:
       DATA_REPO_DEPLOY_KEY: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -24,7 +24,7 @@ jobs:
       # 테스트 발행은 데이터 저장소의 test 브랜치로 (운영 main 데이터 보호)
       - name: Setup data-repo deploy key
         if: ${{ env.DATA_REPO_DEPLOY_KEY != '' }}
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
 
