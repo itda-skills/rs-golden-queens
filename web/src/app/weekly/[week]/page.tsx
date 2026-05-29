@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card, Container, SourceList } from "@/components/Layout";
 import { KospiDailyTable } from "@/components/Tables";
+import { KospiTrendCharts, Watch5dChart } from "@/components/TrendCharts";
 import { arrow, colorClass, signedPct } from "@/lib/format";
 import { getIndex, getWeeklySnapshot } from "@/lib/data";
 
@@ -39,10 +40,17 @@ export default async function WeeklyDetail({
       </p>
 
       <Card title="코스피 일별 추이" subtitle="이번 주 거래일 (억원)">
+        <KospiTrendCharts rows={snap.payload.kospi_daily} />
+      </Card>
+
+      <Card title="일별 상세" subtitle="외국인 / 기관 / 개인 (억원)">
         <KospiDailyTable rows={snap.payload.kospi_daily} />
       </Card>
 
       <Card title="워치 ETF 5거래일 누적 등락">
+        <div className="mb-4">
+          <Watch5dChart items={snap.payload.watch_5d} />
+        </div>
         <table className="w-full text-sm tabular-nums">
           <tbody>
             {watch.map((w) => (

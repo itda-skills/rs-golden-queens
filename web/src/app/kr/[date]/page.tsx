@@ -10,6 +10,7 @@ import {
   KospiDailyTable,
   ProgramTable,
 } from "@/components/Tables";
+import { KospiTrendCharts } from "@/components/TrendCharts";
 import { getIndex, getKrSnapshot } from "@/lib/data";
 import { longDate } from "@/lib/format";
 
@@ -60,6 +61,9 @@ export default async function KrDetail({
               <ProgramTable flow={snap.payload.kospi} />
             </Card>
             <Card title="코스피 일별 추이" subtitle="최근 거래일 (억원)">
+              <KospiTrendCharts rows={snap.payload.kospi_daily} />
+            </Card>
+            <Card title="일별 상세" subtitle="외국인 / 기관 / 개인 (억원)">
               <KospiDailyTable rows={snap.payload.kospi_daily} />
             </Card>
             <SourceList sources={snap.sources} />

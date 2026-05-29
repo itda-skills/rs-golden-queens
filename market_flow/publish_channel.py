@@ -84,6 +84,35 @@ def maybe_publish(snapshot: dict[str, Any], now: Optional[datetime] = None) -> b
         return False
 
 
+def _trigger_revalidate(snapshot: dict[str, Any]) -> None:
+    """발행 직후 웹 on-demand revalidate 호출 (선택적, 실패 무시).
+
+    환경변수가 모두 설정된 경우에만 동작한다:
+      MARKET_FLOW_REVALIDATE_URL    예) https://rs-golden-queens.vercel.app/api/revalidate
+      MARKET_FLOW_REVALIDATE_SECRET 웹의 REVALIDATE_SECRET 과 동일
+    """
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    url = os.environ.get("MARKET_FLOW_REVALIDATE_URL", "").strip()
+    secret = os.environ.get("MARKET_FLOW_REVALIDATE_SECRET", "").strip()
+    if not url or not secret:
+        return
+
+    market = snapshot["market"]
+    entry = snapshot["week"] if market == "weekly" else snapshot["date"]
+    payload = _json.dumps({"secret": secret, "market": market, "id": entry}).encode()
+    req = urllib.request.Request(
+        url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            _log(f"revalidate 호출 — {market} {entry} (HTTP {resp.status})")
+    except (urllib.error.URLError, OSError) as e:  # noqa: BLE001 — 발행 성공에 영향 없음
+        _warn(f"revalidate 실패 (무시): {type(e).__name__}: {e}")
+
+
 def _data_repo() -> str:
     return os.environ.get("GOLDENQUEENS_DATA_REPO", "").strip() or _DEFAULT_REPO
 
@@ -225,6 +254,7 @@ class GitPublisher:
                 )
                 self._git(repo_dir, "push", "origin", self.branch)
                 _log(f"발행 완료 — {rel_path} (+index/latest)")
+                _trigger_revalidate(snapshot)
                 return True
         except subprocess.CalledProcessError as e:
             # git stderr 에 토큰/키가 섞이지 않도록 메시지만 축약 출력

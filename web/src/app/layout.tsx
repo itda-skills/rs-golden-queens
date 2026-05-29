@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SiteFooter, SiteHeader } from "@/components/Layout";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://rs-golden-queens.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Golden Queens — 시장 매매동향 아카이브",
     template: "%s · Golden Queens",
