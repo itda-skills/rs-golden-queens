@@ -7,6 +7,8 @@ jobs:
   push:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      DATA_REPO_DEPLOY_KEY: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +23,7 @@ jobs:
 
       # 테스트 발행은 데이터 저장소의 test 브랜치로 (운영 main 데이터 보호)
       - name: Setup data-repo deploy key
-        if: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' }}
+        if: ${{ env.DATA_REPO_DEPLOY_KEY != '' }}
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
@@ -34,7 +36,7 @@ jobs:
           KIS_APP_SECRET:              ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCOUNT:                 ${{ secrets.KIS_ACCOUNT }}
           MARKET_FLOW_RENDER: text
-          MARKET_FLOW_PUBLISH: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
+          MARKET_FLOW_PUBLISH: ${{ env.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
           GOLDENQUEENS_DATA_BRANCH: test
           TZ: Asia/Seoul
         run: python main.py daily-kr --test
