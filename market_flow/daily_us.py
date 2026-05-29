@@ -9,6 +9,7 @@ SPEC-MF-SCHED-001:
   - 미국 휴장일: `[US] YYYY-MM-DD (요일) 오늘은 휴장입니다` 한 줄 발송
     (날짜는 ET 로컬 기준, REQ-MF-HOL-004)
 """
+
 from __future__ import annotations
 
 import os
@@ -24,6 +25,8 @@ from market_flow.calendar_utils import (
 )
 from market_flow.fetchers.us_market import fetch_us_close
 from market_flow.formatter import format_us_daily, render_us_daily_html
+from market_flow.publish_channel import maybe_publish
+from market_flow.publisher import build_holiday_snapshot, build_us_snapshot
 from market_flow.telegram_push import send, send_photo
 
 _ET = ZoneInfo("America/New_York")
@@ -72,12 +75,18 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if not is_us_trading_day(now):
         date_str = now.strftime("%Y-%m-%d %A")
         print(f"🏖️  미국 휴장일 — {date_str}: 휴장 안내 메시지만 발송")
-        send(format_holiday_message("US", now))
+        msg = format_holiday_message("US", now)
+        send(msg)
+        maybe_publish(build_holiday_snapshot("us", msg, now), now)
         return
 
     print(f"📥 yfinance 미국장 데이터 수집 시작 — target={target or 'latest'}")
     data = fetch_us_close(target)
-    section_counts = {k: sum(1 for v in (data.get(k) or {}).values() if v) for k in data} if isinstance(data, dict) else {}
+    section_counts = (
+        {k: sum(1 for v in (data.get(k) or {}).values() if v) for k in data}
+        if isinstance(data, dict)
+        else {}
+    )
     print(f"📊 데이터 수집 완료 — sections={section_counts}")
 
     sources = (
@@ -100,11 +109,16 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
         resp = send(text)
 
-    msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
+    msg_id = (
+        resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
+    )
     results = resp.get("results", []) if isinstance(resp, dict) else []
     ok_n = sum(1 for r in results if r.get("ok"))
     suffix = f" — 발송 {ok_n}/{len(results)} 성공" if results else ""
     print(f"✅ 미국장 푸시: msg_id={msg_id}{suffix}")
+
+    # 발행 단계 (발송과 완전 분리 — 실패해도 위 발송에 영향 없음)
+    maybe_publish(build_us_snapshot(data, now), now)
 
 
 if __name__ == "__main__":

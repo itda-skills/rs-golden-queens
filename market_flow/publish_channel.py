@@ -52,6 +52,38 @@ def _is_dry_run() -> bool:
     }
 
 
+def is_publish_enabled() -> bool:
+    """발행 단계 활성화 여부. ``MARKET_FLOW_PUBLISH`` 가 참일 때만 발행한다.
+
+    기본은 비활성 — 기존 발송 동작에 영향을 주지 않는다(opt-in).
+    """
+    return os.environ.get("MARKET_FLOW_PUBLISH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def maybe_publish(snapshot: dict[str, Any], now: Optional[datetime] = None) -> bool:
+    """발행이 활성화된 경우에만 스냅샷을 발행한다.
+
+    발행 단계는 텔레그램 발송과 완전히 분리된다 — 어떤 예외도 호출 측으로
+    전파하지 않고 ``[publish]`` 마커 로그만 남긴다(발송 성공을 막지 않음).
+
+    Returns:
+        실제 발행 시도 성공 시 True, 비활성/실패 시 False.
+    """
+    if not is_publish_enabled():
+        return False
+    try:
+        return publish_snapshot(snapshot, now)
+    except Exception as e:  # noqa: BLE001 — 발송 흐름 보호: 어떤 경우에도 전파 금지
+        _warn(
+            f"발행 단계 예외 무시 ({snapshot.get('market')}): {type(e).__name__}: {e}"
+        )
+        return False
+
+
 def _data_repo() -> str:
     return os.environ.get("GOLDENQUEENS_DATA_REPO", "").strip() or _DEFAULT_REPO
 

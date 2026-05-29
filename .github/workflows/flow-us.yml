@@ -21,10 +21,17 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      - name: Setup data-repo deploy key
+        if: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
+
       - name: Send US market summary
         env:
           GOLDENQUEENS_BOT_TOKEN: ${{ secrets.GOLDENQUEENS_BOT_TOKEN }}
           GOLDENQUEENS_CHAT_ID:   ${{ secrets.GOLDENQUEENS_CHAT_ID }}
           MARKET_FLOW_RENDER: text
+          MARKET_FLOW_PUBLISH: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
           TZ: Asia/Seoul
         run: python main.py daily-us

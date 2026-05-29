@@ -7,6 +7,7 @@ Usage:
 SPEC-MF-SCHED-001: 한국 휴장일에는 `[KR] YYYY-MM-DD (요일) 오늘은 휴장입니다`
 한 줄 발송. 날짜는 KST 로컬 기준 (REQ-MF-HOL-004).
 """
+
 from __future__ import annotations
 
 import os
@@ -18,6 +19,8 @@ from zoneinfo import ZoneInfo
 from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
 from market_flow.fetchers.naver_kr import fetch_today
 from market_flow.formatter import format_kr_daily, render_kr_daily_html, kr_weekday
+from market_flow.publish_channel import maybe_publish
+from market_flow.publisher import build_holiday_snapshot, build_kr_snapshot
 from market_flow.telegram_push import send, send_photo
 
 _KST = ZoneInfo("Asia/Seoul")
@@ -37,13 +40,17 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if not is_kr_trading_day(now):
         date_str = now.astimezone(_KST).strftime("%Y-%m-%d %A")
         print(f"🏖️  한국 휴장일 — {date_str}: 휴장 안내 메시지만 발송")
-        send(format_holiday_message("KR", now))
+        msg = format_holiday_message("KR", now)
+        send(msg)
+        maybe_publish(build_holiday_snapshot("kr", msg, now), now)
         return
 
     bizdate = argv[0] if argv else now.astimezone(_KST).strftime("%Y%m%d")
     print(f"📥 네이버 한국장 데이터 수집 시작 — bizdate={bizdate}")
     data = fetch_today(bizdate)
-    print(f"📊 데이터 수집 완료 — keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
+    print(
+        f"📊 데이터 수집 완료 — keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}"
+    )
 
     # KIS 기반 섹터 ETF 18종 + 동적 수급 워치 (실패해도 기존 메시지는 정상 발송).
     # KIS fetcher 는 datetime.now() 기준으로만 동작하므로, 과거일 재발송 시에는
@@ -101,11 +108,16 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
         resp = send(text)
 
-    msg_id = resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
+    msg_id = (
+        resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0
+    )
     results = resp.get("results", []) if isinstance(resp, dict) else []
     ok_n = sum(1 for r in results if r.get("ok"))
     suffix = f" — 발송 {ok_n}/{len(results)} 성공" if results else ""
     print(f"✅ 한국장 푸시: msg_id={msg_id}, bizdate={bizdate}{suffix}")
+
+    # 발행 단계 (발송과 완전 분리 — 실패해도 위 발송에 영향 없음)
+    maybe_publish(build_kr_snapshot(data, now), now)
 
 
 if __name__ == "__main__":

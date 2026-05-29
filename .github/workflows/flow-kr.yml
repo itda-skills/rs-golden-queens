@@ -21,6 +21,14 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # 데이터 저장소(rs-golden-queens-data) 발행용 deploy key.
+      # 시크릿이 없으면 발행은 비활성(MARKET_FLOW_PUBLISH 미설정)이라 발송만 수행.
+      - name: Setup data-repo deploy key
+        if: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
+
       - name: Send Korea market flow
         env:
           GOLDENQUEENS_BOT_TOKEN: ${{ secrets.GOLDENQUEENS_BOT_TOKEN }}
@@ -29,5 +37,6 @@ jobs:
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCOUNT:            ${{ secrets.KIS_ACCOUNT }}
           MARKET_FLOW_RENDER: text
+          MARKET_FLOW_PUBLISH: ${{ secrets.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
           TZ: Asia/Seoul
         run: python main.py daily-kr
