@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   },
   description:
     "한국·미국 시장 마감 후 매매동향 요약 아카이브. 사실 데이터만 제공하며 투자 권유를 포함하지 않습니다.",
+  alternates: {
+    types: {
+      "application/rss+xml": `${siteUrl}/rss.xml`,
+    },
+  },
 };
 
 export default function RootLayout({

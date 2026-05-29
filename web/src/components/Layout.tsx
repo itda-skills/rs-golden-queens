@@ -24,6 +24,12 @@ export function SiteHeader() {
           >
             캘린더
           </Link>
+          <Link
+            href="/search"
+            className="hover:text-neutral-900 dark:hover:text-white"
+          >
+            검색
+          </Link>
         </nav>
       </div>
     </header>
