@@ -68,3 +68,11 @@ export function longDate(iso: string): string {
   const wd = WEEKDAY_KR[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${y}년 ${m}월 ${d}일 (${wd})`;
 }
+
+// "2026-05-29" → "5/29 (금)" — prev/next 버튼용 짧은 표기
+export function shortDateWeekday(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const wd = WEEKDAY_KR[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${m}/${d} (${wd})`;
+}

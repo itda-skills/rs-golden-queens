@@ -81,16 +81,20 @@ function MonthCard({
           // US 발행일은 미국 거래일 기준이라 같은 날짜로 링크
           const usLink = usPublished.has(id) ? `/us/${id}` : null;
           const link = krLink ?? usLink;
+          const published = !!link;
+
+          // 발행일이면 날짜 숫자에 동그라미 강조 (클릭 가능 단서)
+          const dayClass = published
+            ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white font-semibold"
+            : trading
+              ? "inline-flex items-center justify-center w-6 h-6 text-neutral-800 dark:text-neutral-100"
+              : "inline-flex items-center justify-center w-6 h-6 text-neutral-300 dark:text-neutral-700";
 
           const content = (
             <div
-              className={`py-1 rounded ${
-                trading
-                  ? "text-neutral-800 dark:text-neutral-100"
-                  : "text-neutral-300 dark:text-neutral-700"
-              } ${link ? "hover:bg-blue-50 dark:hover:bg-blue-950/40" : ""}`}
+              className={`py-1 rounded ${published ? "hover:bg-blue-50 dark:hover:bg-blue-950/40" : ""}`}
             >
-              <div>{day}</div>
+              <span className={dayClass}>{day}</span>
               <div className="flex justify-center gap-0.5 h-1.5 mt-0.5">
                 {isKr && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
                 {isUs && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
@@ -99,7 +103,7 @@ function MonthCard({
           );
 
           return link ? (
-            <Link key={id} href={link} title={`${id} 발행됨`}>
+            <Link key={id} href={link} title={`${id} — 데이터 보기`}>
               {content}
             </Link>
           ) : (

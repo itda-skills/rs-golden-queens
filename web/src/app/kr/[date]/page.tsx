@@ -11,8 +11,9 @@ import {
   ProgramTable,
 } from "@/components/Tables";
 import { KospiTrendCharts } from "@/components/TrendCharts";
+import { PrevNext, adjacent } from "@/components/PrevNext";
 import { getIndex, getKrSnapshot } from "@/lib/data";
-import { longDate } from "@/lib/format";
+import { longDate, shortDateWeekday } from "@/lib/format";
 
 export const revalidate = 600;
 
@@ -36,15 +37,22 @@ export default async function KrDetail({
   params: Promise<{ date: string }>;
 }) {
   const { date } = await params;
-  const snap = await getKrSnapshot(date);
+  const [snap, index] = await Promise.all([getKrSnapshot(date), getIndex()]);
   if (!snap) notFound();
+
+  const { prev, next } = adjacent(index?.kr ?? [], date);
 
   return (
     <Container>
       <h1 className="text-xl font-bold mb-1">🇰🇷 한국장 매매동향</h1>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
+      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
         {longDate(snap.date)}
       </p>
+
+      <PrevNext
+        prev={prev ? { href: `/kr/${prev}`, label: shortDateWeekday(prev) } : null}
+        next={next ? { href: `/kr/${next}`, label: shortDateWeekday(next) } : null}
+      />
 
       {snap.is_holiday ? (
         <HolidayNotice message={snap.message} />

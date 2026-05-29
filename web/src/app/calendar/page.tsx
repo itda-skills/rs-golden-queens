@@ -32,12 +32,18 @@ export default async function CalendarPage() {
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
         KR/US 거래일·휴장. 발행된 날짜는 클릭하면 상세로 이동합니다.
       </p>
-      <div className="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+      <div className="flex flex-wrap gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> 한국 거래일
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> 미국 거래일
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white text-[9px]">
+            5
+          </span>{" "}
+          발행됨 (클릭하여 보기)
         </span>
       </div>
       <CalendarGrid

@@ -6,8 +6,9 @@ import {
   SourceList,
 } from "@/components/Layout";
 import { UsSectionTable } from "@/components/Tables";
+import { PrevNext, adjacent } from "@/components/PrevNext";
 import { getIndex, getUsSnapshot } from "@/lib/data";
-import { longDate } from "@/lib/format";
+import { longDate, shortDateWeekday } from "@/lib/format";
 
 export const revalidate = 600;
 
@@ -31,16 +32,22 @@ export default async function UsDetail({
   params: Promise<{ date: string }>;
 }) {
   const { date } = await params;
-  const snap = await getUsSnapshot(date);
+  const [snap, index] = await Promise.all([getUsSnapshot(date), getIndex()]);
   if (!snap) notFound();
 
+  const { prev, next } = adjacent(index?.us ?? [], date);
   const p = snap.payload;
   return (
     <Container>
       <h1 className="text-xl font-bold mb-1">🇺🇸 미국장 마감</h1>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
+      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
         {longDate(snap.date)}
       </p>
+
+      <PrevNext
+        prev={prev ? { href: `/us/${prev}`, label: shortDateWeekday(prev) } : null}
+        next={next ? { href: `/us/${next}`, label: shortDateWeekday(next) } : null}
+      />
 
       {snap.is_holiday ? (
         <HolidayNotice message={snap.message} />
