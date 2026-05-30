@@ -21,7 +21,7 @@ from market_flow.calendar_utils import is_last_kr_trading_day_of_week
 from market_flow.fetchers.naver_kr import fetch_kospi_daily
 from market_flow.fetchers.us_market import WATCH
 from market_flow.formatter import format_weekly, render_weekly_html
-from market_flow.publish_channel import maybe_publish
+from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_weekly_snapshot
 from market_flow.telegram_push import send, send_photo
 
@@ -79,10 +79,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     watch_5d = _watch_5d_pct()
     print(f"📊 워치 ETF 수집 완료 — tickers={list(watch_5d.keys())}")
 
+    snapshot = build_weekly_snapshot(kospi_daily, watch_5d, now)
     sources = (
         "\n\n출처: "
         f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
         " · [Yahoo Finance](https://finance.yahoo.com/markets/)"
+        f"{web_link_suffix('weekly', snapshot['week'])}"
     )
 
     if _is_image_mode():
@@ -108,7 +110,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     print(f"✅ 주간 리포트 푸시: msg_id={msg_id}{suffix}")
 
     # 발행 단계 (발송과 완전 분리 — 실패해도 위 발송에 영향 없음)
-    maybe_publish(build_weekly_snapshot(kospi_daily, watch_5d, now), now)
+    maybe_publish(snapshot, now)
 
 
 if __name__ == "__main__":

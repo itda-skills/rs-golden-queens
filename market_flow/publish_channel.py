@@ -64,6 +64,32 @@ def is_publish_enabled() -> bool:
     }
 
 
+_DEFAULT_WEB_URL = "https://rs-golden-queens.vercel.app"
+
+
+def web_base_url() -> str:
+    return (
+        os.environ.get("MARKET_FLOW_WEB_URL", "").strip().rstrip("/")
+        or _DEFAULT_WEB_URL
+    )
+
+
+def web_detail_url(market: str, entry_id: str) -> str:
+    """상세 페이지 URL. market: kr|us|weekly, entry_id: 날짜(YYYY-MM-DD) 또는 주차."""
+    return f"{web_base_url()}/{market}/{entry_id}"
+
+
+def web_link_suffix(market: str, entry_id: str) -> str:
+    """발행이 활성일 때만 '웹에서 보기' 링크 한 줄을 반환한다.
+
+    발행을 하지 않으면 해당 URL이 아직 없으므로(404) 링크를 붙이지 않는다.
+    텔레그램 메시지 출처 뒤에 덧붙이는 용도.
+    """
+    if not is_publish_enabled():
+        return ""
+    return f"\n🔗 웹에서 보기: {web_detail_url(market, entry_id)}"
+
+
 def maybe_publish(snapshot: dict[str, Any], now: Optional[datetime] = None) -> bool:
     """발행이 활성화된 경우에만 스냅샷을 발행한다.
 

@@ -25,7 +25,7 @@ from market_flow.calendar_utils import (
 )
 from market_flow.fetchers.us_market import fetch_us_close
 from market_flow.formatter import format_us_daily, render_us_daily_html
-from market_flow.publish_channel import maybe_publish
+from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_holiday_snapshot, build_us_snapshot
 from market_flow.telegram_push import send, send_photo
 
@@ -89,10 +89,14 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     )
     print(f"📊 데이터 수집 완료 — sections={section_counts}")
 
+    # 스냅샷을 먼저 만들어 거래일(date)을 확정 — 웹 링크와 발행에 재사용
+    snapshot = build_us_snapshot(data, now)
+    web_link = web_link_suffix("us", snapshot["date"]) if snapshot.get("date") else ""
     sources = (
         "\n\n출처: "
         "[Yahoo Finance](https://finance.yahoo.com/markets/)"
         " · [S&P 섹터](https://finance.yahoo.com/sectors/)"
+        f"{web_link}"
     )
 
     if _is_image_mode():
@@ -118,7 +122,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     print(f"✅ 미국장 푸시: msg_id={msg_id}{suffix}")
 
     # 발행 단계 (발송과 완전 분리 — 실패해도 위 발송에 영향 없음)
-    maybe_publish(build_us_snapshot(data, now), now)
+    maybe_publish(snapshot, now)
 
 
 if __name__ == "__main__":

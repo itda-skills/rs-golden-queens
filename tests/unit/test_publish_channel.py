@@ -153,3 +153,31 @@ class TestConfig:
         pub = C.GitPublisher()
         assert pub.repo == "git@host:foo/bar.git"
         assert pub.branch == "dev"
+
+
+# ──────────────────────────────────────────────
+#  웹 링크 (텔레그램 메시지 suffix)
+# ──────────────────────────────────────────────
+
+
+class TestWebLink:
+    def test_detail_url_kr(self, monkeypatch):
+        monkeypatch.delenv("MARKET_FLOW_WEB_URL", raising=False)
+        assert (
+            C.web_detail_url("kr", "2026-05-29")
+            == "https://rs-golden-queens.vercel.app/kr/2026-05-29"
+        )
+
+    def test_detail_url_env_override(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_WEB_URL", "https://x.example/")
+        assert C.web_detail_url("us", "2026-05-28") == "https://x.example/us/2026-05-28"
+
+    def test_suffix_empty_when_publish_off(self, monkeypatch):
+        monkeypatch.delenv("MARKET_FLOW_PUBLISH", raising=False)
+        assert C.web_link_suffix("kr", "2026-05-29") == ""
+
+    def test_suffix_present_when_publish_on(self, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_PUBLISH", "1")
+        s = C.web_link_suffix("weekly", "2026-W22")
+        assert "weekly/2026-W22" in s
+        assert s.startswith("\n")
