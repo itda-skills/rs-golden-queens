@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Tooltip } from "./Tooltip";
 
 // 상세 페이지 이전/다음 이동 + 키보드 단축키(←/→).
 // 발행 목록(index)은 최신순(내림차순) — 왼쪽=이전(과거), 오른쪽=다음(미래).
@@ -41,32 +42,34 @@ export function PrevNext({
   return (
     <nav className="flex items-center justify-between gap-2 mt-2 mb-6">
       {prev ? (
-        <Link
-          href={prev.href}
-          title="이전 (← 방향키)"
-          className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
-        >
-          <kbd className="text-[10px] px-1 rounded border border-neutral-300 dark:border-neutral-600">
-            ←
-          </kbd>
-          <span className="text-neutral-500 dark:text-neutral-400">이전</span>
-          <span className="font-medium">{prev.label}</span>
-        </Link>
+        <Tooltip label="이전 (← 방향키)">
+          <Link
+            href={prev.href}
+            className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
+          >
+            <kbd className="text-[10px] px-1 rounded border border-neutral-300 dark:border-neutral-600">
+              ←
+            </kbd>
+            <span className="text-neutral-500 dark:text-neutral-400">이전</span>
+            <span className="font-medium">{prev.label}</span>
+          </Link>
+        </Tooltip>
       ) : (
         <span />
       )}
       {next ? (
-        <Link
-          href={next.href}
-          title="다음 (→ 방향키)"
-          className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
-        >
-          <span className="font-medium">{next.label}</span>
-          <span className="text-neutral-500 dark:text-neutral-400">다음</span>
-          <kbd className="text-[10px] px-1 rounded border border-neutral-300 dark:border-neutral-600">
-            →
-          </kbd>
-        </Link>
+        <Tooltip label="다음 (→ 방향키)">
+          <Link
+            href={next.href}
+            className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
+          >
+            <span className="font-medium">{next.label}</span>
+            <span className="text-neutral-500 dark:text-neutral-400">다음</span>
+            <kbd className="text-[10px] px-1 rounded border border-neutral-300 dark:border-neutral-600">
+              →
+            </kbd>
+          </Link>
+        </Tooltip>
       ) : (
         <span />
       )}
