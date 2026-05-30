@@ -1,9 +1,44 @@
 import { Card, Container } from "@/components/Layout";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { getCalendar, getIndex } from "@/lib/data";
+import { getCalendar, getIndex, getKrSnapshot, getUsSnapshot } from "@/lib/data";
+import type { CalendarOverviews } from "@/lib/types";
 
 export const revalidate = 600;
 export const metadata = { title: "거래일 캘린더" };
+
+async function buildOverviews(
+  krDates: string[],
+  usDates: string[],
+): Promise<CalendarOverviews> {
+  const out: CalendarOverviews = {};
+  // 발행된 날짜만 (소수) — 병렬 fetch
+  const krSnaps = await Promise.all(krDates.map((d) => getKrSnapshot(d)));
+  krSnaps.forEach((s, i) => {
+    const k = s?.payload?.kospi;
+    if (k) {
+      out[krDates[i]] = {
+        ...(out[krDates[i]] ?? {}),
+        kr: {
+          foreign: k.foreign,
+          institutional: k.institutional,
+          personal: k.personal,
+        },
+      };
+    }
+  });
+  const usSnaps = await Promise.all(usDates.map((d) => getUsSnapshot(d)));
+  usSnaps.forEach((s, i) => {
+    const gspc = s?.payload?.indices?.["^GSPC"];
+    const vix = s?.payload?.volatility?.["^VIX"];
+    if (gspc) {
+      out[usDates[i]] = {
+        ...(out[usDates[i]] ?? {}),
+        us: { sp500Pct: gspc.pct, vix: vix?.close ?? null },
+      };
+    }
+  });
+  return out;
+}
 
 export default async function CalendarPage() {
   const [cal, index] = await Promise.all([getCalendar(), getIndex()]);
@@ -21,16 +56,16 @@ export default async function CalendarPage() {
     );
   }
 
-  const krDays = new Set(cal.kr);
-  const usDays = new Set(cal.us);
-  const krPublished = new Set(index?.kr ?? []);
-  const usPublished = new Set(index?.us ?? []);
+  const krPublished = index?.kr ?? [];
+  const usPublished = index?.us ?? [];
+  const overviews = await buildOverviews(krPublished, usPublished);
 
   return (
     <Container>
       <h1 className="text-xl font-bold mb-1">거래일 캘린더</h1>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-        KR/US 거래일·휴장. 발행된 날짜는 클릭하면 상세로 이동합니다.
+        KR/US 거래일·휴장. 발행된 날짜(동그라미)를 클릭하면 한국장·미국장 데이터를
+        선택해 볼 수 있습니다.
       </p>
       <div className="flex flex-wrap gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4">
         <span className="flex items-center gap-1">
@@ -47,10 +82,11 @@ export default async function CalendarPage() {
         </span>
       </div>
       <CalendarGrid
-        krDays={krDays}
-        usDays={usDays}
+        krDays={cal.kr}
+        usDays={cal.us}
         krPublished={krPublished}
         usPublished={usPublished}
+        overviews={overviews}
         start={cal.range.start}
         end={cal.range.end}
       />

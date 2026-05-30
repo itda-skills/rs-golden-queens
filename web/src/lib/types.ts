@@ -109,6 +109,13 @@ export interface CalendarSnapshot {
   us: string[];
 }
 
+// 캘린더 팝오버용 간략 overview (발행된 스냅샷에서 추출)
+export interface DayOverview {
+  kr?: { foreign: number; institutional: number; personal: number };
+  us?: { sp500Pct: number | null; vix: number | null };
+}
+export type CalendarOverviews = Record<string, DayOverview>;
+
 // ── index / latest ──
 export interface IndexFile {
   schema_version: number;

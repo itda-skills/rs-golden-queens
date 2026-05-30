@@ -1,12 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { colorClass, signedAmount, signedPct } from "@/lib/format";
+import type { CalendarOverviews } from "@/lib/types";
 
 // 거래일/휴장 캘린더 (표시 전용 — 판정은 발행된 calendar 스냅샷에 위임).
-// kr/us 거래일 집합을 받아 월별 그리드로 표시. 발행된 날짜는 상세로 링크.
+// 발행일 셀 클릭 시 팝오버: KR/US 각각의 링크 + 간략 overview.
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 
-function ymKey(d: Date) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+function ymKey(y: number, m: number) {
+  return `${y}-${String(m).padStart(2, "0")}`;
 }
 
 function iso(d: Date) {
@@ -14,10 +19,11 @@ function iso(d: Date) {
 }
 
 export interface CalendarGridProps {
-  krDays: Set<string>;
-  usDays: Set<string>;
-  krPublished: Set<string>;
-  usPublished: Set<string>;
+  krDays: string[];
+  usDays: string[];
+  krPublished: string[];
+  usPublished: string[];
+  overviews: CalendarOverviews;
   start: string;
   end: string;
 }
@@ -37,17 +43,95 @@ function* monthsBetween(start: string, end: string) {
   }
 }
 
+function Popover({
+  id,
+  hasKr,
+  hasUs,
+  overview,
+  onClose,
+}: {
+  id: string;
+  hasKr: boolean;
+  hasUs: boolean;
+  overview?: CalendarOverviews[string];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute z-20 left-1/2 -translate-x-1/2 top-full mt-1 w-44 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg p-2 text-left"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 mb-1.5">
+        {id}
+      </div>
+      {hasKr && (
+        <Link
+          href={`/kr/${id}`}
+          onClick={onClose}
+          className="block rounded-md px-2 py-1.5 mb-1 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+        >
+          <div className="text-xs font-medium text-rose-600 dark:text-rose-400">
+            🇰🇷 한국장 →
+          </div>
+          {overview?.kr && (
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+              외인{" "}
+              <span className={colorClass(overview.kr.foreign)}>
+                {signedAmount(overview.kr.foreign)}
+              </span>{" "}
+              · 기관{" "}
+              <span className={colorClass(overview.kr.institutional)}>
+                {signedAmount(overview.kr.institutional)}
+              </span>
+            </div>
+          )}
+        </Link>
+      )}
+      {hasUs && (
+        <Link
+          href={`/us/${id}`}
+          onClick={onClose}
+          className="block rounded-md px-2 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+        >
+          <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
+            🇺🇸 미국장 →
+          </div>
+          {overview?.us && (
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+              S&amp;P{" "}
+              <span className={colorClass(overview.us.sp500Pct)}>
+                {signedPct(overview.us.sp500Pct)}
+              </span>
+              {overview.us.vix != null && <> · VIX {overview.us.vix.toFixed(2)}</>}
+            </div>
+          )}
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function MonthCard({
   year,
   month,
-  krDays,
-  usDays,
-  krPublished,
-  usPublished,
+  krSet,
+  usSet,
+  krPubSet,
+  usPubSet,
+  overviews,
+  openId,
+  setOpenId,
 }: {
   year: number;
   month: number;
-} & Omit<CalendarGridProps, "start" | "end">) {
+  krSet: Set<string>;
+  usSet: Set<string>;
+  krPubSet: Set<string>;
+  usPubSet: Set<string>;
+  overviews: CalendarOverviews;
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+}) {
   const first = new Date(Date.UTC(year, month - 1, 1));
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const leading = first.getUTCDay();
@@ -73,42 +157,66 @@ function MonthCard({
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} />;
           const id = iso(d);
-          const isKr = krDays.has(id);
-          const isUs = usDays.has(id);
+          const isKr = krSet.has(id);
+          const isUs = usSet.has(id);
           const trading = isKr || isUs;
           const day = d.getUTCDate();
-          const krLink = krPublished.has(id) ? `/kr/${id}` : null;
-          // US 발행일은 미국 거래일 기준이라 같은 날짜로 링크
-          const usLink = usPublished.has(id) ? `/us/${id}` : null;
-          const link = krLink ?? usLink;
-          const published = !!link;
+          const hasKr = krPubSet.has(id);
+          const hasUs = usPubSet.has(id);
+          const published = hasKr || hasUs;
 
-          // 발행일이면 날짜 숫자에 동그라미 강조 (클릭 가능 단서)
           const dayClass = published
             ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white font-semibold"
             : trading
               ? "inline-flex items-center justify-center w-6 h-6 text-neutral-800 dark:text-neutral-100"
               : "inline-flex items-center justify-center w-6 h-6 text-neutral-300 dark:text-neutral-700";
 
-          const content = (
-            <div
-              className={`py-1 rounded ${published ? "hover:bg-blue-50 dark:hover:bg-blue-950/40" : ""}`}
-            >
+          const inner = (
+            <>
               <span className={dayClass}>{day}</span>
               <div className="flex justify-center gap-0.5 h-1.5 mt-0.5">
                 {isKr && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
                 {isUs && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
               </div>
-            </div>
+            </>
           );
 
-          return link ? (
-            <Link key={id} href={link} title={`${id} — 데이터 보기`}>
-              {content}
-            </Link>
-          ) : (
-            <div key={id} title={trading ? `${id} 거래일` : `${id} 휴장`}>
-              {content}
+          if (!published) {
+            return (
+              <div
+                key={id}
+                className="py-1"
+                title={trading ? `${id} 거래일` : `${id} 휴장`}
+              >
+                {inner}
+              </div>
+            );
+          }
+
+          const open = openId === id;
+          return (
+            <div key={id} className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenId(open ? null : id);
+                }}
+                className={`w-full py-1 rounded cursor-pointer ${open ? "bg-blue-50 dark:bg-blue-950/40" : "hover:bg-blue-50 dark:hover:bg-blue-950/40"}`}
+                aria-expanded={open}
+                title={`${id} — 데이터 보기`}
+              >
+                {inner}
+              </button>
+              {open && (
+                <Popover
+                  id={id}
+                  hasKr={hasKr}
+                  hasUs={hasUs}
+                  overview={overviews[id]}
+                  onClose={() => setOpenId(null)}
+                />
+              )}
             </div>
           );
         })}
@@ -118,11 +226,42 @@ function MonthCard({
 }
 
 export function CalendarGrid(props: CalendarGridProps) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  // 바깥 클릭/ESC 시 팝오버 닫기
+  useEffect(() => {
+    if (!openId) return;
+    const close = () => setOpenId(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpenId(null);
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openId]);
+
+  const krSet = new Set(props.krDays);
+  const usSet = new Set(props.usDays);
+  const krPubSet = new Set(props.krPublished);
+  const usPubSet = new Set(props.usPublished);
   const months = [...monthsBetween(props.start, props.end)];
+
   return (
     <div className="grid sm:grid-cols-2 gap-3">
       {months.map(([y, m]) => (
-        <MonthCard key={ymKey(new Date(Date.UTC(y, m - 1, 1)))} year={y} month={m} {...props} />
+        <MonthCard
+          key={ymKey(y, m)}
+          year={y}
+          month={m}
+          krSet={krSet}
+          usSet={usSet}
+          krPubSet={krPubSet}
+          usPubSet={usPubSet}
+          overviews={props.overviews}
+          openId={openId}
+          setOpenId={setOpenId}
+        />
       ))}
     </div>
   );
