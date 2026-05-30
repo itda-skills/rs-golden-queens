@@ -2,6 +2,11 @@ name: 한국장 매매동향 테스트 푸시
 
 on:
   workflow_dispatch:
+    inputs:
+      date:
+        description: "발송할 거래일 (YYYYMMDD, 비우면 오늘). 휴장일이면 휴장 안내만 발송됨"
+        required: false
+        default: ""
 
 jobs:
   push:
@@ -39,4 +44,4 @@ jobs:
           MARKET_FLOW_PUBLISH: ${{ env.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
           GOLDENQUEENS_DATA_BRANCH: test
           TZ: Asia/Seoul
-        run: python main.py daily-kr --test
+        run: python main.py daily-kr --test ${{ inputs.date }}
