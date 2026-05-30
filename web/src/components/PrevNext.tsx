@@ -6,23 +6,11 @@ import { useEffect } from "react";
 
 // 상세 페이지 이전/다음 이동 + 키보드 단축키(←/→).
 // 발행 목록(index)은 최신순(내림차순) — 왼쪽=이전(과거), 오른쪽=다음(미래).
+// adjacent()는 서버에서 호출되므로 @/lib/adjacent 로 분리 (재export 금지).
 
 export interface NavItem {
   href: string;
   label: string; // 예: "5/28 (목)"
-}
-
-export function adjacent(
-  ids: string[],
-  current: string,
-): { prev: string | null; next: string | null } {
-  const i = ids.indexOf(current);
-  if (i === -1) return { prev: null, next: null };
-  // ids 내림차순: i+1 = 더 과거(prev), i-1 = 더 미래(next)
-  return {
-    prev: i + 1 < ids.length ? ids[i + 1] : null,
-    next: i - 1 >= 0 ? ids[i - 1] : null,
-  };
 }
 
 export function PrevNext({

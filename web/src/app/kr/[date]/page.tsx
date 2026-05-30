@@ -11,7 +11,8 @@ import {
   ProgramTable,
 } from "@/components/Tables";
 import { KospiTrendCharts } from "@/components/TrendCharts";
-import { PrevNext, adjacent } from "@/components/PrevNext";
+import { PrevNext } from "@/components/PrevNext";
+import { adjacent } from "@/lib/adjacent";
 import { getIndex, getKrSnapshot } from "@/lib/data";
 import { longDate, shortDateWeekday } from "@/lib/format";
 

@@ -6,7 +6,8 @@ import {
   SourceList,
 } from "@/components/Layout";
 import { UsSectionTable } from "@/components/Tables";
-import { PrevNext, adjacent } from "@/components/PrevNext";
+import { PrevNext } from "@/components/PrevNext";
+import { adjacent } from "@/lib/adjacent";
 import { getIndex, getUsSnapshot } from "@/lib/data";
 import { longDate, shortDateWeekday } from "@/lib/format";
 

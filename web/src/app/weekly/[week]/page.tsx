@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { Card, Container, SourceList } from "@/components/Layout";
 import { KospiDailyTable } from "@/components/Tables";
 import { KospiTrendCharts, Watch5dChart } from "@/components/TrendCharts";
-import { PrevNext, adjacent } from "@/components/PrevNext";
+import { PrevNext } from "@/components/PrevNext";
+import { adjacent } from "@/lib/adjacent";
 import { arrow, colorClass, signedPct } from "@/lib/format";
 import { getIndex, getWeeklySnapshot } from "@/lib/data";
 
