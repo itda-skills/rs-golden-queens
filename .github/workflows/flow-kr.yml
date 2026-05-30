@@ -40,5 +40,7 @@ jobs:
           KIS_ACCOUNT:            ${{ secrets.KIS_ACCOUNT }}
           MARKET_FLOW_RENDER: text
           MARKET_FLOW_PUBLISH: ${{ env.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
+          MARKET_FLOW_REVALIDATE_URL: https://rs-golden-queens.vercel.app/api/revalidate
+          MARKET_FLOW_REVALIDATE_SECRET: ${{ secrets.MARKET_FLOW_REVALIDATE_SECRET }}
           TZ: Asia/Seoul
         run: python main.py daily-kr
