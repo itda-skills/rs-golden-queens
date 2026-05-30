@@ -1,0 +1,36 @@
+name: 거래일 캘린더 발행
+
+on:
+  # NAS 작업 스케줄러가 주기적으로(예: 주 1회) dispatch.
+  # 텔레그램 발송은 없고, 데이터 저장소의 calendar.json 만 갱신한다.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DATA_REPO_DEPLOY_KEY: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Setup data-repo deploy key
+        if: ${{ env.DATA_REPO_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
+
+      - name: Publish trading-day calendar
+        env:
+          MARKET_FLOW_PUBLISH: ${{ env.DATA_REPO_DEPLOY_KEY != '' && '1' || '' }}
+          TZ: Asia/Seoul
+        run: python main.py publish-calendar
