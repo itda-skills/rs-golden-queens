@@ -25,13 +25,18 @@ export function BarChart({
   const fmt = format === "pct" ? signedPct : signedAmount;
   const max = Math.max(...data.map((d) => Math.abs(d.value)), 1);
   const half = height / 2; // 위/아래 각 영역 높이(px)
+  // 막대와 수치 라벨은 같은 영역(half)을 공유한다. 막대 최대 높이를 half 그대로 두면
+  // 값이 큰 막대가 영역을 꽉 채워 라벨이 들어갈 자리를 잃고 위/아래로 밀려난다.
+  // 라벨 공간을 미리 빼서 막대가 라벨을 밀지 않도록 한다.
+  const labelReserve = 14; // 9px 라벨 + 여백
+  const barMax = Math.max(half - labelReserve, 8);
 
   return (
     <figure role="img" aria-label={ariaLabel ?? "막대 차트"} className="w-full">
       <div className="flex items-stretch gap-1" style={{ height }}>
         {data.map((d) => {
           const up = d.value >= 0;
-          const barPx = Math.max((Math.abs(d.value) / max) * half, d.value === 0 ? 0 : 2);
+          const barPx = Math.max((Math.abs(d.value) / max) * barMax, d.value === 0 ? 0 : 2);
           return (
             <div
               key={d.label}
@@ -39,7 +44,7 @@ export function BarChart({
               title={`${d.label}: ${fmt(d.value)}`}
             >
               {/* 위 영역 (양수) */}
-              <div className="flex-1 w-full flex flex-col justify-end items-center">
+              <div className="flex-1 min-h-0 w-full flex flex-col justify-end items-center">
                 {up && (
                   <>
                     <span className="text-[9px] leading-none text-rose-600 dark:text-rose-400 mb-0.5 whitespace-nowrap">
@@ -55,7 +60,7 @@ export function BarChart({
               {/* 0선 */}
               <div className="w-full h-px bg-neutral-300 dark:bg-neutral-700" />
               {/* 아래 영역 (음수) */}
-              <div className="flex-1 w-full flex flex-col justify-start items-center">
+              <div className="flex-1 min-h-0 w-full flex flex-col justify-start items-center">
                 {!up && (
                   <>
                     <div
