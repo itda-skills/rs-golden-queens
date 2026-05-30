@@ -60,6 +60,15 @@ export default async function CalendarPage() {
   const usPublished = index?.us ?? [];
   const overviews = await buildOverviews(krPublished, usPublished);
 
+  // 발행 데이터가 있는 달만 표시 (없으면 캘린더 range 폴백).
+  const publishedDates = [...krPublished, ...usPublished].sort();
+  const rangeStart = publishedDates.length
+    ? `${publishedDates[0].slice(0, 7)}-01`
+    : cal.range.start;
+  const rangeEnd = publishedDates.length
+    ? `${publishedDates[publishedDates.length - 1].slice(0, 7)}-01`
+    : cal.range.end;
+
   return (
     <Container>
       <h1 className="text-xl font-bold mb-1">거래일 캘린더</h1>
@@ -87,8 +96,8 @@ export default async function CalendarPage() {
         krPublished={krPublished}
         usPublished={usPublished}
         overviews={overviews}
-        start={cal.range.start}
-        end={cal.range.end}
+        start={rangeStart}
+        end={rangeEnd}
       />
       <p className="text-xs text-neutral-400 mt-4">
         거래일·휴장 판정 출처: 발행된 캘린더 스냅샷 (XKRX / NYSE).
