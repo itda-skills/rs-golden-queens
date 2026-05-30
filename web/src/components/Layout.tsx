@@ -25,6 +25,12 @@ export function SiteHeader() {
             캘린더
           </Link>
           <Link
+            href="/guide"
+            className="hover:text-neutral-900 dark:hover:text-white"
+          >
+            가이드
+          </Link>
+          <Link
             href="/search"
             className="hover:text-neutral-900 dark:hover:text-white"
           >
@@ -60,17 +66,22 @@ export function Container({ children }: { children: ReactNode }) {
 export function Card({
   title,
   subtitle,
+  info,
   children,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
+  info?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 mb-4">
       {title && (
         <div className="mb-3">
-          <h2 className="font-semibold">{title}</h2>
+          <h2 className="font-semibold flex items-center gap-1.5">
+            <span>{title}</span>
+            {info}
+          </h2>
           {subtitle && (
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {subtitle}

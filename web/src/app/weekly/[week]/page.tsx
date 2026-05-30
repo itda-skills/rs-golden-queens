@@ -3,7 +3,9 @@ import { Card, Container, SourceList } from "@/components/Layout";
 import { KospiDailyTable } from "@/components/Tables";
 import { KospiTrendCharts, Watch5dChart } from "@/components/TrendCharts";
 import { PrevNext } from "@/components/PrevNext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import { adjacent } from "@/lib/adjacent";
+import { CARD_INFO } from "@/lib/card-info";
 import { arrow, colorClass, signedPct } from "@/lib/format";
 import { getIndex, getWeeklySnapshot } from "@/lib/data";
 
@@ -47,15 +49,26 @@ export default async function WeeklyDetail({
         next={next ? { href: `/weekly/${next}`, label: next } : null}
       />
 
-      <Card title="코스피 일별 추이" subtitle="이번 주 거래일 (억원)">
+      <Card
+        title="코스피 일별 추이"
+        subtitle="이번 주 거래일 (억원)"
+        info={<InfoTooltip {...CARD_INFO.weeklyKospi} />}
+      >
         <KospiTrendCharts rows={snap.payload.kospi_daily} />
       </Card>
 
-      <Card title="일별 상세" subtitle="외국인 / 기관 / 개인 (억원)">
+      <Card
+        title="일별 상세"
+        subtitle="외국인 / 기관 / 개인 (억원)"
+        info={<InfoTooltip {...CARD_INFO.weeklyKospi} />}
+      >
         <KospiDailyTable rows={snap.payload.kospi_daily} />
       </Card>
 
-      <Card title="워치 ETF 5거래일 누적 등락">
+      <Card
+        title="워치 ETF 5거래일 누적 등락"
+        info={<InfoTooltip {...CARD_INFO.weeklyWatch} />}
+      >
         <div className="mb-4">
           <Watch5dChart items={snap.payload.watch_5d} />
         </div>

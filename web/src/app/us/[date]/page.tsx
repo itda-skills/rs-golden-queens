@@ -7,7 +7,9 @@ import {
 } from "@/components/Layout";
 import { UsSectionTable } from "@/components/Tables";
 import { PrevNext } from "@/components/PrevNext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import { adjacent } from "@/lib/adjacent";
+import { CARD_INFO } from "@/lib/card-info";
 import { getIndex, getUsSnapshot } from "@/lib/data";
 import { longDate, shortDateWeekday } from "@/lib/format";
 
@@ -55,24 +57,44 @@ export default async function UsDetail({
       ) : (
         p && (
           <>
-            <Card title="주요 지수" subtitle="종가 / 등락">
+            <Card
+              title="주요 지수"
+              subtitle="종가 / 등락"
+              info={<InfoTooltip {...CARD_INFO.usIndices} />}
+            >
               <UsSectionTable section={p.indices} />
             </Card>
-            <Card title="변동성·꼬리위험" subtitle="종가 / 등락">
+            <Card
+              title="변동성·꼬리위험"
+              subtitle="종가 / 등락"
+              info={<InfoTooltip {...CARD_INFO.usVolatility} />}
+            >
               <UsSectionTable section={p.volatility} />
             </Card>
-            <Card title="위험선호 (Risk On/Off)">
+            <Card
+              title="위험선호 (Risk On/Off)"
+              info={<InfoTooltip {...CARD_INFO.usRisk} />}
+            >
               <UsSectionTable section={p.risk_onoff} />
             </Card>
-            <Card title="매크로" subtitle="금리·환율·원자재">
+            <Card
+              title="매크로"
+              subtitle="금리·환율·원자재"
+              info={<InfoTooltip {...CARD_INFO.usMacro} />}
+            >
               <UsSectionTable section={p.macro} />
             </Card>
-            <Card title="섹터 (S&P 11)" subtitle="등락 기준 정렬">
+            <Card
+              title="섹터 (S&P 11)"
+              subtitle="등락 기준 정렬"
+              info={<InfoTooltip {...CARD_INFO.usSectors} />}
+            >
               <UsSectionTable section={p.sectors} sortByPct />
             </Card>
             <Card
               title="워치 ETF"
-              subtitle="거래량강도 = 당일/5일평균 (×1.5↑ 자금 쏠림)"
+              subtitle="거래량강도 = 당일/5일평균 (×1.5↑ 거래 쏠림)"
+              info={<InfoTooltip {...CARD_INFO.usWatch} />}
             >
               <UsSectionTable section={p.watch} showVol sortByPct />
             </Card>
