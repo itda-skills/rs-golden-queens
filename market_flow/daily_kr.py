@@ -36,6 +36,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if now is None:
         now = datetime.now(_KST)
 
+    # argv 로 날짜(YYYYMMDD)가 지정되면 휴장 게이트도 그 날짜 기준으로 판정한다
+    # (daily_us 와 동일 패턴). 그래야 휴장일(주말 등)에 과거 거래일을 재발송할 때
+    # "오늘이 휴장"이라는 이유로 막히지 않는다.
+    if argv:
+        now = datetime.strptime(argv[0], "%Y%m%d").replace(tzinfo=_KST)
+
     # 휴장 게이트: fetcher를 호출하지 않고 한 줄 메시지만 발송
     if not is_kr_trading_day(now):
         date_str = now.astimezone(_KST).strftime("%Y-%m-%d %A")
