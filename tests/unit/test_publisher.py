@@ -406,6 +406,7 @@ class TestUs:
             "macro",
             "sectors",
             "watch",
+            "high_yield_oas",  # I6 2nd
         }
 
     def test_null_vol_ratio_preserved(self, us_data):
@@ -431,6 +432,23 @@ class TestUs:
         vol = snap["payload"]["volatility"]
         assert "^GVZ" not in vol  # None 티커 제거
         assert "^VIX" in vol  # 정상 티커 유지
+
+    def test_high_yield_oas_in_payload(self, us_data):
+        # I6 2nd: FRED 하이일드 OAS 가 payload 에 사실값으로 실린다
+        us_data["high_yield_oas"] = {
+            "series": "BAMLH0A0HYM2",
+            "date": "2026-05-28",
+            "value": 2.74,
+            "prev": 2.71,
+            "change": 0.03,
+        }
+        snap = P.build_us_snapshot(us_data, _NOW_ET)
+        assert snap["payload"]["high_yield_oas"]["value"] == 2.74
+
+    def test_high_yield_oas_none_when_absent(self, us_data):
+        # OAS 미수집(fixture 에 없음) → payload 에 None 으로 들어간다
+        snap = P.build_us_snapshot(us_data, _NOW_ET)
+        assert snap["payload"]["high_yield_oas"] is None
 
 
 # ──────────────────────────────────────────────
@@ -615,6 +633,24 @@ class TestValidateSnapshot:
             "date": "2026-5-9",
             "is_holiday": False,
             "payload": {"indices": {"^GSPC": {"close": 1}}},
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_us_oas_only_still_blocked(self):
+        # 6섹션 다 비고 OAS 만 있으면 여전히 보류 — OAS 는 결측 판정 제외(#10 I6+I9 정합)
+        snap = {
+            "market": "us",
+            "date": "2026-05-28",
+            "is_holiday": False,
+            "payload": {
+                "indices": {},
+                "volatility": {},
+                "macro": {},
+                "sectors": {},
+                "watch": {},
+                "risk_onoff": {},
+                "high_yield_oas": {"value": 2.74},
+            },
         }
         assert P.validate_snapshot(snap) is not None
 

@@ -7,6 +7,7 @@ import requests
 import yfinance as yf
 
 from market_flow._retry import retry_call
+from market_flow.fetchers.fred import fetch_high_yield_oas
 
 
 class _EmptyDownload(RuntimeError):
@@ -162,7 +163,7 @@ def _fetch_yf(tickers, target_date=None):
 
 def fetch_us_close(target_date=None):
     """미국장 마감 풀세트"""
-    return {
+    data = {
         "indices": _fetch_yf(INDICES, target_date),
         "volatility": _fetch_yf(VOLATILITY, target_date),
         "risk_onoff": _fetch_yf(RISK_ONOFF, target_date),
@@ -170,6 +171,10 @@ def fetch_us_close(target_date=None):
         "sectors": _fetch_yf(SECTORS, target_date),
         "watch": _fetch_yf(WATCH, target_date),
     }
+    # 하이일드 OAS(FRED, #10 I6): 최신 영업일 신용 스프레드 사실값. 과거일 재발송
+    # (target 지정)에는 FRED 최신값이 그 날짜와 어긋나 stale 혼란이라 붙이지 않는다.
+    data["high_yield_oas"] = fetch_high_yield_oas() if target_date is None else None
+    return data
 
 
 def fetch_watch_history(days=5):

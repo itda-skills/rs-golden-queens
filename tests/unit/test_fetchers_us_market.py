@@ -207,11 +207,14 @@ class TestFetchYfTargetDate:
 
 
 class TestFetchUsClose:
-    def test_returns_six_category_keys(self):
-        """카테고리 6개 키가 모두 존재."""
-        # _fetch_yf 자체를 mock 해서 카테고리별로 dict 반환
-        with patch(
-            "market_flow.fetchers.us_market._fetch_yf", return_value={"X": None}
+    def test_returns_category_keys_with_oas(self):
+        """yfinance 6개 카테고리 + 하이일드 OAS(#10 I6) 키 존재. FRED 는 mock."""
+        with (
+            patch("market_flow.fetchers.us_market._fetch_yf", return_value={"X": None}),
+            patch(
+                "market_flow.fetchers.us_market.fetch_high_yield_oas",
+                return_value={"value": 2.7},
+            ),
         ):
             result = us_market.fetch_us_close()
         assert set(result.keys()) == {
@@ -221,23 +224,38 @@ class TestFetchUsClose:
             "macro",
             "sectors",
             "watch",
+            "high_yield_oas",
         }
 
     def test_calls_fetch_yf_six_times(self):
-        with patch(
-            "market_flow.fetchers.us_market._fetch_yf", return_value={}
-        ) as mock_yf:
+        with (
+            patch(
+                "market_flow.fetchers.us_market._fetch_yf", return_value={}
+            ) as mock_yf,
+            patch(
+                "market_flow.fetchers.us_market.fetch_high_yield_oas",
+                return_value=None,
+            ),
+        ):
             us_market.fetch_us_close()
         assert mock_yf.call_count == 6
 
     def test_propagates_target_date(self):
-        with patch(
-            "market_flow.fetchers.us_market._fetch_yf", return_value={}
-        ) as mock_yf:
+        with (
+            patch(
+                "market_flow.fetchers.us_market._fetch_yf", return_value={}
+            ) as mock_yf,
+            patch(
+                "market_flow.fetchers.us_market.fetch_high_yield_oas",
+                return_value=None,
+            ) as mock_oas,
+        ):
             us_market.fetch_us_close(target_date="2026-05-22")
         # 6번 호출 모두 target_date 전달
         for call in mock_yf.call_args_list:
             assert call.args[1] == "2026-05-22"
+        # 과거일 재발송엔 OAS 를 붙이지 않는다(FRED 최신값 ↔ 그 날짜 어긋남 방지)
+        mock_oas.assert_not_called()
 
 
 # ──────────────────────────────────────────────

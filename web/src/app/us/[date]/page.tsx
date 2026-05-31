@@ -96,13 +96,14 @@ export default async function UsDetail({
             </Card>
             <Card
               title="위험선호 (Risk On/Off)"
-              subtitle="HYG−IEF 갭 · VIX·달러·금이 가리키는 쪽 (종합 판단 아님)"
+              subtitle="HYG−IEF 갭 · VIX·달러·금 · 하이일드 OAS가 가리키는 쪽 (종합 판단 아님)"
               info={<InfoTooltip {...CARD_INFO.usRisk} />}
             >
               <RiskAxes
                 riskOnoff={p.risk_onoff}
                 volatility={p.volatility}
                 macro={p.macro}
+                oas={p.high_yield_oas}
               />
             </Card>
             <Card

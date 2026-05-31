@@ -8,6 +8,7 @@ import {
   volRatio,
 } from "@/lib/format";
 import type {
+  HighYieldOas,
   KrDailyRow,
   KrForeignInst,
   KrForeignInstItem,
@@ -339,10 +340,12 @@ export function RiskAxes({
   riskOnoff,
   volatility,
   macro,
+  oas,
 }: {
   riskOnoff: UsSection;
   volatility: UsSection;
   macro: UsSection;
+  oas?: HighYieldOas | null;
 }) {
   const hyg = riskOnoff["HYG"]?.pct ?? null;
   const ief = riskOnoff["IEF"]?.pct ?? null;
@@ -376,6 +379,28 @@ export function RiskAxes({
         lean: riskLean(pct, true),
       });
     }
+  }
+  // 하이일드 OAS(#10 I6 2nd): 절대 스프레드 + 전일대비. 상승=확대=안전자산(inverse).
+  // 색은 전일대비(change) 부호에서, 의미(lean)는 별도 — 텔레그램 발행값과 정합.
+  // T+1 지연으로 종가일과 다를 수 있어 관측일(MM/DD)을 라벨에 명시(stale 위장 방지).
+  // change 는 발행 시점에 소수 2자리로 확정됨 — 웹은 재반올림하지 않는다(AGENTS SoT:
+  // round 방식 차이가 텔레그램과 값/분류를 어긋나게 하지 않도록). date 는 regex 로 검증.
+  if (oas && oas.value != null) {
+    const ch = oas.change;
+    const m = oas.date?.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    const mo = m ? +m[1] : 0;
+    const dy = m ? +m[2] : 0;
+    // 월/일 범위까지 확인해 13/99 같은 malformed 를 거른다(formatter strptime 과 정합).
+    const md = mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31 ? `${mo}/${dy}` : null;
+    rows.push({
+      label: md ? `하이일드 OAS (${md})` : "하이일드 OAS",
+      valueStr:
+        ch != null
+          ? `${oas.value.toFixed(2)}%p (${ch >= 0 ? "+" : ""}${ch.toFixed(2)}p)`
+          : `${oas.value.toFixed(2)}%p`,
+      value: ch,
+      lean: riskLean(ch, true, 0.01),
+    });
   }
   if (!rows.length) return null;
   return (

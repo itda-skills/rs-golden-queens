@@ -692,6 +692,41 @@ class TestFormatUsDaily:
         assert "VIX" in out and "달러(DXY)" in out
         assert "안전자산" in out  # 달러 +0.3 → 안전자산 (primary 는 위험선호)
 
+    def test_high_yield_oas_appended(self):
+        # I6 2nd: 위험선호 섹션에 하이일드 OAS 사실값 + 정의상 방향(상승=안전자산)
+        data = _build_us_data()
+        data["high_yield_oas"] = {
+            "series": "BAMLH0A0HYM2",
+            "date": "2026-05-28",
+            "value": 2.74,
+            "prev": 2.71,
+            "change": 0.03,
+        }
+        out = F.format_us_daily(data)
+        assert "하이일드 OAS" in out
+        assert "2.74%p" in out
+        assert "+0.03p" in out
+        assert "→ 안전자산 쪽" in out  # change +0.03 → inverse=True → 안전자산
+        assert "5/28 기준" in out  # OAS 관측일 명시(P1 — stale 위장 방지)
+
+    def test_high_yield_oas_negative_change_risk_on(self):
+        # OAS 하락(change<0)=스프레드 축소=위험선호
+        data = _build_us_data()
+        data["high_yield_oas"] = {
+            "series": "X",
+            "date": "2026-05-28",
+            "value": 2.70,
+            "prev": 2.72,
+            "change": -0.02,
+        }
+        out = F.format_us_daily(data)
+        assert "-0.02p" in out
+        assert "→ 위험선호 쪽" in out
+
+    def test_high_yield_oas_absent_no_line(self):
+        # OAS 결측(None)이면 줄 생략 — 기존 동작 유지
+        assert "하이일드 OAS" not in F.format_us_daily(_build_us_data())
+
     def test_vix_term_structure_shapes_and_missing(self):
         # I7: 30일>9일=콘탱고, 9일>30일=백워데이션, |spread|≤0.3=평탄, 결측=None
         contango = F._vix_term_structure(

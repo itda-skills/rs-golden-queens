@@ -439,6 +439,21 @@ def _risk_lean(value, inverse, tol=0.05):
     return "위험선호" if (value > 0) == riskon_when_up else "안전자산"
 
 
+def _oas_date_label(iso):
+    """OAS 관측일 라벨. '2026-05-28' → ' (5/28 기준)'.
+
+    하이일드 OAS 는 T+1 지연으로 미국장 종가일과 다를 수 있어 관측일을 명시한다
+    (stale 을 당일 값으로 위장하지 않기 위함). 형식 오류·None 이면 ''.
+    """
+    if not iso:
+        return ""
+    try:
+        dt = datetime.strptime(iso, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return ""
+    return f" ({dt.month}/{dt.day} 기준)"
+
+
 def _risk_axes(vol, mac):
     """리스크 보조 축(VIX·달러·금) 사실 나열 — [라벨, 등락, 정의상 방향]. 결측은 건너뜀.
 
@@ -521,10 +536,11 @@ def format_us_daily(data):
 
     hyg = risk.get("HYG")
     ief = risk.get("IEF")
+    oas = data.get("high_yield_oas")
     # 다축 병기(I6): VIX·달러·금이 정의상 가리키는 쪽 — 사실 나열(종합 판단 아님).
     # primary(HYG-IEF) 가 결측이어도 보조축만으로 섹션을 띄운다(웹과 SoT 정합).
     axis_rows = _risk_axes(vol, mac)
-    if (hyg and ief) or axis_rows:
+    if (hyg and ief) or axis_rows or oas:
         L.append("💵 *위험선호 (Risk On/Off)*")
         if hyg and ief:
             diff = hyg["pct"] - ief["pct"]
@@ -538,6 +554,22 @@ def format_us_daily(data):
         if axis_rows:
             L.append("_리스크 축 (지표 방향이 가리키는 쪽 · 종합 판단·예측 아님)_:")
             L.append(_card(axis_rows, ["l", "r", "l"]))
+        # 하이일드 OAS(I6 2nd, FRED): 신용 스프레드 사실값 + 정의상 방향(OAS 상승=
+        # 스프레드 확대=안전자산). 종합 판단·예측이 아니다.
+        if oas and oas.get("value") is not None:
+            val = oas["value"]
+            ch = oas.get("change")
+            d = _oas_date_label(oas.get("date"))
+            if ch is not None:
+                # change 는 fetcher 가 소수 2자리로 확정한 발행값 — 여기선 표시만 한다
+                # (웹도 동일 값으로 분류 — round 방식 차이로 SoT 가 깨지지 않게).
+                lean = _risk_lean(ch, inverse=True, tol=0.01)
+                L.append(
+                    f"  _하이일드 OAS(신용 스프레드){d}: {val:.2f}%p "
+                    f"(전일比 {ch:+.2f}p) → {lean} 쪽_"
+                )
+            else:
+                L.append(f"  _하이일드 OAS(신용 스프레드){d}: {val:.2f}%p_")
         L.append("")
 
     L.append("💹 *매크로* _(종가 / 등락)_")

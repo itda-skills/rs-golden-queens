@@ -136,8 +136,9 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
 
     print(f"📥 yfinance 미국장 데이터 수집 시작 — target={target or 'latest'}")
     data = fetch_us_close(target)
+    # OAS(high_yield_oas) 같은 부가 키는 제외하고 6개 yfinance 섹션만 카운트한다.
     section_counts = (
-        {k: sum(1 for v in (data.get(k) or {}).values() if v) for k in data}
+        {k: sum(1 for v in (data.get(k) or {}).values() if v) for k in _US_SECTION_KR}
         if isinstance(data, dict)
         else {}
     )

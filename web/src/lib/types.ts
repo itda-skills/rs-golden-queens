@@ -138,6 +138,15 @@ export interface UsQuote {
 // 위해 null 을 허용한다(UsSectionTable 이 필터링). 소비처는 옵셔널 체이닝으로 접근.
 export type UsSection = Record<string, UsQuote | null>;
 
+// 하이일드 OAS(#10 I6) — FRED 신용 스프레드 사실값. 단일 관측(섹션 dict 아님).
+export interface HighYieldOas {
+  series: string;
+  date: string;
+  value: number;
+  prev: number | null;
+  change: number | null;
+}
+
 export interface UsPayload {
   indices: UsSection;
   volatility: UsSection;
@@ -145,6 +154,8 @@ export interface UsPayload {
   macro: UsSection;
   sectors: UsSection;
   watch: UsSection;
+  // 추가 키라 구버전 스냅샷엔 없을 수 있어 옵셔널(reader 가 null 폴백).
+  high_yield_oas?: HighYieldOas | null;
 }
 
 export interface UsSnapshot extends SnapshotBase {

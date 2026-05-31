@@ -202,6 +202,9 @@ def build_us_snapshot(data: dict[str, Any], now: datetime) -> dict[str, Any]:
         k: {t: v for t, v in (data.get(k) or {}).items() if v is not None}
         for k in ("indices", "volatility", "risk_onoff", "macro", "sectors", "watch")
     }
+    # 하이일드 OAS(#10 I6): 위험선호 보강 사실값(섹션 dict 가 아닌 단일 관측). None 가능 —
+    # 추가 키라 schema_version 유지, 구버전 웹 reader 는 누락 시 무시한다.
+    snap["payload"]["high_yield_oas"] = data.get("high_yield_oas")
     snap["sources"] = [dict(s) for s in _US_SOURCES]
     return snap
 
@@ -309,8 +312,9 @@ def _payload_all_empty(snapshot: dict[str, Any]) -> bool:
         return True
     market = snapshot.get("market")
     if market == "us":
-        # {section: {ticker: {...}}} — 모든 섹션이 빈 dict 면 결측
-        return all(not v for v in payload.values())
+        # 6개 yfinance 섹션이 모두 비면 결측 — OAS 등 부가 키는 판정에서 제외
+        sections = ("indices", "volatility", "risk_onoff", "macro", "sectors", "watch")
+        return all(not payload.get(k) for k in sections)
     if market == "weekly":
         return not (payload.get("kospi_daily") or payload.get("watch_5d"))
     if market == "kr":
