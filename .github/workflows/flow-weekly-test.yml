@@ -23,6 +23,5 @@ jobs:
         env:
           TEST_GOLDENQUEENS_BOT_TOKEN: ${{ secrets.TEST_GOLDENQUEENS_BOT_TOKEN }}
           TEST_GOLDENQUEENS_CHAT_ID:   ${{ secrets.TEST_GOLDENQUEENS_CHAT_ID }}
-          MARKET_FLOW_RENDER: text
           TZ: Asia/Seoul
         run: python main.py weekly --test

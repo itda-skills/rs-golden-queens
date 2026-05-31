@@ -14,7 +14,6 @@ SPEC-MF-SCHED-001: 한국 휴장일에는 `[KR] YYYY-MM-DD (요일) 오늘은 �
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime
 from typing import Optional
@@ -22,16 +21,12 @@ from zoneinfo import ZoneInfo
 
 from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
 from market_flow.fetchers.naver_kr import fetch_today
-from market_flow.formatter import format_kr_daily, kr_weekday, render_kr_daily_html
+from market_flow.formatter import format_kr_daily, kr_weekday
 from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_holiday_snapshot, build_kr_snapshot
-from market_flow.telegram_push import send, send_photo
+from market_flow.telegram_push import send
 
 _KST = ZoneInfo("Asia/Seoul")
-
-
-def _is_image_mode() -> bool:
-    return os.environ.get("MARKET_FLOW_RENDER", "").strip().lower() == "image"
 
 
 def _warn_block(warnings: list[str]) -> str:
@@ -218,22 +213,9 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         f"{web_link_suffix('kr', iso_date)}"
     )
 
-    if _is_image_mode():
-        from market_flow.render.renderer import html_to_png
-
-        print("🖼️  이미지 모드 — HTML→PNG 렌더")
-        html = render_kr_daily_html(data)
-        png = html_to_png(html)
-        caption = (
-            f"📊 *{kr_weekday(bizdate)} 마감 매매동향*"
-            f"{_warn_block(all_warnings)}{sources}"
-        )
-        print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
-        resp = send_photo(png, caption=caption)
-    else:
-        text = format_kr_daily(data) + _warn_block(all_warnings) + sources
-        print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
-        resp = send(text)
+    text = format_kr_daily(data) + _warn_block(all_warnings) + sources
+    print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
+    resp = send(text)
 
     msg_id = (
         resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0

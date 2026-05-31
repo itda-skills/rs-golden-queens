@@ -9,7 +9,6 @@ SPEC-MF-SCHED-001: 평일 KST 18:30에 트리거되지만, "오늘이 그 주의
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime, timedelta
 from typing import Optional
@@ -20,15 +19,10 @@ import yfinance as yf
 from market_flow.calendar_utils import is_last_kr_trading_day_of_week
 from market_flow.fetchers.naver_kr import fetch_kospi_daily
 from market_flow.fetchers.us_market import WATCH
-from market_flow.formatter import format_weekly, render_weekly_html
+from market_flow.formatter import format_weekly
 from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_weekly_snapshot
-from market_flow.telegram_push import send, send_photo
-
-
-def _is_image_mode() -> bool:
-    return os.environ.get("MARKET_FLOW_RENDER", "").strip().lower() == "image"
-
+from market_flow.telegram_push import send
 
 _KST = ZoneInfo("Asia/Seoul")
 
@@ -87,19 +81,9 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         f"{web_link_suffix('weekly', snapshot['week'])}"
     )
 
-    if _is_image_mode():
-        from market_flow.render.renderer import html_to_png
-
-        print("🖼️  이미지 모드 — HTML→PNG 렌더")
-        html = render_weekly_html(kospi_daily, watch_5d)
-        png = html_to_png(html)
-        caption = f"📅 *주간 매매동향 리포트* ({datetime.now().strftime('%-m/%-d')} 기준){sources}"
-        print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
-        resp = send_photo(png, caption=caption)
-    else:
-        text = format_weekly(kospi_daily, watch_5d) + sources
-        print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
-        resp = send(text)
+    text = format_weekly(kospi_daily, watch_5d) + sources
+    print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
+    resp = send(text)
 
     msg_id = (
         resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0

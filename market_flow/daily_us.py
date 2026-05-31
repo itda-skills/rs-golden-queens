@@ -31,10 +31,10 @@ from market_flow.calendar_utils import (
     last_us_trading_day,
 )
 from market_flow.fetchers.us_market import fetch_us_close
-from market_flow.formatter import format_us_daily, render_us_daily_html
+from market_flow.formatter import format_us_daily
 from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_holiday_snapshot, build_us_snapshot
-from market_flow.telegram_push import send, send_photo
+from market_flow.telegram_push import send
 
 _ET = ZoneInfo("America/New_York")
 
@@ -46,10 +46,6 @@ _US_SECTION_KR = {
     "sectors": "섹터",
     "watch": "워치ETF",
 }
-
-
-def _is_image_mode() -> bool:
-    return os.environ.get("MARKET_FLOW_RENDER", "").strip().lower() == "image"
 
 
 def _parse_target_date(raw: str) -> Optional[datetime]:
@@ -177,21 +173,9 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         f"{web_link}"
     )
 
-    if _is_image_mode():
-        from market_flow.render.renderer import html_to_png
-
-        print("🖼️  이미지 모드 — HTML→PNG 렌더")
-        html = render_us_daily_html(data)
-        png = html_to_png(html)
-        # 제목 날짜는 데이터 실제 기준일(snapshot date)을 따른다 — stale 시 now 와 어긋나지 않도록
-        date_label = _md_label(snapshot.get("date")) or now.strftime("%-m/%-d")
-        caption = f"🇺🇸 *{date_label} 미국장 마감*{_warn_block(warnings)}{sources}"
-        print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
-        resp = send_photo(png, caption=caption)
-    else:
-        text = format_us_daily(data) + _warn_block(warnings) + sources
-        print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
-        resp = send(text)
+    text = format_us_daily(data) + _warn_block(warnings) + sources
+    print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
+    resp = send(text)
 
     msg_id = (
         resp.get("result", {}).get("message_id", 0) if isinstance(resp, dict) else 0

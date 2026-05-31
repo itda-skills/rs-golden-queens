@@ -199,42 +199,6 @@ def _post_message(token, chat_id, text, parse_mode, disable_notification):
         return json.loads(r.read())
 
 
-def _post_photo(token, chat_id, image_bytes, caption, parse_mode, disable_notification):
-    """단일 chat_id 에 sendPhoto 호출 (multipart/form-data). 실패 시 예외 그대로 전파."""
-    boundary = "----rsgq" + os.urandom(8).hex()
-    parts = []
-
-    def add_field(name, value):
-        parts.append(f"--{boundary}\r\n".encode())
-        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
-        parts.append(str(value).encode())
-        parts.append(b"\r\n")
-
-    add_field("chat_id", chat_id)
-    if caption:
-        add_field("caption", caption)
-        add_field("parse_mode", parse_mode)
-    add_field("disable_notification", "true" if disable_notification else "false")
-
-    parts.append(f"--{boundary}\r\n".encode())
-    parts.append(
-        b'Content-Disposition: form-data; name="photo"; filename="report.png"\r\n'
-    )
-    parts.append(b"Content-Type: image/png\r\n\r\n")
-    parts.append(image_bytes)
-    parts.append(b"\r\n")
-    parts.append(f"--{boundary}--\r\n".encode())
-
-    body = b"".join(parts)
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendPhoto",
-        data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
-
-
 def _aggregate(results):
     """다중 chat_id 발송 결과를 백워드 호환 응답 dict 로 합친다.
 
@@ -316,83 +280,6 @@ def send(text, parse_mode="Markdown", disable_notification=False):
 
     ok_n = sum(1 for r in results if r["ok"])
     _log(f"send() 완료 — 성공 {ok_n}/{len(results)}")
-    return _aggregate(results)
-
-
-def send_photo(
-    image_bytes, caption=None, parse_mode="Markdown", disable_notification=False
-):
-    """텔레그램으로 이미지(PNG bytes) 발송. 다중 chat_id 지원.
-
-    MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 ./out/ 디렉터리에 저장 후 종료.
-
-    Returns:
-        {"ok": bool, "result": {"message_id": int}, "results": [per-chat ...]}
-    """
-    if _is_dry_run():
-        out_dir = Path.cwd() / "out"
-        out_dir.mkdir(exist_ok=True)
-        out_path = out_dir / "telegram-preview.png"
-        out_path.write_bytes(image_bytes)
-        try:
-            ids, chat_id_env = _chat_ids_with_source()
-        except RuntimeError:
-            ids = ["<unset>"]
-            chat_id_env = _chat_id_env_label()
-        print("─" * 60)
-        print(
-            f"[DRY-RUN] sendPhoto chat_id_env={chat_id_env} "
-            f"chat_count={len(ids)} chat_ids={_mask_env_values(ids)} → 저장 위치: {out_path}"
-        )
-        if caption:
-            print(f"[DRY-RUN] caption: {caption}")
-        print("─" * 60)
-        results = [
-            {"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True}
-            for c in ids
-        ]
-        return {
-            "ok": True,
-            "dry_run": True,
-            "result": {"message_id": 0},
-            "results": results,
-        }
-
-    token, token_env = _bot_token_with_source()
-    ids, chat_id_env = _chat_ids_with_source()
-
-    _log(
-        f"send_photo() 시작 — token_env={token_env} chat_id_env={chat_id_env} "
-        f"token={_mask_env_value(token)} chat_count={len(ids)} "
-        f"chat_ids={_mask_env_values(ids)} image_bytes={len(image_bytes)} "
-        f"caption_len={len(caption) if caption else 0}"
-    )
-
-    results = []
-    for cid in ids:
-        try:
-            resp = _post_photo(
-                token, cid, image_bytes, caption, parse_mode, disable_notification
-            )
-            msg_id = (resp.get("result") or {}).get("message_id", 0)
-            _log(f"  → chat={_mask_chat_id(cid)} ok=True msg_id={msg_id}")
-            results.append(
-                {
-                    "chat_id": cid,
-                    "ok": True,
-                    "result": resp.get("result", {"message_id": msg_id}),
-                }
-            )
-        except Exception as e:
-            _warn(
-                f"  → chat={_mask_chat_id(cid)} 사진 발송 실패: {type(e).__name__}: {e}"
-            )
-            results.append(
-                {"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"}
-            )
-
-    ok_n = sum(1 for r in results if r["ok"])
-    _log(f"send_photo() 완료 — 성공 {ok_n}/{len(results)}")
     return _aggregate(results)
 
 

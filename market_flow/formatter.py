@@ -197,37 +197,6 @@ def _kr_program_table(side):
     ]
 
 
-def render_kr_daily_html(data):
-    """한국장 일간 매매동향 → HTML 문자열 (이미지 렌더용)."""
-    from market_flow.render.renderer import render_template
-
-    bizdate = data["bizdate"]
-    daily_rows = data.get("kospi_daily") or []
-    detail = daily_rows[0] if daily_rows else None
-
-    cum5 = None
-    if len(daily_rows) >= 5:
-        cum5 = {
-            "foreign": sum(r["foreign"] for r in daily_rows[:5]),
-            "institutional": sum(r["institutional"] for r in daily_rows[:5]),
-            "personal": sum(r["personal"] for r in daily_rows[:5]),
-        }
-
-    return render_template(
-        "kr_daily.html.j2",
-        {
-            "weekday": kr_weekday(bizdate),
-            "kospi": data["kospi"],
-            "kosdaq": data["kosdaq"],
-            "detail": detail,
-            "cum5": cum5,
-            # SoT: 텍스트 모드(format_kr_daily)와 동일 섹션을 이미지에도 렌더한다.
-            "sectors": data.get("sectors") or [],
-            "money_flow": data.get("money_flow") or {},
-        },
-    )
-
-
 def format_kr_daily(data):
     """한국장 일간 매매동향. data = fetchers.naver_kr.fetch_today() 결과"""
     bizdate = data["bizdate"]
@@ -376,93 +345,6 @@ def _us_price_table(catalog, source):
     return rows
 
 
-def render_us_daily_html(data):
-    """미국장 마감 요약 → HTML 문자열 (이미지 렌더용)."""
-    from market_flow.render.renderer import render_template
-
-    # target 날짜 라벨 추출 (기존 format_us_daily 와 동일 로직)
-    target = None
-    for cat in ("indices", "volatility", "macro", "sectors", "watch", "risk_onoff"):
-        for d in (data.get(cat) or {}).values():
-            if d and d.get("date"):
-                dt = datetime.strptime(d["date"], "%Y-%m-%d")
-                target = f"{dt.month}/{dt.day}({'월화수목금토일'[dt.weekday()]})"
-                break
-        if target:
-            break
-
-    def _flatten(catalog, source):
-        out = []
-        for t, _ in catalog:
-            d = source.get(t)
-            if not d:
-                continue
-            out.append(
-                {"label": d["label"], "close": d.get("close"), "pct": d.get("pct")}
-            )
-        return out
-
-    idx = data.get("indices") or {}
-    vol = data.get("volatility") or {}
-    risk = data.get("risk_onoff") or {}
-    mac = data.get("macro") or {}
-    sec = data.get("sectors") or {}
-    watch_raw = data.get("watch") or {}
-
-    # 위험선호 판정 (기존 로직과 동일)
-    risk_label = risk_cls = None
-    hyg_pct = ief_pct = 0.0
-    hyg = risk.get("HYG")
-    ief = risk.get("IEF")
-    if hyg and ief:
-        hyg_pct, ief_pct = hyg["pct"], ief["pct"]
-        diff = hyg_pct - ief_pct
-        if diff > 0.2:
-            risk_label, risk_cls = "위험선호", "up"
-        elif diff < -0.2:
-            risk_label, risk_cls = "안전자산", "down"
-        else:
-            risk_label, risk_cls = "중립", "flat"
-
-    sectors_sorted = sorted(
-        [{"label": v["label"], "pct": v["pct"]} for v in sec.values() if v],
-        key=lambda x: -(x["pct"] or 0),
-    )
-
-    watch_list = []
-    for t, _ in WATCH:
-        d = watch_raw.get(t)
-        if not d:
-            continue
-        vr = d.get("vol_ratio")
-        watch_list.append(
-            {
-                "ticker": t,
-                "label": d["label"],
-                "close": d["close"],
-                "pct": d["pct"],
-                "vol_str": f"×{vr:.2f}" if vr else "-",
-                "hot": bool(vr and vr >= 1.5),
-            }
-        )
-
-    return render_template(
-        "us_daily.html.j2",
-        {
-            "target": target or "",
-            "indices": _flatten(INDICES, idx),
-            "volatility": _flatten(VOLATILITY, vol),
-            "macro": _flatten(MACRO, mac),
-            "sectors": sectors_sorted,
-            "watch": watch_list,
-            "risk_label": risk_label,
-            "risk_cls": risk_cls,
-            "hyg_pct": hyg_pct,
-            "ief_pct": ief_pct,
-        },
-    )
-
-
 def format_us_daily(data):
     """미국장 마감 요약. data = fetchers.us_market.fetch_us_close() 결과"""
     target = None
@@ -550,36 +432,6 @@ def format_us_daily(data):
 # ───────────────────────────────────────────────
 #  주간
 # ───────────────────────────────────────────────
-
-
-def render_weekly_html(kospi_daily, watch_5d):
-    """주간 리포트 → HTML 문자열 (이미지 렌더용)."""
-    from market_flow.render.renderer import render_template
-
-    cum = None
-    days = 0
-    daily_rows = []
-    if kospi_daily:
-        days = min(5, len(kospi_daily))
-        sub = kospi_daily[:days]
-        cum = {
-            "foreign": sum(r["foreign"] for r in sub),
-            "institutional": sum(r["institutional"] for r in sub),
-            "personal": sum(r["personal"] for r in sub),
-        }
-        daily_rows = sub
-
-    watch_sorted = sorted((watch_5d or {}).items(), key=lambda x: -x[1])
-    return render_template(
-        "weekly.html.j2",
-        {
-            "today_label": datetime.now().strftime("%m/%d"),
-            "cum": cum,
-            "days": days,
-            "daily_rows": daily_rows,
-            "watch_5d": watch_sorted,
-        },
-    )
 
 
 def format_weekly(kospi_daily, watch_5d):
