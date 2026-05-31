@@ -20,13 +20,15 @@ interface SnapshotBase {
 }
 
 // ── KR ──
+// 모바일 결측 시 naver_kr.to_int 가 None → 발행 스냅샷에 null 이 실릴 수 있다(E4).
+// 소비처(colorClass/signedAmount)는 이미 null-safe — 타입을 실제값에 맞춰 정직하게 둔다(#10).
 export interface KrInvestorFlow {
-  personal: number;
-  foreign: number;
-  institutional: number;
-  program_arb: number;
-  program_nonarb: number;
-  program_total: number;
+  personal: number | null;
+  foreign: number | null;
+  institutional: number | null;
+  program_arb: number | null;
+  program_nonarb: number | null;
+  program_total: number | null;
   bizdate?: string;
 }
 
@@ -193,7 +195,12 @@ export interface CalendarSnapshot {
 
 // 캘린더 팝오버용 간략 overview (발행된 스냅샷에서 추출)
 export interface DayOverview {
-  kr?: { foreign: number; institutional: number; personal: number };
+  // 모바일 결측 시 null 가능(KrInvestorFlow 와 동일) — 소비처는 null-safe.
+  kr?: {
+    foreign: number | null;
+    institutional: number | null;
+    personal: number | null;
+  };
   us?: { sp500Pct: number | null; vix: number | null };
 }
 export type CalendarOverviews = Record<string, DayOverview>;

@@ -22,7 +22,7 @@ import type {
 
 // 투자자별 순매수 (외인/기관/개인) — 억원
 export function InvestorFlowTable({ flow }: { flow: KrInvestorFlow }) {
-  const rows: [string, number][] = [
+  const rows: [string, number | null][] = [
     ["외국인", flow.foreign],
     ["기관", flow.institutional],
     ["개인", flow.personal],
@@ -45,7 +45,7 @@ export function InvestorFlowTable({ flow }: { flow: KrInvestorFlow }) {
 
 // 프로그램매매 (차익/비차익/합계)
 export function ProgramTable({ flow }: { flow: KrInvestorFlow }) {
-  const rows: [string, number][] = [
+  const rows: [string, number | null][] = [
     ["차익", flow.program_arb],
     ["비차익", flow.program_nonarb],
     ["합계", flow.program_total],

@@ -10,7 +10,8 @@ const UP = "#e11d48";
 const DOWN = "#2563eb";
 const FLAT = "#737373";
 
-function color(v: number) {
+function color(v: number | null) {
+  if (v == null) return FLAT;
   return v > 0 ? UP : v < 0 ? DOWN : FLAT;
 }
 
@@ -22,7 +23,7 @@ export default async function Image({
   const { date } = await params;
   const snap = await getKrSnapshot(date);
   const k = snap?.payload?.kospi;
-  const rows: [string, number][] = k
+  const rows: [string, number | null][] = k
     ? [
         ["외국인", k.foreign],
         ["기관", k.institutional],
@@ -53,7 +54,7 @@ export default async function Image({
             <div key={label} style={{ display: "flex", fontSize: 44 }}>
               <div style={{ width: 240, color: "#d4d4d4" }}>{label}</div>
               <div style={{ color: color(v), fontWeight: 700 }}>
-                {`${signedAmount(v)} ${v > 0 ? "▲" : v < 0 ? "▼" : "–"}`}
+                {`${signedAmount(v)} ${(v ?? 0) > 0 ? "▲" : (v ?? 0) < 0 ? "▼" : "–"}`}
               </div>
             </div>
           ))}
