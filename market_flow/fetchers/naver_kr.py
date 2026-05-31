@@ -11,6 +11,8 @@ import sys
 import urllib.request
 from datetime import datetime
 
+from market_flow._retry import retry_call, retryable_urllib
+
 UA = {
     "User-Agent": "Mozilla/5.0",
     "Referer": "https://finance.naver.com/",
@@ -18,9 +20,20 @@ UA = {
 
 
 def _get(url, decode="utf-8"):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=10) as r:
-        return r.read().decode(decode, errors="replace")
+    """멱등 GET — 네트워크 순단·5xx·429 를 지수 백오프로 재시도(#10 I8).
+
+    재시도는 일시 장애만 흡수한다. 마감 직후 당일 데이터 미갱신(stale)은
+    재시도해도 같은 값이라 daily_kr 의 기준일 경고(E7)가 별도로 노출한다.
+    """
+
+    def _once():
+        req = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.read().decode(decode, errors="replace")
+
+    # attempts=2(1회 재시도): 안정적인 네이버의 일시 순단 흡수엔 충분하고, 4콜
+    # 직렬이 잡 타임아웃 안에 머물도록 총 상한을 짧게 둔다(#10 I8).
+    return retry_call(_once, attempts=2, should_retry=retryable_urllib, label=url)
 
 
 def fetch_daily_summary(market):

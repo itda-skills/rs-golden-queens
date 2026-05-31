@@ -7,6 +7,8 @@ KIS Open API 클라이언트
 """
 
 import logging
+import random
+import time
 
 import pandas as pd
 import requests
@@ -15,6 +17,33 @@ from kis.auth import HTTP_TIMEOUT, KISAuth
 
 logger = logging.getLogger(__name__)
 
+# 재시도 설정 (#10 I8). KIS 는 KR 일간 경로에서 ~99콜 직렬이라 누적 지연을 막기
+# 위해 보수적으로 1회만 재시도(attempts=2)하고 백오프 상한도 짧게 둔다. 더해서
+# set_budget() 으로 전체 wall-clock 예산(deadline)을 걸어, retry 누적이 잡
+# 타임아웃(flow-kr 5분)을 넘겨 부분실패 노출 자체를 막는 일이 없게 한다.
+_RETRY_ATTEMPTS = 2
+_RETRY_BASE = 0.3
+_RETRY_MAX = 1.0
+
+
+class _KISTransient(RuntimeError):
+    """KIS 5xx 등 일시 서버 오류 — 재시도 유도용 신호."""
+
+
+class _KISRateLimited(RuntimeError):
+    """EGW00201(초당 거래건수 초과) — 재시도 유도용 신호."""
+
+
+class _KISDeadlineExceeded(RuntimeError):
+    """KIS 호출 예산(deadline) 초과 — 남은 GET 을 네트워크 대기 없이 중단(#10 I8)."""
+
+
+def _is_rate_limited(data: dict) -> bool:
+    """KIS 레이트리밋(EGW00201) 응답인지 판정. msg_cd/msg1 로 식별."""
+    if not isinstance(data, dict):
+        return False
+    return data.get("msg_cd") == "EGW00201" or "EGW00201" in str(data.get("msg1", ""))
+
 
 class KISClient:
     """한국투자증권 REST API 클라이언트"""
@@ -22,18 +51,100 @@ class KISClient:
     def __init__(self, auth: KISAuth = None, svr: str = "prod"):
         self.auth = auth or KISAuth(svr=svr)
         self.auth.authenticate()
+        # 전체 호출 예산(monotonic 절대 마감 시각). None 이면 예산 없음.
+        self._deadline: float | None = None
 
     # ── 공통 API 호출 ───────────────────────────────────────────
+
+    def set_budget(self, seconds: float | None) -> None:
+        """이 시점부터 ``seconds`` 안에 KIS GET 을 마치도록 예산을 건다(#10 I8).
+
+        잡 타임아웃(flow-kr 5분) 안에서 retry 누적 지연이 부분실패 노출을 막지
+        않도록, 예산 초과 후의 GET 은 네트워크 대기 없이 즉시 실패시켜 빈 결과로
+        degrade 한다 → 경고 노출 + 텔레그램 발송이 보장된다. ``None``/0 이면 예산
+        해제(기존 동작). 진행 중인 1콜의 per-request 타임아웃(HTTP_TIMEOUT)까지는
+        넘을 수 있으므로 호출부는 그만큼 여유를 둔다.
+        """
+        self._deadline = (time.monotonic() + seconds) if seconds else None
+
+    def _budget_left(self) -> float | None:
+        """예산 잔여 초. 예산이 없으면 None."""
+        if self._deadline is None:
+            return None
+        return self._deadline - time.monotonic()
+
+    def _get_json(self, url: str, headers: dict, params: dict):
+        """멱등 GET 1요청 + 재시도(#10 I8) → (resp, parsed|None).
+
+        네트워크 순단·5xx·EGW00201(레이트리밋)만 지수 백오프로 재시도하고, 4xx 등
+        영구 오류는 1회로 끝낸다(그대로 반환). KIS 는 독립 패키지라 market_flow 의
+        retry 헬퍼에 의존하지 않고 자체 백오프를 둔다. GET(멱등)에만 쓰며, 주문
+        등 POST 에는 적용하지 않는다.
+        """
+        # 예산이 이미 소진됐으면 네트워크 대기 없이 즉시 중단(retry 누적 차단).
+        left = self._budget_left()
+        if left is not None and left <= 0:
+            raise _KISDeadlineExceeded(f"예산 초과 ({url})")
+
+        last_exc: Exception | None = None
+        for i in range(_RETRY_ATTEMPTS):
+            try:
+                resp = requests.get(
+                    url, headers=headers, params=params, timeout=HTTP_TIMEOUT
+                )
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+            ) as exc:
+                last_exc = exc
+            else:
+                if resp.status_code >= 500:
+                    last_exc = _KISTransient(
+                        f"HTTP {resp.status_code}: {resp.text[:200]}"
+                    )
+                elif resp.status_code != 200:
+                    return resp, None  # 4xx 등 영구 오류 — 재시도 무의미
+                else:
+                    data = resp.json()
+                    if not _is_rate_limited(data):
+                        return resp, data
+                    last_exc = _KISRateLimited(str(data.get("msg1", "EGW00201")))
+            if i < _RETRY_ATTEMPTS - 1:
+                delay = random.random() * min(_RETRY_MAX, _RETRY_BASE * (2**i))
+                # 재시도 대기가 예산을 넘기면 더 기다리지 않고 마지막 실패를 낸다.
+                left = self._budget_left()
+                if left is not None and left <= delay:
+                    break
+                logger.warning(
+                    "KIS 재시도 %d/%d (%s): %s — %.2fs 후",
+                    i + 1,
+                    _RETRY_ATTEMPTS - 1,
+                    url,
+                    last_exc,
+                    delay,
+                )
+                time.sleep(delay)
+        assert last_exc is not None  # 루프에서 항상 설정됨
+        raise last_exc
 
     def get(self, api_url: str, tr_id: str, params: dict, tr_cont: str = "") -> dict:
         """GET 방식 API 호출, 원시 응답 반환"""
         url = f"{self.auth.base_url}{api_url}"
         headers = self.auth.get_headers(tr_id, tr_cont)
-        resp = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
-        if resp.status_code != 200:
+        try:
+            resp, data = self._get_json(url, headers, params)
+        except (
+            requests.exceptions.RequestException,
+            _KISTransient,
+            _KISRateLimited,
+            _KISDeadlineExceeded,
+        ) as e:
+            logger.error("API %s 재시도 소진: %s", api_url, e)
+            return {"rt_cd": "-1", "msg1": str(e)}
+        if resp.status_code != 200 or data is None:
             logger.error("API %s → %d: %s", api_url, resp.status_code, resp.text[:200])
             return {"rt_cd": "-1", "msg1": f"HTTP {resp.status_code}"}
-        return resp.json()
+        return data
 
     def post(self, api_url: str, tr_id: str, body: dict, tr_cont: str = "") -> dict:
         """POST 방식 API 호출 (주문 등)"""
@@ -69,15 +180,21 @@ class KISClient:
         for page in range(max_pages):
             url = f"{self.auth.base_url}{api_url}"
             headers = self.auth.get_headers(tr_id, tr_cont)
-            resp = requests.get(
-                url, headers=headers, params=params, timeout=HTTP_TIMEOUT
-            )
-
-            if resp.status_code != 200:
-                logger.error("API error %d: %s", resp.status_code, resp.text)
+            try:
+                resp, data = self._get_json(url, headers, params)
+            except (
+                requests.exceptions.RequestException,
+                _KISTransient,
+                _KISRateLimited,
+                _KISDeadlineExceeded,
+            ) as e:
+                logger.error("API %s 재시도 소진: %s", api_url, e)
                 break
 
-            data = resp.json()
+            if resp.status_code != 200 or data is None:
+                logger.error("API error %d: %s", resp.status_code, resp.text[:200])
+                break
+
             if data.get("rt_cd") != "0":
                 logger.error(
                     "API rt_cd=%s, msg=%s", data.get("rt_cd"), data.get("msg1")

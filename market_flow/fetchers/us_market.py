@@ -3,7 +3,40 @@
 import sys
 from datetime import datetime, timedelta
 
+import requests
 import yfinance as yf
+
+from market_flow._retry import retry_call
+
+
+class _EmptyDownload(RuntimeError):
+    """yf.download 가 빈 프레임을 반환 — 일시 장애로 보고 재시도하기 위한 신호."""
+
+
+def _yf_retryable(exc: Exception) -> bool:
+    """yfinance 다운로드의 '일시 장애' 판정(#10 I8).
+
+    빈 프레임(_EmptyDownload)과 네트워크/타임아웃 계열만 재시도한다. yfinance 는
+    내부적으로 requests 를 쓰므로 RequestException 도 포함한다.
+    """
+    return isinstance(
+        exc,
+        (
+            _EmptyDownload,
+            requests.exceptions.RequestException,
+            TimeoutError,
+            ConnectionError,
+        ),
+    )
+
+
+def _download(syms, start, end):
+    """yf.download 1회 — 빈 프레임이면 _EmptyDownload 로 재시도를 유도(#10 I8)."""
+    df = yf.download(syms, start=start, end=end, progress=False, auto_adjust=False)
+    if df is None or df.empty:
+        raise _EmptyDownload(syms)
+    return df
+
 
 INDICES = [
     ("^GSPC", "S&P500"),
@@ -73,7 +106,23 @@ def _fetch_yf(tickers, target_date=None):
         end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=45)).strftime("%Y-%m-%d")
 
-    df = yf.download(syms, start=start, end=end, progress=False, auto_adjust=False)
+    try:
+        # attempts=2(1회 재시도): 6개 그룹이 독립 degrade 하므로 그룹당 상한을 짧게
+        # 둬 flow-us 잡 타임아웃 안에 머물게 한다(#10 I8).
+        df = retry_call(
+            lambda: _download(syms, start, end),
+            attempts=2,
+            should_retry=_yf_retryable,
+            label=f"yf[{syms}]",
+        )
+    except Exception as e:  # noqa: BLE001 — 그룹 전체를 결측으로 degrade
+        # 재시도 소진. 빈 표·크래시 대신 그룹을 통째 None 으로 두면 daily_us 의
+        # section_counts 가 0 으로 잡혀 '일부 섹션 미수집' 경고(E5/I8)가 작동한다.
+        print(
+            f"warn: fetch_yf 다운로드 실패 [{syms}]: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+        return {ticker: None for ticker, _ in tickers}
     out = {}
     for ticker, label in tickers:
         try:

@@ -28,6 +28,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from market_flow._retry import retry_call, retryable_urllib
+
 # .env 파일이 있으면 로드 (로컬 개발용)
 try:
     from dotenv import load_dotenv
@@ -182,7 +184,13 @@ def _colorize_for_stdout(text):
 
 
 def _post_message(token, chat_id, text, parse_mode, disable_notification):
-    """단일 chat_id 에 sendMessage 호출. 실패 시 예외 그대로 전파."""
+    """단일 chat_id 에 sendMessage 호출. 실패 시 예외 그대로 전파.
+
+    sendMessage 는 비멱등(재전송 시 중복 발송 위험)이라 5xx·네트워크 순단에만
+    1회 재시도한다(#10 I8). 4xx·429 는 재시도하지 않는다 — 잘못된 요청은
+    재전송해도 같고, 429 는 retry_after 를 무시하면 더 악화된다. 연결 자체가
+    실패한 네트워크 오류는 서버 미수신 가능성이 높아 1회 재전송이 안전하다.
+    """
     payload = urllib.parse.urlencode(
         {
             "chat_id": chat_id,
@@ -192,11 +200,20 @@ def _post_message(token, chat_id, text, parse_mode, disable_notification):
             "disable_web_page_preview": "true",
         }
     ).encode()
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage", data=payload
+
+    def _once():
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage", data=payload
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+
+    return retry_call(
+        _once,
+        attempts=2,
+        should_retry=lambda e: retryable_urllib(e, retry_429=False),
+        label=f"telegram:{_mask_chat_id(chat_id)}",
     )
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read())
 
 
 def _aggregate(results):
