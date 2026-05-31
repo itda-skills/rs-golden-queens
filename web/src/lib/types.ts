@@ -72,9 +72,25 @@ export interface KrMoneyFlowItem {
   both_buy: boolean;
 }
 
+// 순매도 항목 (I1, #10 P0-d) — 매수 개념(grade·both_buy) 미포함, 사실 금액만.
+export interface KrMoneyFlowSellItem {
+  code: string;
+  name: string;
+  price: number | null;
+  ret_5: number | null;
+  trade_value_eok: number | null;
+  foreign_eok: number | null;
+  orgn_eok: number | null;
+  combined_eok: number | null;
+}
+
 export interface KrMoneyFlow {
   etfs: KrMoneyFlowItem[];
   stocks: KrMoneyFlowItem[];
+  // I1: 외인·기관 순매도 상위. schema_version 1 추가 키이므로 구버전 스냅샷엔
+  // 없을 수 있어 optional (없으면 순매도 블록 미표시).
+  etfs_sell?: KrMoneyFlowSellItem[];
+  stocks_sell?: KrMoneyFlowSellItem[];
 }
 
 export interface KrPayload {

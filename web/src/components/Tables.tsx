@@ -12,6 +12,7 @@ import type {
   KrInvestorFlow,
   KrMoneyFlow,
   KrMoneyFlowItem,
+  KrMoneyFlowSellItem,
   KrSector,
   UsSection,
 } from "@/lib/types";
@@ -200,6 +201,61 @@ export function MoneyFlowTable({ mf }: { mf: KrMoneyFlow }) {
             📈 개별주 Top
           </p>
           <MoneyFlowRows items={mf.stocks} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 순매도 한 그룹 (I1, #10 P0-d) — 매수 라벨(grade·🔥) 미사용. 외인·기관 순매도(억원).
+function MoneyFlowSellRows({ items }: { items: KrMoneyFlowSellItem[] }) {
+  return (
+    <table className="w-full text-sm tabular-nums">
+      <tbody>
+        {items.map((it) => (
+          <tr
+            key={it.code}
+            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+          >
+            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
+              {it.name}
+              <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
+            </td>
+            <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
+              외{" "}
+              {it.foreign_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.foreign_eok))}
+            </td>
+            <td className={`py-1.5 text-right ${colorClass(it.orgn_eok)}`}>
+              기{" "}
+              {it.orgn_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.orgn_eok))}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// 외인·기관 순매도 상위 (I1, #10 P0-d) — ETF·개별주 분리. 매수 편향 라벨 미사용.
+export function MoneyFlowSellTable({ mf }: { mf: KrMoneyFlow }) {
+  const etfsSell = mf.etfs_sell ?? [];
+  const stocksSell = mf.stocks_sell ?? [];
+  return (
+    <div className="space-y-3">
+      {etfsSell.length > 0 && (
+        <div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">ETF</p>
+          <MoneyFlowSellRows items={etfsSell} />
+        </div>
+      )}
+      {stocksSell.length > 0 && (
+        <div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">개별주</p>
+          <MoneyFlowSellRows items={stocksSell} />
         </div>
       )}
     </div>

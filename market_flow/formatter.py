@@ -276,6 +276,24 @@ def format_kr_daily(data):
         L.append("📈 *개별주 Top*")
         L.append(_card(_money_flow_rows(stocks), ["l", "l", "l", "r", "r", "l"]))
 
+    # 외인·기관 순매도 상위 (I1) — 매수 라벨(🔥·grade·Top) 미사용, 금액 사실값만.
+    etfs_sell = money_flow.get("etfs_sell") or []
+    stocks_sell = money_flow.get("stocks_sell") or []
+    if etfs_sell or stocks_sell:
+        L.append("")
+        L.append("📉 *외인·기관 순매도 상위 (자동 스크리닝)*")
+        L.append("_외인·기관 합산이 음수인 종목 (당일 / 단위: 억원)_")
+
+    if etfs_sell:
+        L.append("")
+        L.append("*ETF*")
+        L.append(_card(_money_flow_sell_rows(etfs_sell), ["l", "l", "r", "r"]))
+
+    if stocks_sell:
+        L.append("")
+        L.append("*개별주*")
+        L.append(_card(_money_flow_sell_rows(stocks_sell), ["l", "l", "r", "r"]))
+
     return "\n".join(L)
 
 
@@ -298,6 +316,21 @@ def _money_flow_rows(items):
                 both,
             ]
         )
+    return rows
+
+
+def _money_flow_sell_rows(items):
+    """순매도 행: [코드, 종목명(14자), 외인(억), 기관(억)].
+
+    I1 순매도 블록 — 매수 편향 라벨(🔥·grade·Top)을 재사용하지 않는다(codex 주의).
+    음수 부호가 그대로 순매도를 나타낸다(시그널 단어 없이 사실값만).
+    """
+    rows = []
+    for r in items:
+        name = (r.get("name") or "")[:14]
+        f_eok = r.get("foreign_eok") or 0
+        o_eok = r.get("orgn_eok") or 0
+        rows.append([r.get("code", "-"), name, f"외{f_eok:+.0f}", f"기{o_eok:+.0f}"])
     return rows
 
 

@@ -100,23 +100,39 @@ _KR_MF_FIELDS = (
     "combined_eok",
     "both_buy",
 )
+# 순매도 블록(I1)은 매수 개념 필드(grade·both_buy)를 담지 않는다 — 매수 라벨 재사용 금지.
+_KR_MF_SELL_FIELDS = (
+    "code",
+    "name",
+    "price",
+    "ret_5",
+    "trade_value_eok",
+    "foreign_eok",
+    "orgn_eok",
+    "combined_eok",
+)
 
 
 def _kr_money_flow_payload(mf: Any) -> Optional[dict[str, Any]]:
     """동적 수급 워치(fetch_money_flow_watch 반환)를 발행용으로 정제. None 이면 None.
 
     텔레그램에 보내는 섹션을 웹도 동일하게 보여주기 위한 SoT 정합 — 색/이모지·
-    내부 점수는 담지 않고 값만 담는다(웹이 값에서 색을 재현).
+    내부 점수는 담지 않고 값만 담는다(웹이 값에서 색을 재현). 순매도 블록(I1)은
+    매수 개념(grade·both_buy)을 제외한 사실 금액만 담는다.
     """
     if not mf:
         return None
 
-    def pick(item: dict[str, Any]) -> dict[str, Any]:
-        return {k: item.get(k) for k in _KR_MF_FIELDS}
+    def pick(item: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+        return {k: item.get(k) for k in fields}
 
     return {
-        "etfs": [pick(x) for x in (mf.get("etfs") or [])],
-        "stocks": [pick(x) for x in (mf.get("stocks") or [])],
+        "etfs": [pick(x, _KR_MF_FIELDS) for x in (mf.get("etfs") or [])],
+        "stocks": [pick(x, _KR_MF_FIELDS) for x in (mf.get("stocks") or [])],
+        "etfs_sell": [pick(x, _KR_MF_SELL_FIELDS) for x in (mf.get("etfs_sell") or [])],
+        "stocks_sell": [
+            pick(x, _KR_MF_SELL_FIELDS) for x in (mf.get("stocks_sell") or [])
+        ],
     }
 
 

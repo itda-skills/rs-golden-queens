@@ -26,18 +26,18 @@ def fetch_money_flow_watch(
         stock_show: 개별주 표시 개수
 
     Returns:
-        {"etfs": [...], "stocks": [...]} — 외인+기관 합산(부호 있는) 내림차순.
-        즉 "오늘 자금이 가장 많이 유입된 Top N" 목록.
-        합산이 음수인 종목도 결과 풀에는 들어오지만(min_*=-1e10),
-        head() 가 양수/0 근처 종목을 먼저 잡아내므로 "큰 순매도 종목" 은
-        이 정렬에서 상위에 오지 않음. 매도 시그널이 필요하면 sort 정책 변경 필요.
+        {"etfs", "stocks", "etfs_sell", "stocks_sell"} — 모두 외인+기관 합산 기준.
+        - etfs/stocks: 합산 내림차순 Top("오늘 자금이 가장 많이 유입된" 순매수 상위).
+        - etfs_sell/stocks_sell: 합산이 음수(실제 순매도)인 종목 중 가장 큰 순매도
+          상위(I1). head/내림차순만으로는 절대 선택되지 않던 '외인·기관 대량 순매도'를
+          별도 블록으로 노출한다(순매수 편향 보완). 금액 사실값만, 시그널 단어 없이.
     """
     if client is None:
         client = KISClient(svr="prod")
 
-    # 필터 해제 (-1e10) — 외인 매도장에서도 기관 단독 매집 종목이 결과 풀에
-    # 살아남아야 head(5) 자리가 0 또는 양수로 채워지므로 (HANDOFF 3-3).
-    # sort=combined: 부호 있는 합산 내림차순 → 자금 유입 Top.
+    # 필터 해제 (-1e10) — 음수(순매도) 종목도 풀에 살아남아야 순매도 블록(I1)의
+    # 후보가 되고, 외인 매도장에서도 기관 단독 매집 종목이 순매수 블록을 채운다.
+    # sort=combined: 부호 있는 합산 내림차순.
     df = screen(
         client,
         mode="all",
@@ -48,14 +48,37 @@ def fetch_money_flow_watch(
         sort="combined",
     )
     if df.empty:
-        return {"etfs": [], "stocks": []}
+        return {"etfs": [], "stocks": [], "etfs_sell": [], "stocks_sell": []}
 
     etfs_df = df[df["is_etf"]].copy()
     stocks_df = df[~df["is_etf"]].copy()
 
-    etfs = etfs_df.head(etf_show).to_dict(orient="records")
-    stocks = stocks_df.head(stock_show).to_dict(orient="records")
-    return {"etfs": etfs, "stocks": stocks}
+    # 순매수 Top: 합산이 양수(실제 순매수)인 종목만 내림차순 상단.
+    # 양수 필터로 순매도 블록과 disjoint — 양수가 N개 미만이어도 음수가 섞이지 않는다.
+    etfs = etfs_df[etfs_df["combined_eok"] > 0].head(etf_show).to_dict(orient="records")
+    stocks = (
+        stocks_df[stocks_df["combined_eok"] > 0]
+        .head(stock_show)
+        .to_dict(orient="records")
+    )
+    # 순매도 Top: 합산이 음수(실제 순매도)인 종목 중 가장 큰 순매도부터(I1).
+    # 내림차순 head 만으로는 절대 잡히지 않던 외인·기관 대량 순매도를 별도 블록으로.
+    etfs_sell = (
+        etfs_df[etfs_df["combined_eok"] < 0]
+        .nsmallest(etf_show, "combined_eok")
+        .to_dict(orient="records")
+    )
+    stocks_sell = (
+        stocks_df[stocks_df["combined_eok"] < 0]
+        .nsmallest(stock_show, "combined_eok")
+        .to_dict(orient="records")
+    )
+    return {
+        "etfs": etfs,
+        "stocks": stocks,
+        "etfs_sell": etfs_sell,
+        "stocks_sell": stocks_sell,
+    }
 
 
 if __name__ == "__main__":

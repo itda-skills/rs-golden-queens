@@ -449,6 +449,61 @@ class TestFormatKrDaily:
         out = F.format_kr_daily(data)
         assert "ETF Top" in out
 
+    def test_money_flow_sell_block_no_buy_labels(self):
+        # I1: 순매도 블록은 매수 라벨(🔥·grade·"Top")을 재사용하지 않고 금액만 노출
+        mf = {
+            "etfs": [],
+            "stocks": [],
+            "etfs_sell": [
+                {
+                    "code": "069500",
+                    "name": "KODEX 200",
+                    "foreign_eok": -700.0,
+                    "orgn_eok": -200.0,
+                    "combined_eok": -900.0,
+                },
+            ],
+            "stocks_sell": [
+                {
+                    "code": "005930",
+                    "name": "삼성전자",
+                    "foreign_eok": -500.0,
+                    "orgn_eok": -150.0,
+                    "combined_eok": -650.0,
+                    "grade": "GRADEX",  # 순매도 렌더에서 무시되어야 할 매수 개념(sentinel)
+                    "both_buy": True,
+                },
+            ],
+        }
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": mf,
+        }
+        out = F.format_kr_daily(data)
+        assert "순매도 상위" in out
+        assert "삼성전자" in out and "005930" in out
+        assert "외-700" in out and "기-200" in out  # 음수 부호 = 순매도 사실값
+        # 매수 편향 라벨(🔥·grade·"Top")이 순매도에 재사용되지 않는다(codex 주의)
+        assert "오늘의 수급 Top" not in out
+        assert "Top" not in out
+        assert "🔥" not in out  # both_buy=True 여도 순매도 렌더는 무시
+        assert "GRADEX" not in out  # grade 값이 순매도 행에 렌더되지 않음
+
+    def test_money_flow_sell_absent_when_no_sells(self):
+        mf = {"etfs": [], "stocks": [], "etfs_sell": [], "stocks_sell": []}
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "money_flow": mf,
+        }
+        out = F.format_kr_daily(data)
+        assert "순매도 상위" not in out
+
 
 # ──────────────────────────────────────────────
 #  format_us_daily

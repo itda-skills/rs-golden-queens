@@ -272,6 +272,41 @@ class TestKr:
         assert snap["payload"]["money_flow"] is None
         assert snap["payload"]["sectors"] is None
 
+    def test_money_flow_sell_published_without_buy_fields(self, kr_data):
+        """I1: 순매도 블록을 발행하되 매수 개념(grade·both_buy)은 담지 않는다."""
+        data = dict(kr_data)
+        data["money_flow"] = {
+            "etfs": [],
+            "stocks": [],
+            "etfs_sell": [
+                {
+                    "code": "069500",
+                    "name": "KODEX 200",
+                    "price": 30000,
+                    "ret_5": -1.5,
+                    "trade_value_eok": 1000,
+                    "foreign_eok": -700.0,
+                    "orgn_eok": -200.0,
+                    "combined_eok": -900.0,
+                    # 발행에서 제외되어야 할 매수 개념·내부 필드
+                    "grade": "D",
+                    "both_buy": False,
+                    "is_etf": True,
+                    "mf_score": 10.0,
+                },
+            ],
+            "stocks_sell": [],
+        }
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        mf = snap["payload"]["money_flow"]
+        sell = mf["etfs_sell"][0]
+        assert sell["code"] == "069500"
+        assert sell["combined_eok"] == -900.0
+        # 순매도 화이트리스트 정합 — 매수 개념(grade·both_buy)·내부 필드는 한 개도 없음
+        assert set(sell.keys()) == set(P._KR_MF_SELL_FIELDS)
+        assert "grade" not in sell and "both_buy" not in sell
+        assert mf["stocks_sell"] == []
+
     def test_nan_serialized_as_null_not_nan_token(self, kr_data):
         """NaN/Inf 는 유효 JSON(null)으로 — 'NaN' 토큰은 웹 res.json()이 거부한다.
 

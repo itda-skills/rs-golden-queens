@@ -8,6 +8,7 @@ import {
 import {
   InvestorFlowTable,
   KospiDailyTable,
+  MoneyFlowSellTable,
   MoneyFlowTable,
   ProgramTable,
   SectorTable,
@@ -107,6 +108,19 @@ export default async function KrDetail({
                   }
                 >
                   <MoneyFlowTable mf={snap.payload.money_flow} />
+                </Card>
+              )}
+            {snap.payload.money_flow &&
+              ((snap.payload.money_flow.etfs_sell?.length ?? 0) > 0 ||
+                (snap.payload.money_flow.stocks_sell?.length ?? 0) > 0) && (
+                <Card
+                  title="외인·기관 순매도 상위"
+                  subtitle="외국인·기관 합산이 음수인 종목 (억원)"
+                  info={
+                    <InfoTooltip tooltip="외국인·기관이 당일 가장 많이 순매도한(합산 음수) 종목을 금액으로 표시한 값(억원). 순매수 Top만 보면 놓치는 순매도를 함께 보여줄 뿐, 향후 방향·권유가 아니다." />
+                  }
+                >
+                  <MoneyFlowSellTable mf={snap.payload.money_flow} />
                 </Card>
               )}
             <Card
