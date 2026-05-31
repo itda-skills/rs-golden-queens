@@ -194,8 +194,11 @@ def build_us_snapshot(data: dict[str, Any], now: datetime) -> dict[str, Any]:
     # US 거래일은 섹션 항목의 date 필드에서 추출 (모든 항목이 동일 거래일)
     date_iso = _us_trade_date(data)
     snap = _base("us", date_iso, now, is_holiday=False)
+    # 결측 티커(_fetch_yf → None)는 발행 전 제거 — 웹(UsSectionTable)이 q.label 을
+    # 바로 역참조하므로 null 티커가 스냅샷에 들어가면 카드가 런타임 에러난다.
+    # 텔레그램(`if not d: continue`)과 동일하게 None 을 거른다(값 정합).
     snap["payload"] = {
-        k: data.get(k)
+        k: {t: v for t, v in (data.get(k) or {}).items() if v is not None}
         for k in ("indices", "volatility", "risk_onoff", "macro", "sectors", "watch")
     }
     snap["sources"] = [dict(s) for s in _US_SOURCES]

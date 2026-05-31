@@ -382,7 +382,16 @@ INDICES = [
     ("^DJI", "다우"),
     ("^RUT", "러셀2000"),
 ]
-VOLATILITY = [("^VIX", "VIX"), ("^VVIX", "VVIX"), ("^SKEW", "SKEW")]
+# us_market.VOLATILITY 와 동일 순서·라벨 유지 — 텔레그램 렌더 catalog.
+# (웹 순서는 발행 JSON 의 sort_keys 알파벳을 따름. 값은 동일, 표현 순서만 별개.)
+VOLATILITY = [
+    ("^VIX9D", "VIX 9일"),
+    ("^VIX", "VIX 30일"),
+    ("^VVIX", "VVIX"),
+    ("^SKEW", "SKEW"),
+    ("^GVZ", "금변동성"),
+    ("^OVX", "유가변동성"),
+]
 MACRO = [
     ("^TNX", "10Y금리"),
     ("^TYX", "30Y금리"),
@@ -448,6 +457,30 @@ def _risk_axes(vol, mac):
     return rows
 
 
+def _vix_term_structure(vol, tol=0.3):
+    """VIX 기간구조(9일 vs 30일) — 곡선 형태 사실. 종합 판단·예측이 아니다.
+
+    spread = 30일 − 9일. 30일>9일(spread>tol)=콘탱고(우상향, 평상시),
+    9일>30일(spread<-tol)=백워데이션(우하향), |spread|≤tol=평탄.
+    9일·30일 종가 중 하나라도 결측이면 None(섹션 자체를 생략).
+    """
+    short = (vol.get("^VIX9D") or {}).get("close")
+    long_ = (vol.get("^VIX") or {}).get("close")
+    if short is None or long_ is None:
+        return None
+    spread = long_ - short
+    # 표시 단위(소수 2자리)로 반올림해 분류 — 부동소수로 +0.30p 가 콘탱고로 새지 않게.
+    # 웹(VixTermStructure)도 동일하게 round(2) 후 비교(SoT 정합).
+    s = round(spread, 2)
+    if s > tol:
+        shape = "콘탱고"
+    elif s < -tol:
+        shape = "백워데이션"
+    else:
+        shape = "평탄"
+    return {"short": short, "long": long_, "spread": spread, "shape": shape}
+
+
 def format_us_daily(data):
     """미국장 마감 요약. data = fetchers.us_market.fetch_us_close() 결과"""
     target = None
@@ -477,6 +510,13 @@ def format_us_daily(data):
 
     L.append("🌡️ *변동성·꼬리위험* _(종가 / 등락)_")
     L.append(_card(_us_price_table(VOLATILITY, vol), PRICE_ALIGNS))
+    # VIX 기간구조(I7): 9일 vs 30일 곡선 형태 — 콘탱고/백워데이션 사실. 예측 아님.
+    ts = _vix_term_structure(vol)
+    if ts:
+        L.append(
+            f"  _VIX 기간구조: 9일 {ts['short']:,.2f} / 30일 {ts['long']:,.2f} "
+            f"→ {ts['shape']} ({ts['spread']:+.2f}p)_"
+        )
     L.append("")
 
     hyg = risk.get("HYG")

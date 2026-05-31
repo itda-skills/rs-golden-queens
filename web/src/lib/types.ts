@@ -134,7 +134,9 @@ export interface UsQuote {
   date: string;
 }
 
-export type UsSection = Record<string, UsQuote>;
+// 결측 티커(_fetch_yf → None)는 publisher 가 발행 전 제거하지만, 구버전 스냅샷·방어를
+// 위해 null 을 허용한다(UsSectionTable 이 필터링). 소비처는 옵셔널 체이닝으로 접근.
+export type UsSection = Record<string, UsQuote | null>;
 
 export interface UsPayload {
   indices: UsSection;

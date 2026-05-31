@@ -11,7 +11,16 @@ INDICES = [
     ("^DJI", "다우"),
     ("^RUT", "러셀2000"),
 ]
-VOLATILITY = [("^VIX", "VIX"), ("^VVIX", "VVIX"), ("^SKEW", "SKEW")]
+# 변동성 (I7, #10): VIX 기간구조(9일/30일) + 꼬리위험(VVIX/SKEW) + 자산별 변동성.
+# ^RVX(러셀)/^VXEEM(신흥국)은 yfinance EMPTY(상폐) — 스모크 확인 후 제외.
+VOLATILITY = [
+    ("^VIX9D", "VIX 9일"),
+    ("^VIX", "VIX 30일"),
+    ("^VVIX", "VVIX"),
+    ("^SKEW", "SKEW"),
+    ("^GVZ", "금변동성"),
+    ("^OVX", "유가변동성"),
+]
 RISK_ONOFF = [("HYG", "고수익채권"), ("IEF", "7-10Y국채")]
 MACRO = [
     ("^TNX", "10Y금리"),

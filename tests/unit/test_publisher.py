@@ -420,6 +420,18 @@ class TestUs:
         snap = P.build_us_snapshot({"indices": {}}, _NOW_ET)
         assert snap["date"] is None
 
+    def test_none_tickers_dropped(self, us_data):
+        # 결측 티커(_fetch_yf → None)는 발행 payload 에서 제거 — 웹(UsSectionTable)이
+        # q.label 을 바로 역참조하므로 null 티커가 들어가면 카드가 런타임 에러난다(P1-2).
+        import copy
+
+        data = copy.deepcopy(us_data)
+        data["volatility"]["^GVZ"] = None
+        snap = P.build_us_snapshot(data, _NOW_ET)
+        vol = snap["payload"]["volatility"]
+        assert "^GVZ" not in vol  # None 티커 제거
+        assert "^VIX" in vol  # 정상 티커 유지
+
 
 # ──────────────────────────────────────────────
 #  Weekly

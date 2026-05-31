@@ -36,7 +36,7 @@ export const CARD_INFO = {
   },
   usVolatility: {
     tooltip:
-      "VIX·VVIX·SKEW. 시장 불안의 '크기'를 나타내는 동행·후행 지표이지 방향·예측이 아니다.",
+      "VIX(9·30일)·VVIX·SKEW·금/유가 변동성. 시장 불안의 '크기'를 나타내는 동행·후행 지표이지 방향·예측이 아니다. 기간구조(9일 vs 30일): 콘탱고=30일>9일(우상향), 백워데이션=9일>30일(역전) — 곡선 형태 사실.",
     href: "/guide#us-index-vol",
   },
   usRisk: {

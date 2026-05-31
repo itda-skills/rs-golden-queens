@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getUsSnapshot } from "@/lib/data";
 import { longDate, price, signedPct } from "@/lib/format";
+import type { UsQuote } from "@/lib/types";
 
 export const alt = "미국장 마감";
 export const size = { width: 1200, height: 630 };
@@ -22,7 +23,9 @@ export default async function Image({
   const { date } = await params;
   const snap = await getUsSnapshot(date);
   const idx = snap?.payload?.indices ?? {};
-  const rows = Object.values(idx).slice(0, 4);
+  const rows = Object.values(idx)
+    .filter((q): q is UsQuote => q != null)
+    .slice(0, 4);
 
   return new ImageResponse(
     (

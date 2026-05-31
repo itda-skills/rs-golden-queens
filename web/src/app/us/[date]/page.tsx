@@ -5,7 +5,7 @@ import {
   HolidayNotice,
   SourceList,
 } from "@/components/Layout";
-import { RiskAxes, UsSectionTable } from "@/components/Tables";
+import { RiskAxes, UsSectionTable, VixTermStructure } from "@/components/Tables";
 import { HBarChart } from "@/components/BarChart";
 import { PrevNext } from "@/components/PrevNext";
 import { InfoTooltip } from "@/components/InfoTooltip";
@@ -13,14 +13,14 @@ import { adjacent } from "@/lib/adjacent";
 import { CARD_INFO } from "@/lib/card-info";
 import { getIndex, getUsSnapshot } from "@/lib/data";
 import { longDate, shortDateWeekday } from "@/lib/format";
-import type { UsPayload } from "@/lib/types";
+import type { UsPayload, UsQuote } from "@/lib/types";
 
 // US 섹터: 등락률 막대 + 우측 note 에 ^GSPC 대비 상대강도(%p)·거래량강도(×, 🔥) 병기.
 // 모두 발행 스냅샷 값에서 파생(상대치 = 섹터pct − S&P500pct). 등락 내림차순.
 function usSectorBars(p: UsPayload) {
   const sp = p.indices?.["^GSPC"]?.pct ?? null;
   return Object.values(p.sectors)
-    .filter(Boolean)
+    .filter((q): q is UsQuote => q != null)
     .map((q) => {
       const rel = sp != null && q.pct != null ? q.pct - sp : null;
       const relStr = rel != null ? `vs${rel >= 0 ? "+" : ""}${rel.toFixed(2)}` : "";
@@ -92,6 +92,7 @@ export default async function UsDetail({
               info={<InfoTooltip {...CARD_INFO.usVolatility} />}
             >
               <UsSectionTable section={p.volatility} />
+              <VixTermStructure volatility={p.volatility} />
             </Card>
             <Card
               title="위험선호 (Risk On/Off)"

@@ -692,6 +692,55 @@ class TestFormatUsDaily:
         assert "VIX" in out and "달러(DXY)" in out
         assert "안전자산" in out  # 달러 +0.3 → 안전자산 (primary 는 위험선호)
 
+    def test_vix_term_structure_shapes_and_missing(self):
+        # I7: 30일>9일=콘탱고, 9일>30일=백워데이션, |spread|≤0.3=평탄, 결측=None
+        contango = F._vix_term_structure(
+            {"^VIX9D": {"close": 12.0}, "^VIX": {"close": 15.0}}
+        )
+        assert contango["shape"] == "콘탱고"
+        assert round(contango["spread"], 2) == 3.0
+        back = F._vix_term_structure(
+            {"^VIX9D": {"close": 20.0}, "^VIX": {"close": 18.0}}
+        )
+        assert back["shape"] == "백워데이션"
+        assert round(back["spread"], 2) == -2.0
+        # 임계: spread=0.2(≤tol) 평탄, 0.5(>tol) 콘탱고
+        flat = F._vix_term_structure(
+            {"^VIX9D": {"close": 15.0}, "^VIX": {"close": 15.2}}
+        )
+        assert flat["shape"] == "평탄"
+        # 9일·30일 중 하나라도 결측이면 None
+        assert F._vix_term_structure({"^VIX": {"close": 15.0}}) is None
+        assert F._vix_term_structure({"^VIX9D": {"close": 12.0}}) is None
+        assert F._vix_term_structure({}) is None
+        # 부동소수 경계: 30일-9일=0.30(표시 +0.30p)은 평탄 — 콘탱고로 새지 않음
+        edge = F._vix_term_structure(
+            {"^VIX9D": {"close": 15.00}, "^VIX": {"close": 15.30}}
+        )
+        assert edge["shape"] == "평탄"
+        assert f"{edge['spread']:+.2f}" == "+0.30"
+
+    def test_vix_term_structure_rendered_in_volatility_card(self):
+        # I7: VIX9D 가 있으면 변동성 카드에 기간구조 한 줄(콘탱고, +spread) 렌더
+        data = _build_us_data()
+        data["volatility"]["^VIX9D"] = _us_entry("VIX 9일", close=12.5, pct=-3.0)
+        out = F.format_us_daily(data)  # 기존 ^VIX=15.0 → spread +2.5 → 콘탱고
+        assert "VIX 기간구조" in out
+        assert "콘탱고" in out
+        assert "+2.50p" in out
+
+    def test_vix_term_structure_absent_when_vix9d_missing(self):
+        # I7: VIX9D 결측이면 기간구조 줄을 생략(기존 변동성 카드는 그대로)
+        out = F.format_us_daily(_build_us_data())  # VIX9D 없음
+        assert "VIX 기간구조" not in out
+
+    def test_volatility_catalog_matches_fetcher(self):
+        # VOLATILITY 가 fetcher/formatter 두 곳에 중복 정의 — 어긋나면 텔레그램·발행
+        # 순서·라벨이 불일치한다(P2-3 회귀 가드).
+        from market_flow.fetchers import us_market
+
+        assert F.VOLATILITY == us_market.VOLATILITY
+
     def test_risk_section_renders_with_axes_when_hyg_ief_missing(self):
         # HYG/IEF 결측이어도 보조축(VIX 등)만으로 섹션이 뜬다(웹과 SoT 정합)
         data = _build_us_data()
