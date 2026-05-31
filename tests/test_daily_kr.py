@@ -511,3 +511,61 @@ def test_kr_kis_sector_mixed_date(monkeypatch):
         daily_kr.main(now=now)
         sent = mock_send.call_args.args[0]
         assert "섹터 ETF는 5/23" in sent  # 첫 항목(오늘) 아닌 직전일을 집합으로 포착
+
+
+# ──────────────────────────────────────────────
+#  I-sum: 수급 항등식 파싱 무결성 (순수 함수 직접 검증)
+# ──────────────────────────────────────────────
+
+
+def _kr_clean_daily_row():
+    """제로섬·기관소계가 정확히 성립하는 실제형 데스크탑 일별 행."""
+    return {
+        "date": "26.05.29",
+        "personal": -10975,
+        "foreign": -17314,
+        "institutional": 27697,
+        "finance": 26365,
+        "insurance": -426,
+        "trust": 513,
+        "bank": 57,
+        "other_fin": -38,
+        "pension": 1226,
+        "other_corp": 592,
+    }
+
+
+def test_kr_integrity_clean_rows_no_warning():
+    data = {"kospi_daily": [_kr_clean_daily_row(), _kr_clean_daily_row()]}
+    assert daily_kr._build_kr_integrity_warnings(data) == []
+
+
+def test_kr_integrity_zerosum_violation_warns():
+    row = _kr_clean_daily_row()
+    row["other_corp"] += 1000  # 제로섬 1000 어긋남 (셀 정렬/파싱오류 모사)
+    w = daily_kr._build_kr_integrity_warnings({"kospi_daily": [row]})
+    assert w and "정합성 의심" in w[0] and "1/1행" in w[0]
+
+
+def test_kr_integrity_institutional_subsum_violation_warns():
+    row = _kr_clean_daily_row()
+    row["finance"] += 1000  # 기관 소계만 어긋남(institutional 불변이라 제로섬은 유지)
+    w = daily_kr._build_kr_integrity_warnings({"kospi_daily": [row]})
+    assert w and "정합성 의심" in w[0]
+
+
+def test_kr_integrity_within_tolerance_no_warning():
+    row = _kr_clean_daily_row()
+    row["other_corp"] += 5  # 허용오차(±10억) 이내 반올림
+    assert daily_kr._build_kr_integrity_warnings({"kospi_daily": [row]}) == []
+
+
+def test_kr_integrity_none_field_skipped():
+    row = _kr_clean_daily_row()
+    row["other_corp"] = None  # 결측 → 거짓경고 방지로 행 건너뜀
+    assert daily_kr._build_kr_integrity_warnings({"kospi_daily": [row]}) == []
+
+
+def test_kr_integrity_empty_no_warning():
+    assert daily_kr._build_kr_integrity_warnings({}) == []
+    assert daily_kr._build_kr_integrity_warnings({"kospi_daily": []}) == []

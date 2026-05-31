@@ -101,6 +101,40 @@ def _build_kr_freshness_warnings(data: dict, req_bizdate: str) -> list[str]:
     return w
 
 
+# 한국 수급 항등식 — naver 데스크탑 일별 11컬럼은 파싱이 정상이면 정확히 성립한다:
+#   ① 제로섬:   개인 + 외국인 + 기관계 + 기타법인 = 0
+#   ② 기관 소계: 금융투자 + 보험 + 투신 + 은행 + 기타금융 + 연기금 = 기관계
+# 모바일 당일 합산(kospi/kosdaq)은 기타법인을 파싱하지 않으므로 적용하지 않는다(거짓경고 방지).
+# 억원 — 억 단위 반올림 여유. 파싱오류는 수천억대로 어긋나 충분히 탐지된다.
+_KR_SUM_TOL = 10
+_KR_INST_PARTS = ("finance", "insurance", "trust", "bank", "other_fin", "pension")
+_KR_SUM_KEYS = ("personal", "foreign", "institutional", "other_corp", *_KR_INST_PARTS)
+
+
+def _build_kr_integrity_warnings(data: dict) -> list[str]:
+    """I-sum: 데스크탑 일별 행의 수급 항등식으로 파싱 무결성을 자동 점검한다.
+
+    제로섬·기관소계가 허용오차를 크게 벗어나면 E3/E4 류 침묵 파싱오류(셀 정렬
+    어긋남·결측 0강제로 인한 누적합 오염 포함)로 보고 본문에 '정합성 의심' 한 줄을
+    띄운다(사실 안내만, 시그널 아님). 외부 호출·추가 소스 없음.
+
+    필드가 하나라도 결측(None)인 행은 건너뛴다 — 거짓경고를 내지 않기 위함.
+    """
+    rows = data.get("kospi_daily") or []
+    checked = bad = 0
+    for r in rows:
+        if any(r.get(k) is None for k in _KR_SUM_KEYS):
+            continue
+        checked += 1
+        zerosum = r["personal"] + r["foreign"] + r["institutional"] + r["other_corp"]
+        subsum = sum(r[k] for k in _KR_INST_PARTS)
+        if abs(zerosum) > _KR_SUM_TOL or abs(subsum - r["institutional"]) > _KR_SUM_TOL:
+            bad += 1
+    if checked and bad:
+        return [f"⚠️ 수급 데이터 정합성 의심 — 일별 {bad}/{checked}행 합계검증 실패"]
+    return []
+
+
 def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
     """KIS 섹터 ETF·동적 수급을 독립적으로 수집해 data 에 채운다.
 
@@ -200,8 +234,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     freshness_warnings = _build_kr_freshness_warnings(data, bizdate)
     if freshness_warnings:
         print("⚠️  기준일 경고: " + " | ".join(freshness_warnings))
-    # 기준일 경고를 먼저(맥락), 그다음 KIS 부분실패 경고
-    all_warnings = freshness_warnings + kis_warnings
+    # I-sum: 수급 항등식(제로섬·기관소계)으로 파싱 무결성 점검
+    integrity_warnings = _build_kr_integrity_warnings(data)
+    if integrity_warnings:
+        print("⚠️  정합성 경고: " + " | ".join(integrity_warnings), file=sys.stderr)
+    # 기준일 → 정합성 → KIS 부분실패 순으로 본문 경고를 쌓는다
+    all_warnings = freshness_warnings + integrity_warnings + kis_warnings
 
     iso_date = (
         f"{bizdate[:4]}-{bizdate[4:6]}-{bizdate[6:]}" if len(bizdate) == 8 else bizdate
