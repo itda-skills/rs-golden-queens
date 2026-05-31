@@ -193,3 +193,69 @@ def test_universe_dup_keeps_canonical_volume_record():
     crow = MF.fetch_universe(c, top=10).set_index("code").loc["C"]
     assert crow["name"] == "종목C"  # 등락 행(등락C) 아닌 거래량 행
     assert crow["trade_value"] == 50  # 거래량 행의 trade_value 보존(등락 행은 NA)
+
+
+# ──────────────────────────────────────────────
+#  I5: 종가환산 정밀도 (대표가격 (고+저+종)/3)
+# ──────────────────────────────────────────────
+
+
+def _ohlcv_df(closes, highs=None, lows=None):
+    n = len(closes)
+    d = {
+        "stck_bsop_date": [f"202605{10 + i:02d}" for i in range(n)],
+        "stck_clpr": [str(c) for c in closes],
+        "acml_vol": ["1000"] * n,
+        "acml_tr_pbmn": ["100000000"] * n,
+    }
+    if highs is not None:
+        d["stck_hgpr"] = [str(h) for h in highs]
+    if lows is not None:
+        d["stck_lwpr"] = [str(lo) for lo in lows]
+    return pd.DataFrame(d)
+
+
+def test_typical_price_uses_high_low_close_mean():
+    # 마지막 거래일 대표가격 = (고+저+종)/3 — 종가와 명확히 다른 값으로 검증
+    c = MagicMock()
+    c.inquire_daily_price.return_value = _ohlcv_df(
+        closes=[100, 100, 100, 100, 100, 120],
+        highs=[100, 100, 100, 100, 100, 150],
+        lows=[100, 100, 100, 100, 100, 99],
+    )
+    m = MF.calc_supply_metrics(c, "005930")
+    assert m["typical_price"] == (150 + 99 + 120) / 3  # 123.0 ≠ 종가 120
+    assert m["last_close"] == 120
+
+
+def test_typical_price_falls_back_to_close_without_high_low():
+    c = MagicMock()
+    c.inquire_daily_price.return_value = _ohlcv_df([100, 101, 102, 103, 104, 105])
+    m = MF.calc_supply_metrics(c, "005930")
+    assert m["typical_price"] == 105.0  # 고/저가 없으면 종가 폴백
+
+
+def test_typical_price_falls_back_when_low_missing():
+    # 고가만 있고 저가 결측이면 종가로 폴백(둘 다 있어야 대표가 계산)
+    c = MagicMock()
+    c.inquire_daily_price.return_value = _ohlcv_df(
+        [100, 101, 102, 103, 104, 120], highs=[130] * 6
+    )
+    m = MF.calc_supply_metrics(c, "005930")
+    assert m["typical_price"] == 120.0
+
+
+def test_investor_flow_converts_quantity_with_passed_price():
+    # 순매수 '수량' × 전달 단가(price) 로 환산 (stck_clpr 미반환 경로)
+    c = MagicMock()
+    c.inquire_investor.return_value = pd.DataFrame(
+        {
+            "stck_bsop_date": ["20260525"],
+            "frgn_ntby_qty": ["100"],
+            "orgn_ntby_qty": ["50"],
+        }
+    )
+    flow = MF.calc_investor_flow(c, "005930", window=1, price=1000.0)
+    assert flow["foreign_value"] == 100 * 1000.0
+    assert flow["orgn_value"] == 50 * 1000.0
+    assert flow["both_buy"] is True

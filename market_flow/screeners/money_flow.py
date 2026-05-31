@@ -197,11 +197,13 @@ def calc_supply_metrics(client: KISClient, code: str) -> dict:
     rename_map = {
         "stck_bsop_date": "date",
         "stck_clpr": "close",
+        "stck_hgpr": "high",
+        "stck_lwpr": "low",
         "acml_vol": "volume",
         "acml_tr_pbmn": "trade_value",
     }
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-    for col in ["close", "volume", "trade_value"]:
+    for col in ["close", "high", "low", "volume", "trade_value"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     df = df.dropna(subset=["close"]).sort_values("date").reset_index(drop=True)
@@ -223,6 +225,16 @@ def calc_supply_metrics(client: KISClient, code: str) -> dict:
     ret_5 = ((last_close / df["close"].iloc[-6]) - 1) * 100 if len(df) >= 6 else 0.0
     ret_20 = ((last_close / df["close"].iloc[-21]) - 1) * 100 if len(df) >= 21 else 0.0
 
+    # 종가환산 정밀도(I5): 마지막 거래일 대표가격 (고+저+종)/3 — 종가보다 체결 평균가에
+    # 가깝다. 고/저가 결측 시 종가로 폴백(ohlcv 는 이미 받았으므로 추가 호출 0).
+    _last = df.iloc[-1]
+    _hi = _last["high"] if "high" in df.columns else None
+    _lo = _last["low"] if "low" in df.columns else None
+    if pd.notna(_hi) and pd.notna(_lo):
+        typical_price = (float(_hi) + float(_lo) + float(last_close)) / 3
+    else:
+        typical_price = float(last_close)
+
     return {
         "ma5": ma5,
         "ma20": ma20,
@@ -230,16 +242,20 @@ def calc_supply_metrics(client: KISClient, code: str) -> dict:
         "r_5_60": r_5_60,
         "grade": grade,
         "last_close": last_close,
+        "typical_price": typical_price,
         "ret_5": ret_5,
         "ret_20": ret_20,
         "ohlcv": df,
     }
 
 
-def calc_investor_flow(
-    client: KISClient, code: str, window: int, last_close: float
-) -> dict:
-    """외인·기관 윈도우 누적 순매수 (수량 → 금액 환산)."""
+def calc_investor_flow(client: KISClient, code: str, window: int, price: float) -> dict:
+    """외인·기관 윈도우 누적 순매수 (수량 → 금액 환산, 종가환산 추정치).
+
+    inquire_investor 는 순매수 '수량'만 주므로(금액·종가 미반환) 금액은 단가 환산
+    추정치다(I5). 환산 단가 price 는 calc_supply_metrics 의 대표가격 (고+저+종)/3 —
+    종가보다 체결 평균가에 가깝다.
+    """
     end = datetime.now().strftime("%Y%m%d")
     start = (datetime.now() - timedelta(days=window * 3 + 10)).strftime("%Y%m%d")
     try:
@@ -249,7 +265,7 @@ def calc_investor_flow(
     if df.empty:
         return {"foreign_value": 0.0, "orgn_value": 0.0, "both_buy": False}
 
-    for col in ["frgn_ntby_qty", "orgn_ntby_qty", "stck_clpr"]:
+    for col in ["frgn_ntby_qty", "orgn_ntby_qty"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -257,16 +273,9 @@ def calc_investor_flow(
         df = df.sort_values("stck_bsop_date")
     df = df.tail(window)
 
-    if "stck_clpr" in df.columns and df["stck_clpr"].notna().any():
-        df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(
-            last_close
-        )
-        df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(
-            last_close
-        )
-    else:
-        df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * last_close
-        df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * last_close
+    # 금액·종가 미반환 → 수량 × 대표가격(price) 으로 환산(I5). 종가 대신 (고+저+종)/3.
+    df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * price
+    df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * price
 
     foreign_value = df["frgn_value"].sum()
     orgn_value = df["orgn_value"].sum()
@@ -322,7 +331,9 @@ def screen(
         if not supply:
             continue
 
-        flow = calc_investor_flow(client, code, window, supply["last_close"])
+        flow = calc_investor_flow(
+            client, code, window, supply.get("typical_price", supply["last_close"])
+        )
         time.sleep(0.12)
 
         foreign_eok = flow["foreign_value"] / 1e8

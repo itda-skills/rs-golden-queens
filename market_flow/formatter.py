@@ -264,7 +264,10 @@ def format_kr_daily(data):
     if etfs or stocks:
         L.append("")
         L.append("🔥 *오늘의 수급 Top (자동 스크리닝)*")
-        L.append("_거래량·거래대금·등락률 상위 후보 + 외인·기관 합산 (당일 / 억원)_")
+        L.append(
+            "_거래량·거래대금·등락률 상위 후보 · 외인·기관 합산 "
+            "(당일/억원, 수량×대표가 환산 추정)_"
+        )
 
     if etfs:
         L.append("")
@@ -282,7 +285,7 @@ def format_kr_daily(data):
     if etfs_sell or stocks_sell:
         L.append("")
         L.append("📉 *외인·기관 순매도 상위 (자동 스크리닝)*")
-        L.append("_외인·기관 합산이 음수인 종목 (당일 / 단위: 억원)_")
+        L.append("_외인·기관 합산이 음수인 종목 (당일/억원, 수량×대표가 환산 추정)_")
 
     if etfs_sell:
         L.append("")

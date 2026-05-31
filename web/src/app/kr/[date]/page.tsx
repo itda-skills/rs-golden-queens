@@ -115,9 +115,9 @@ export default async function KrDetail({
                 snap.payload.money_flow.stocks.length > 0) && (
                 <Card
                   title="오늘의 수급 Top"
-                  subtitle="외국인·기관 순매수 (억원)"
+                  subtitle="외국인·기관 순매수 (억원 · 환산 추정)"
                   info={
-                    <InfoTooltip tooltip="외국인·기관의 당일 순매수 상위 종목(억원). 외인·기관이 같은 방향이면 🔥로 표시. 당일 순매수 규모일 뿐 향후 방향·권유가 아니다." />
+                    <InfoTooltip tooltip="외국인·기관의 당일 순매수 상위 종목. 금액은 순매수 '수량'을 대표가격(고+저+종)/3으로 환산한 추정치(억원)다. 외인·기관이 같은 방향이면 🔥. 규모일 뿐 향후 방향·권유가 아니다." />
                   }
                 >
                   <MoneyFlowTable mf={snap.payload.money_flow} />
@@ -128,9 +128,9 @@ export default async function KrDetail({
                 (snap.payload.money_flow.stocks_sell?.length ?? 0) > 0) && (
                 <Card
                   title="외인·기관 순매도 상위"
-                  subtitle="외국인·기관 합산이 음수인 종목 (억원)"
+                  subtitle="외국인·기관 합산이 음수인 종목 (억원 · 환산 추정)"
                   info={
-                    <InfoTooltip tooltip="외국인·기관이 당일 가장 많이 순매도한(합산 음수) 종목을 금액으로 표시한 값(억원). 순매수 Top만 보면 놓치는 순매도를 함께 보여줄 뿐, 향후 방향·권유가 아니다." />
+                    <InfoTooltip tooltip="외국인·기관이 당일 가장 많이 순매도한(합산 음수) 종목. 금액은 순매수 '수량'을 대표가격(고+저+종)/3으로 환산한 추정치(억원)다. 순매수 Top만 보면 놓치는 순매도를 함께 보여줄 뿐, 향후 방향·권유가 아니다." />
                   }
                 >
                   <MoneyFlowSellTable mf={snap.payload.money_flow} />
