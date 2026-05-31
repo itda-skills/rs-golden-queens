@@ -1,0 +1,7 @@
+# 개발/CI 도구 (런타임 requirements.txt 와 분리).
+#   설치: pip install -r requirements-dev.txt
+# ruff 버전은 ruff.toml 주석·.pre-commit-config.yaml rev 와 일치시킨다.
+
+ruff==0.11.8
+pytest
+pre-commit

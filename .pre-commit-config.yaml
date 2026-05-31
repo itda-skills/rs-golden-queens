@@ -1,0 +1,14 @@
+# pre-commit 으로 커밋 전 ruff lint(+자동수정) 와 format 을 강제한다.
+#   설치: pip install -r requirements-dev.txt && pre-commit install
+#   전체 점검: pre-commit run --all-files
+# ruff 버전은 ruff.toml 주석·requirements-dev.txt 와 일치시킨다.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.8
+    hooks:
+      # 린트 + 자동 수정 (import 정렬 포함)
+      - id: ruff
+        args: [--fix]
+      # 포매팅
+      - id: ruff-format

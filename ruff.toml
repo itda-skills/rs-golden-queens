@@ -1,0 +1,15 @@
+# Ruff 설정 — CI(.github/workflows/test.yml)와 pre-commit(.pre-commit-config.yaml)에서 강제한다.
+# 변경 시 두 곳의 ruff 버전(requirements-dev.txt / .pre-commit-config.yaml rev)도 함께 맞춘다.
+
+line-length = 88
+target-version = "py313"
+
+# 가상환경·캐시·빌드 산출물은 검사 제외 (.gitignore 외 명시 보강)
+extend-exclude = [".venv", "out", "reports", "web", "naver_investor_flow"]
+
+[lint]
+# 기본(E,F) + import 정렬(I). 필요 시 확장한다.
+extend-select = ["I"]
+
+[format]
+quote-style = "double"
