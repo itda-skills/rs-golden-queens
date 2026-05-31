@@ -158,14 +158,17 @@ def _parse_trend_rows(body, time_col):
 
 
 def fetch_today(bizdate=None):
-    """한 번에 — 코스피·코스닥 + 코스피 시간별/일별"""
+    """한 번에 — 코스피·코스닥 + 코스피 일별.
+
+    시간별(intraday)은 분단위라 마감 발송·발행 어디에도 쓰이지 않아 수집하지 않는다
+    (#10 I-cleanup — 순수 낭비 + 실패 표면적 축소). 필요 시 fetch_kospi_intraday 직접 호출.
+    """
     if bizdate is None:
         bizdate = datetime.now().strftime("%Y%m%d")
     return {
         "bizdate": bizdate,
         "kospi": fetch_daily_summary("KOSPI"),
         "kosdaq": fetch_daily_summary("KOSDAQ"),
-        "kospi_intraday": fetch_kospi_intraday(bizdate),
         "kospi_daily": fetch_kospi_daily(bizdate),
     }
 

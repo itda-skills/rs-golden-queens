@@ -177,13 +177,6 @@ def fetch_us_close(target_date=None):
     return data
 
 
-def fetch_watch_history(days=5):
-    """워치 ETF 최근 N거래일 등락 (주간 리포트용)"""
-    return _fetch_yf(
-        WATCH
-    )  # 단순화 — 최근 1일치만 우선. 주간은 weekly.py에서 N일 합산.
-
-
 if __name__ == "__main__":
     import json
 

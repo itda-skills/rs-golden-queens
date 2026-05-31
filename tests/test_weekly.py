@@ -105,3 +105,19 @@ def test_weekly_dry_run_on_last_trading_day(monkeypatch, capsys):
         out = capsys.readouterr().out
         # 주간 리포트 본문이 stdout에 출력되어야 함
         assert "주간" in out or "코스피" in out
+
+
+def test_watch_5d_pct_single_ticker(monkeypatch):
+    # WATCH 가 1종이면 yf.download 가 평탄 Close 컬럼을 줘도 KeyError 없이 처리해야
+    # 한다(#10 I-cleanup 단일/멀티 가드). 현재 WATCH 는 8종이라 미발화 잠복 경로.
+    import pandas as pd
+
+    monkeypatch.setattr(weekly, "WATCH", [("QQQ", "나스닥100")])
+    df = pd.DataFrame(
+        {"Close": [100.0, 100.0, 100.0, 100.0, 100.0, 110.0]},
+        index=pd.date_range("2026-05-20", periods=6, freq="B"),
+    )
+    with patch("market_flow.weekly.yf.download", return_value=df):
+        out = weekly._watch_5d_pct()
+    assert set(out.keys()) == {"QQQ"}
+    assert round(out["QQQ"], 6) == 10.0  # (110/100 - 1) * 100

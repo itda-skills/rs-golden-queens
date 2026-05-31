@@ -36,7 +36,10 @@ def _watch_5d_pct():
     out = {}
     for ticker, _ in WATCH:
         try:
-            close = df["Close"][ticker].dropna()
+            # 단일/멀티 컬럼 구조 모두 대응(#10 I-cleanup) — WATCH 가 1종으로 줄면
+            # df["Close"] 가 평탄 컬럼이 되어 [ticker] 가 KeyError 나는 것을 방지.
+            col = df["Close"][ticker] if len(WATCH) > 1 else df["Close"]
+            close = col.dropna()
             if len(close) >= 6:
                 # 최근 5거래일 누적 등락 = (오늘 / 6일전) - 1
                 pct = (float(close.iloc[-1]) / float(close.iloc[-6]) - 1) * 100

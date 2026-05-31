@@ -268,13 +268,13 @@ class TestFetchKospiHtmlPaths:
 
 
 # ──────────────────────────────────────────────
-#  fetch_today (4개 소스 통합)
+#  fetch_today (소스 통합)
 # ──────────────────────────────────────────────
 
 
 class TestFetchToday:
-    def test_combines_four_sources(self, monkeypatch):
-        """fetch_today 는 4개 함수를 모두 호출하고 결과를 dict 로 묶는다."""
+    def test_combines_sources(self, monkeypatch):
+        """fetch_today 는 모바일 코스피·코스닥 + 데스크탑 일별을 dict 로 묶는다."""
         fake_summary = {
             "bizdate": "20260525",
             "personal": 1,
@@ -284,10 +284,8 @@ class TestFetchToday:
             "program_nonarb": 0,
             "program_total": 0,
         }
-        fake_intraday = [{"time": "15:30"}]
         fake_daily = [{"date": "05.25"}]
         monkeypatch.setattr(naver_kr, "fetch_daily_summary", lambda m: fake_summary)
-        monkeypatch.setattr(naver_kr, "fetch_kospi_intraday", lambda b: fake_intraday)
         monkeypatch.setattr(naver_kr, "fetch_kospi_daily", lambda b: fake_daily)
 
         result = naver_kr.fetch_today("20260525")
@@ -295,12 +293,10 @@ class TestFetchToday:
             "bizdate",
             "kospi",
             "kosdaq",
-            "kospi_intraday",
             "kospi_daily",
         }
         assert result["bizdate"] == "20260525"
         assert result["kospi"] is fake_summary
-        assert result["kospi_intraday"] is fake_intraday
         assert result["kospi_daily"] is fake_daily
 
     def test_uses_today_when_bizdate_none(self, monkeypatch):
@@ -309,18 +305,13 @@ class TestFetchToday:
         monkeypatch.setattr(naver_kr, "fetch_daily_summary", lambda m: {})
         monkeypatch.setattr(
             naver_kr,
-            "fetch_kospi_intraday",
-            lambda b: captured.setdefault("intraday_bizdate", b) or [],
-        )
-        monkeypatch.setattr(
-            naver_kr,
             "fetch_kospi_daily",
             lambda b: captured.setdefault("daily_bizdate", b) or [],
         )
 
         result = naver_kr.fetch_today(None)
-        # 둘 다 같은 bizdate 가 전달되어야 함
-        assert captured["intraday_bizdate"] == captured["daily_bizdate"]
+        # 일별 fetcher 에 전달된 bizdate 와 결과 bizdate 가 같아야 함
+        assert captured["daily_bizdate"] == result["bizdate"]
         # YYYYMMDD 형식이어야 함 (8자리 숫자)
         assert len(result["bizdate"]) == 8
         assert result["bizdate"].isdigit()

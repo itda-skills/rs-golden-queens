@@ -1,7 +1,7 @@
 """SPEC-MF-TEST-001: fetchers/us_market 단위 테스트.
 
-market_flow/fetchers/us_market.py 의 _fetch_yf yfinance 어댑터 / fetch_us_close /
-fetch_watch_history 동작을 검증한다. ``yfinance.download`` 는 mock 으로
+market_flow/fetchers/us_market.py 의 _fetch_yf yfinance 어댑터 / fetch_us_close
+동작을 검증한다. ``yfinance.download`` 는 mock 으로
 차단되어 실 야후 호출이 발생하지 않는다.
 
 NOTE: yfinance 응답은 다중 ticker 시 MultiIndex 컬럼 (Open/Close/Volume/...,
@@ -256,19 +256,3 @@ class TestFetchUsClose:
             assert call.args[1] == "2026-05-22"
         # 과거일 재발송엔 OAS 를 붙이지 않는다(FRED 최신값 ↔ 그 날짜 어긋남 방지)
         mock_oas.assert_not_called()
-
-
-# ──────────────────────────────────────────────
-#  fetch_watch_history
-# ──────────────────────────────────────────────
-
-
-class TestFetchWatchHistory:
-    def test_invokes_fetch_yf_with_watch_catalog(self):
-        with patch(
-            "market_flow.fetchers.us_market._fetch_yf", return_value={}
-        ) as mock_yf:
-            us_market.fetch_watch_history()
-        mock_yf.assert_called_once()
-        # 첫 인자가 WATCH 카탈로그
-        assert mock_yf.call_args.args[0] is us_market.WATCH

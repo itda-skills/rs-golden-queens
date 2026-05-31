@@ -259,3 +259,41 @@ def test_investor_flow_converts_quantity_with_passed_price():
     assert flow["foreign_value"] == 100 * 1000.0
     assert flow["orgn_value"] == 50 * 1000.0
     assert flow["both_buy"] is True
+
+
+# ──────────────────────────────────────────────
+#  is_etf / grade_from_ratios (#10 I-cleanup 회귀 가드 — 외부 호출 없음)
+# ──────────────────────────────────────────────
+
+
+def test_is_etf_recognizes_prefixes():
+    assert MF.is_etf("KODEX 200") is True
+    assert MF.is_etf("TIGER 미국S&P500") is True
+    assert MF.is_etf("ACE 마이크로소프트") is True
+
+
+def test_is_etf_rejects_non_etf_and_non_str():
+    assert MF.is_etf("삼성전자") is False
+    assert MF.is_etf(None) is False
+    assert MF.is_etf(123) is False
+
+
+def test_grade_from_ratios_tiers():
+    assert MF.grade_from_ratios(1.6, 1.3) == "S"  # 5_20>1.5 & 5_60>1.2
+    assert MF.grade_from_ratios(1.3, 1.1) == "A"  # 5_20>1.2 & 5_60>1.0
+    assert MF.grade_from_ratios(1.0, 0.5) == "B"  # 0.8<=5_20<=1.2
+    assert MF.grade_from_ratios(0.7, 0.5) == "C"  # 0.6<=5_20<0.8
+    assert MF.grade_from_ratios(0.5, 0.5) == "D"  # 그 외
+
+
+def test_grade_strong_short_but_weak_long_falls_to_d():
+    # 5_20 강함(1.3>1.2)이나 5_60 약함(0.9<1.0) → A 불충족, B/C 범위도 벗어나 D
+    assert MF.grade_from_ratios(1.3, 0.9) == "D"
+
+
+def test_grade_from_ratios_boundaries():
+    # strict(>) / inclusive(<=) 경계 고정
+    assert MF.grade_from_ratios(1.5, 1.3) == "A"  # 1.5 는 >1.5 아님 → S 불충족
+    assert MF.grade_from_ratios(1.2, 1.1) == "B"  # 1.2 는 >1.2 아님 → A 불충족
+    assert MF.grade_from_ratios(0.8, 0.5) == "B"  # 0.8 inclusive → B
+    assert MF.grade_from_ratios(0.6, 0.5) == "C"  # 0.6 inclusive → C
