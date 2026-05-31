@@ -7,6 +7,7 @@ mock 으로 차단되어 실 네이버 호출이 발생하지 않는다.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -323,3 +324,116 @@ class TestFetchToday:
         # YYYYMMDD 형식이어야 함 (8자리 숫자)
         assert len(result["bizdate"]) == 8
         assert result["bizdate"].isdigit()
+
+
+# ──────────────────────────────────────────────
+#  E3/E4: 파싱 견고화 (크래시 가드 · 정규식 · 0행 경고)
+# ──────────────────────────────────────────────
+
+
+class TestParsingRobustness:
+    # ── _n 크래시 가드 (E4) ──
+    def test_n_dash_empty_none_become_zero(self):
+        assert naver_kr._n("-") == 0
+        assert naver_kr._n("") == 0
+        assert naver_kr._n(None) == 0
+
+    def test_n_strips_commas_and_plus(self):
+        assert naver_kr._n("+1,234") == 1234
+        assert naver_kr._n("-5,678") == -5678
+
+    def test_n_garbage_returns_zero_not_crash(self, capsys):
+        assert naver_kr._n("N/A") == 0  # ValueError 로 죽지 않는다
+        assert "파싱 실패" in capsys.readouterr().err
+
+    def test_n_handles_entities_and_nbsp(self):
+        # &#43;=+, &#45;=-, &nbsp; 도 정상 파싱(엔티티 복원 + 공백 제거)
+        assert naver_kr._n(naver_kr._strip_tags("&#43;1,234")) == 1234
+        assert naver_kr._n(naver_kr._strip_tags("+1&nbsp;234")) == 1234
+        assert naver_kr._n(naver_kr._strip_tags("&#45;5,678")) == -5678
+
+    def test_n_handles_unicode_minus(self):
+        # &minus;(U+2212)·en-dash 등 유니코드 마이너스도 ASCII '-' 로 정규화
+        assert naver_kr._n(naver_kr._strip_tags("&minus;5,678")) == -5678
+        assert naver_kr._n("−100") == -100
+        assert naver_kr._n("−") == 0  # 단독 유니코드 마이너스도 0
+
+    def test_parses_entity_encoded_row(self):
+        body = (
+            "<tr><td>05.25</td><td>&#43;1,000</td><td>+2&nbsp;000</td>"
+            "<td>+3</td><td>+4</td><td>+5</td><td>+6</td><td>+7</td>"
+            "<td>+8</td><td>+9</td><td>+10</td></tr>"
+        )
+        rows = naver_kr._parse_trend_rows(body, time_col=False)
+        assert rows[0]["personal"] == 1000  # &#43; 복원
+        assert rows[0]["foreign"] == 2000  # &nbsp; 제거
+
+    # ── _strip_tags ──
+    def test_strip_tags_removes_inner_markup(self):
+        assert naver_kr._strip_tags("<span>123</span>") == "123"
+        assert naver_kr._strip_tags("  +1,234  ") == "+1,234"
+
+    # ── 정규식 견고화 (E3) ──
+    def test_parses_tr_td_with_attributes(self):
+        body = (
+            '<tr class="row" data-x="1">'
+            '<td class="c">05.25</td><td align="right">+1</td>'
+            "<td>+2</td><td>+3</td><td>+4</td><td>+5</td><td>+6</td>"
+            "<td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
+        )
+        rows = naver_kr._parse_trend_rows(body, time_col=False)
+        assert len(rows) == 1
+        assert rows[0]["date"] == "05.25"
+        assert rows[0]["personal"] == 1
+        assert rows[0]["other_corp"] == 10
+
+    def test_parses_nested_tags_in_cells(self):
+        body = (
+            "<tr><td><b>05.25</b></td><td><span>+1,000</span></td>"
+            "<td>+2</td><td>+3</td><td>+4</td><td>+5</td><td>+6</td>"
+            "<td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
+        )
+        rows = naver_kr._parse_trend_rows(body, time_col=False)
+        assert rows[0]["personal"] == 1000  # <span> 내부 텍스트 파싱
+
+    def test_empty_cell_keeps_column_alignment(self):
+        # 빈 셀(<td></td>)도 0 으로 잡혀 컬럼이 밀리지 않는다(구 [^<]+ 는 이 행을 통째 누락)
+        body = (
+            "<tr><td>05.25</td><td></td><td>+2</td><td>+3</td><td>+4</td>"
+            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
+        )
+        rows = naver_kr._parse_trend_rows(body, time_col=False)
+        assert len(rows) == 1
+        assert rows[0]["personal"] == 0  # 빈 셀
+        assert rows[0]["foreign"] == 2  # 정렬 유지
+
+    # ── 0행 경고 (E3) ──
+    def test_zero_rows_with_tr_present_warns(self, capsys):
+        assert naver_kr._parse_trend_rows("<tr><td>a</td><td>b</td></tr>", False) == []
+        assert "0행" in capsys.readouterr().err
+
+    def test_empty_body_no_warning(self, capsys):
+        assert naver_kr._parse_trend_rows("", time_col=False) == []
+        assert capsys.readouterr().err == ""
+
+    # ── to_int 크래시 가드 (E4, 모바일) ──
+    def test_mobile_to_int_garbage_returns_none_not_crash(self, capsys):
+        body = json.dumps(
+            {
+                "dealTrendInfo": {
+                    "bizdate": "20260525",
+                    "personalValue": "N/A",  # 숫자 아님 → None
+                    "foreignValue": "-17,314",
+                    "institutionalValue": None,
+                },
+                "programTrendInfo": {},
+            }
+        )
+        with patch(
+            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
+            return_value=_mock_urlopen_response(body),
+        ):
+            result = naver_kr.fetch_daily_summary("KOSPI")
+        assert result["personal"] is None  # 가비지 → None (크래시 아님)
+        assert result["foreign"] == -17314  # 정상값은 그대로
+        assert "파싱 실패" in capsys.readouterr().err
