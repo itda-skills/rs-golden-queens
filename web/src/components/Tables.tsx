@@ -107,6 +107,8 @@ export function UsSectionTable({
     (e): e is [string, UsQuote] => e[1] != null,
   );
   if (sortByPct) entries = entries.sort((a, b) => b[1].pct - a[1].pct);
+  // 그 외에는 발행값의 catalog 순서(order)로 렌더 — sort_keys 알파벳 대신 텔레그램 정합(#10).
+  else entries = entries.sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
   return (
     <table className="w-full text-sm tabular-nums">
       <tbody>

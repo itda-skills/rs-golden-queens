@@ -383,7 +383,7 @@ INDICES = [
     ("^RUT", "러셀2000"),
 ]
 # us_market.VOLATILITY 와 동일 순서·라벨 유지 — 텔레그램 렌더 catalog.
-# (웹 순서는 발행 JSON 의 sort_keys 알파벳을 따름. 값은 동일, 표현 순서만 별개.)
+# (웹도 발행값의 order(catalog 순서)로 렌더해 텔레그램과 정합한다 — #10.)
 VOLATILITY = [
     ("^VIX9D", "VIX 9일"),
     ("^VIX", "VIX 30일"),

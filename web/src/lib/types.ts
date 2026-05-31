@@ -134,6 +134,8 @@ export interface UsQuote {
   pct: number;
   vol_ratio: number | null;
   date: string;
+  // catalog(텔레그램) 순서 — 발행값. 추가 키라 구버전 스냅샷엔 없을 수 있어 옵셔널.
+  order?: number;
 }
 
 // 결측 티커(_fetch_yf → None)는 publisher 가 발행 전 제거하지만, 구버전 스냅샷·방어를

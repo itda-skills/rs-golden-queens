@@ -125,7 +125,7 @@ def _fetch_yf(tickers, target_date=None):
         )
         return {ticker: None for ticker, _ in tickers}
     out = {}
-    for ticker, label in tickers:
+    for i, (ticker, label) in enumerate(tickers):
         try:
             if len(tickers) > 1:
                 close = df["Close"][ticker].dropna()
@@ -154,6 +154,9 @@ def _fetch_yf(tickers, target_date=None):
                 "pct": pct,
                 "vol_ratio": vol_ratio,
                 "date": str(close.index[-1].date()),
+                # catalog(텔레그램) 순서 — 웹이 발행 JSON 의 sort_keys 알파벳 대신
+                # 이 순서로 렌더해 텔레그램 catalog 와 정합한다(#10).
+                "order": i,
             }
         except Exception as e:
             print(f"warn: fetch_yf {ticker}: {type(e).__name__}: {e}", file=sys.stderr)

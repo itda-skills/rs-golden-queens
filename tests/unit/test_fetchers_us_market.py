@@ -79,7 +79,11 @@ class TestFetchYfBasic:
                 "pct",
                 "vol_ratio",
                 "date",
+                "order",
             }
+        # order 는 입력 catalog(tickers) 순서 (#10 — 웹이 이 값으로 렌더 정합)
+        assert result["^GSPC"]["order"] == 0
+        assert result["^IXIC"]["order"] == 1
 
     def test_pct_calculation(self):
         tickers = [("^GSPC", "S&P500")]
