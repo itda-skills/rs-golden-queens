@@ -5,8 +5,9 @@ acceptance.md Section 1 (DST 게이트), 3 (US 휴장), 7.1 (이중 발송 회�
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -349,13 +350,18 @@ def test_image_mode_caption_uses_snapshot_date(monkeypatch):
     monkeypatch.delenv("MARKET_SCHEDULE", raising=False)
     monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
     monkeypatch.setenv("MARKET_FLOW_RENDER", "image")
+    # renderer 서브모듈을 실제 import 하지 않도록 sys.modules 에 mock 을 주입한다.
+    # daily_us 는 함수 내에서 `from market_flow.render.renderer import html_to_png` 하는데,
+    # Python 3.14 는 아직 import 되지 않은 서브모듈을 patch 하면 AttributeError 를 낸다.
+    mock_renderer = MagicMock()
+    mock_renderer.html_to_png.return_value = b"PNG"
+    monkeypatch.setitem(sys.modules, "market_flow.render.renderer", mock_renderer)
     # 데이터는 09-15 자 (latest 모드 → 신선도 경고는 없음)
     data = _fake_data(datetime(2025, 9, 15, 16, 30, tzinfo=ET))
     with (
         patch("market_flow.daily_us.send_photo") as mock_photo,
         patch("market_flow.daily_us.fetch_us_close", return_value=data),
         patch("market_flow.daily_us.render_us_daily_html", return_value="<html/>"),
-        patch("market_flow.render.renderer.html_to_png", return_value=b"PNG"),
         patch("market_flow.daily_us.maybe_publish"),
     ):
         mock_photo.return_value = {"ok": True, "result": {"message_id": 1}}
