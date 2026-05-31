@@ -416,6 +416,38 @@ def _us_price_table(catalog, source):
     return rows
 
 
+def _risk_lean(value, inverse, tol=0.05):
+    """등락(또는 갭)이 정의상 가리키는 위험선호 쪽. 종합 점수·예측이 아니다.
+
+    inverse=True 면 '하락이 위험선호'(VIX·달러·금 같은 공포·안전자산 지표).
+    |value| < tol 이면 중립. 결측은 '—'.
+    """
+    if value is None:
+        return "—"
+    if abs(value) < tol:
+        return "중립"
+    riskon_when_up = not inverse
+    return "위험선호" if (value > 0) == riskon_when_up else "안전자산"
+
+
+def _risk_axes(vol, mac):
+    """리스크 보조 축(VIX·달러·금) 사실 나열 — [라벨, 등락, 정의상 방향]. 결측은 건너뜀.
+
+    VIX·달러·금은 모두 하락이 위험선호(inverse). 발행된 등락값에서 파생만 한다.
+    """
+    rows = []
+    for label, src, key in (
+        ("VIX", vol, "^VIX"),
+        ("달러(DXY)", mac, "DX-Y.NYB"),
+        ("금", mac, "GC=F"),
+    ):
+        q = src.get(key)
+        pct = q.get("pct") if q else None
+        if pct is not None:
+            rows.append([label, signed_pct(pct), _risk_lean(pct, inverse=True)])
+    return rows
+
+
 def format_us_daily(data):
     """미국장 마감 요약. data = fetchers.us_market.fetch_us_close() 결과"""
     target = None
@@ -449,16 +481,23 @@ def format_us_daily(data):
 
     hyg = risk.get("HYG")
     ief = risk.get("IEF")
-    if hyg and ief:
-        diff = hyg["pct"] - ief["pct"]
-        if diff > 0.2:
-            label = f"🔴▲ *위험선호* (HYG {signed_pct(hyg['pct'])} > IEF {signed_pct(ief['pct'])}, 갭 +{diff:.2f}%p)"
-        elif diff < -0.2:
-            label = f"🔵▼ *안전자산* (HYG {signed_pct(hyg['pct'])} < IEF {signed_pct(ief['pct'])}, 갭 {diff:.2f}%p)"
-        else:
-            label = f"⚪– *중립* (HYG {signed_pct(hyg['pct'])} / IEF {signed_pct(ief['pct'])})"
+    # 다축 병기(I6): VIX·달러·금이 정의상 가리키는 쪽 — 사실 나열(종합 판단 아님).
+    # primary(HYG-IEF) 가 결측이어도 보조축만으로 섹션을 띄운다(웹과 SoT 정합).
+    axis_rows = _risk_axes(vol, mac)
+    if (hyg and ief) or axis_rows:
         L.append("💵 *위험선호 (Risk On/Off)*")
-        L.append(f"  {label}")
+        if hyg and ief:
+            diff = hyg["pct"] - ief["pct"]
+            if diff > 0.2:
+                label = f"🔴▲ *위험선호* (HYG {signed_pct(hyg['pct'])} > IEF {signed_pct(ief['pct'])}, 갭 +{diff:.2f}%p)"
+            elif diff < -0.2:
+                label = f"🔵▼ *안전자산* (HYG {signed_pct(hyg['pct'])} < IEF {signed_pct(ief['pct'])}, 갭 {diff:.2f}%p)"
+            else:
+                label = f"⚪– *중립* (HYG {signed_pct(hyg['pct'])} / IEF {signed_pct(ief['pct'])})"
+            L.append(f"  {label}")
+        if axis_rows:
+            L.append("_리스크 축 (지표 방향이 가리키는 쪽 · 종합 판단·예측 아님)_:")
+            L.append(_card(axis_rows, ["l", "r", "l"]))
         L.append("")
 
     L.append("💹 *매크로* _(종가 / 등락)_")

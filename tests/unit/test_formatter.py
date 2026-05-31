@@ -664,6 +664,47 @@ class TestFormatUsDaily:
         assert "vs+0.70" in out and "×1.60" in out  # XLK: 1.2-0.5, vol 1.6
         assert "vs-0.20" in out and "×0.90" in out  # XLF: 0.3-0.5, vol 0.9
 
+    def test_risk_lean_inverse_and_direct(self):
+        assert F._risk_lean(0.5, inverse=False) == "위험선호"  # 갭 +
+        assert F._risk_lean(-0.5, inverse=False) == "안전자산"
+        assert F._risk_lean(-2.0, inverse=True) == "위험선호"  # VIX↓
+        assert F._risk_lean(0.3, inverse=True) == "안전자산"  # 달러↑
+        assert F._risk_lean(0.01, inverse=True) == "중립"
+        assert F._risk_lean(None, inverse=True) == "—"
+
+    def test_risk_axes_lists_vix_dxy_gold(self):
+        vol = {"^VIX": {"label": "VIX", "pct": -2.0}}
+        mac = {
+            "DX-Y.NYB": {"label": "DXY", "pct": 0.3},
+            "GC=F": {"label": "금", "pct": -0.5},
+        }
+        rows = F._risk_axes(vol, mac)
+        assert [r[0] for r in rows] == ["VIX", "달러(DXY)", "금"]
+        assert [r[2] for r in rows] == ["위험선호", "안전자산", "위험선호"]
+
+    def test_risk_axes_appended_to_section(self):
+        # I6: 위험선호 섹션에 VIX·달러·금 리스크 축 병기
+        data = _build_us_data()
+        data["macro"]["DX-Y.NYB"] = _us_entry("DXY", close=104.0, pct=0.3)
+        data["macro"]["GC=F"] = _us_entry("금", close=2300.0, pct=-0.5)
+        out = F.format_us_daily(data)
+        assert "리스크 축" in out
+        assert "VIX" in out and "달러(DXY)" in out
+        assert "안전자산" in out  # 달러 +0.3 → 안전자산 (primary 는 위험선호)
+
+    def test_risk_section_renders_with_axes_when_hyg_ief_missing(self):
+        # HYG/IEF 결측이어도 보조축(VIX 등)만으로 섹션이 뜬다(웹과 SoT 정합)
+        data = _build_us_data()
+        data["risk_onoff"] = {}
+        out = F.format_us_daily(data)
+        assert "위험선호 (Risk On/Off)" in out
+        assert "리스크 축" in out and "VIX" in out
+
+    def test_gap_exactly_threshold_is_neutral(self):
+        # 갭 정확히 +0.20%p 는 중립(>0.2 strict — 웹 RiskAxes 와 동일 경계)
+        out = F.format_us_daily(_build_us_data(hyg_pct=0.2, ief_pct=0.0))
+        assert "중립" in out
+
 
 # ──────────────────────────────────────────────
 #  format_weekly

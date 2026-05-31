@@ -41,7 +41,7 @@ export const CARD_INFO = {
   },
   usRisk: {
     tooltip:
-      "하이일드채(HYG)와 국채(IEF) 등락률 차이로 보는 위험·안전 선호. 화면엔 갭 라벨이 없어 두 등락률로 직접 읽는다.",
+      "HYG−IEF 갭(±0.2%p)으로 위험/안전 선호를 보고, VIX·달러(DXY)·금의 방향을 보조 축으로 병기한다(셋 다 하락=위험선호 쪽). 각 지표가 정의상 가리키는 방향일 뿐 종합 판단·예측이 아니다.",
     href: "/guide#us-risk-macro",
   },
   usMacro: {

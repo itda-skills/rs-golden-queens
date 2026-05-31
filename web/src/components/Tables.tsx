@@ -291,3 +291,87 @@ export function ForeignInstTable({ fi }: { fi: KrForeignInst }) {
     </div>
   );
 }
+
+// 위험선호 다축 (I6, #10) — 각 지표가 정의상 가리키는 쪽(위험선호/안전자산)을 사실로
+// 나열. 종합 점수·예측 아님. inverse=true(하락=위험선호)는 VIX·달러·금에 적용.
+function riskLean(value: number | null, inverse: boolean, tol = 0.05): string {
+  if (value == null) return "—";
+  if (Math.abs(value) < tol) return "중립";
+  const riskOnWhenUp = !inverse;
+  return value > 0 === riskOnWhenUp ? "위험선호" : "안전자산";
+}
+
+const LEAN_CLASS: Record<string, string> = {
+  위험선호: "text-rose-600 dark:text-rose-400",
+  안전자산: "text-blue-600 dark:text-blue-400",
+  중립: "text-neutral-500 dark:text-neutral-400",
+  "—": "text-neutral-400",
+};
+
+// HYG−IEF 갭(±0.2%p 임계 — 텔레그램 라벨과 동일) + VIX·달러·금. 발행 스냅샷 값에서 파생.
+export function RiskAxes({
+  riskOnoff,
+  volatility,
+  macro,
+}: {
+  riskOnoff: UsSection;
+  volatility: UsSection;
+  macro: UsSection;
+}) {
+  const hyg = riskOnoff["HYG"]?.pct ?? null;
+  const ief = riskOnoff["IEF"]?.pct ?? null;
+  const rows: {
+    label: string;
+    valueStr: string;
+    value: number | null;
+    lean: string;
+  }[] = [];
+  if (hyg != null && ief != null) {
+    const gap = hyg - ief;
+    rows.push({
+      label: "HYG−IEF 갭",
+      valueStr: `${gap >= 0 ? "+" : ""}${gap.toFixed(2)}%p`,
+      value: gap,
+      // 텔레그램 primary 와 동일 strict 경계(>0.2 / <-0.2, 0.20 은 중립)
+      lean: gap > 0.2 ? "위험선호" : gap < -0.2 ? "안전자산" : "중립",
+    });
+  }
+  const inverse: [string, number | null][] = [
+    ["VIX", volatility["^VIX"]?.pct ?? null],
+    ["달러(DXY)", macro["DX-Y.NYB"]?.pct ?? null],
+    ["금", macro["GC=F"]?.pct ?? null],
+  ];
+  for (const [label, pct] of inverse) {
+    if (pct != null) {
+      rows.push({
+        label,
+        valueStr: signedPct(pct),
+        value: pct,
+        lean: riskLean(pct, true),
+      });
+    }
+  }
+  if (!rows.length) return null;
+  return (
+    <table className="w-full text-sm tabular-nums">
+      <tbody>
+        {rows.map((r) => (
+          <tr
+            key={r.label}
+            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+          >
+            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
+              {r.label}
+            </td>
+            <td className={`py-1.5 text-right ${colorClass(r.value)}`}>
+              {r.valueStr}
+            </td>
+            <td className={`py-1.5 text-right text-xs ${LEAN_CLASS[r.lean]}`}>
+              {r.lean}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}

@@ -5,7 +5,7 @@ import {
   HolidayNotice,
   SourceList,
 } from "@/components/Layout";
-import { UsSectionTable } from "@/components/Tables";
+import { RiskAxes, UsSectionTable } from "@/components/Tables";
 import { HBarChart } from "@/components/BarChart";
 import { PrevNext } from "@/components/PrevNext";
 import { InfoTooltip } from "@/components/InfoTooltip";
@@ -95,9 +95,14 @@ export default async function UsDetail({
             </Card>
             <Card
               title="위험선호 (Risk On/Off)"
+              subtitle="HYG−IEF 갭 · VIX·달러·금이 가리키는 쪽 (종합 판단 아님)"
               info={<InfoTooltip {...CARD_INFO.usRisk} />}
             >
-              <UsSectionTable section={p.risk_onoff} />
+              <RiskAxes
+                riskOnoff={p.risk_onoff}
+                volatility={p.volatility}
+                macro={p.macro}
+              />
             </Card>
             <Card
               title="매크로"
