@@ -6,9 +6,7 @@ KIS Open API 클라이언트
 - pandas DataFrame 반환
 """
 
-import json
 import logging
-from typing import Optional
 
 import pandas as pd
 import requests
@@ -27,8 +25,7 @@ class KISClient:
 
     # ── 공통 API 호출 ───────────────────────────────────────────
 
-    def get(self, api_url: str, tr_id: str, params: dict,
-            tr_cont: str = "") -> dict:
+    def get(self, api_url: str, tr_id: str, params: dict, tr_cont: str = "") -> dict:
         """GET 방식 API 호출, 원시 응답 반환"""
         url = f"{self.auth.base_url}{api_url}"
         headers = self.auth.get_headers(tr_id, tr_cont)
@@ -38,8 +35,7 @@ class KISClient:
             return {"rt_cd": "-1", "msg1": f"HTTP {resp.status_code}"}
         return resp.json()
 
-    def post(self, api_url: str, tr_id: str, body: dict,
-             tr_cont: str = "") -> dict:
+    def post(self, api_url: str, tr_id: str, body: dict, tr_cont: str = "") -> dict:
         """POST 방식 API 호출 (주문 등)"""
         url = f"{self.auth.base_url}{api_url}"
         headers = self.auth.get_headers(tr_id, tr_cont)
@@ -49,9 +45,14 @@ class KISClient:
             return {"rt_cd": "-1", "msg1": f"HTTP {resp.status_code}"}
         return resp.json()
 
-    def fetch_dataframe(self, api_url: str, tr_id: str, params: dict,
-                        output_key: str = "output",
-                        max_pages: int = 10) -> pd.DataFrame:
+    def fetch_dataframe(
+        self,
+        api_url: str,
+        tr_id: str,
+        params: dict,
+        output_key: str = "output",
+        max_pages: int = 10,
+    ) -> pd.DataFrame:
         """
         GET API 호출 → DataFrame 반환 (자동 페이징)
 
@@ -68,7 +69,9 @@ class KISClient:
         for page in range(max_pages):
             url = f"{self.auth.base_url}{api_url}"
             headers = self.auth.get_headers(tr_id, tr_cont)
-            resp = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
+            resp = requests.get(
+                url, headers=headers, params=params, timeout=HTTP_TIMEOUT
+            )
 
             if resp.status_code != 200:
                 logger.error("API error %d: %s", resp.status_code, resp.text)
@@ -76,8 +79,9 @@ class KISClient:
 
             data = resp.json()
             if data.get("rt_cd") != "0":
-                logger.error("API rt_cd=%s, msg=%s",
-                             data.get("rt_cd"), data.get("msg1"))
+                logger.error(
+                    "API rt_cd=%s, msg=%s", data.get("rt_cd"), data.get("msg1")
+                )
                 break
 
             output = data.get(output_key)
@@ -124,11 +128,15 @@ class KISClient:
             {"FID_COND_MRKT_DIV_CODE": market, "FID_INPUT_ISCD": stock_code},
         )
 
-    def inquire_daily_price(self, stock_code: str,
-                            start_date: str, end_date: str,
-                            period: str = "D",
-                            adj_price: str = "0",
-                            market: str = "J") -> pd.DataFrame:
+    def inquire_daily_price(
+        self,
+        stock_code: str,
+        start_date: str,
+        end_date: str,
+        period: str = "D",
+        adj_price: str = "0",
+        market: str = "J",
+    ) -> pd.DataFrame:
         """일/주/월/년봉 차트 데이터 조회
 
         Args:
@@ -152,8 +160,7 @@ class KISClient:
             output_key="output2",
         )
 
-    def inquire_asking_price(self, stock_code: str,
-                             market: str = "J") -> pd.DataFrame:
+    def inquire_asking_price(self, stock_code: str, market: str = "J") -> pd.DataFrame:
         """호가 조회"""
         return self.fetch_dataframe(
             "/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn",
@@ -178,17 +185,20 @@ class KISClient:
         data = self.get(
             "/uapi/etfetn/v1/quotations/inquire-component-stock-price",
             "FHKST121600C0",
-            {"FID_COND_MRKT_DIV_CODE": "J",
-             "FID_INPUT_ISCD": etf_code,
-             "FID_COND_SCR_DIV_CODE": "11216"},
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": etf_code,
+                "FID_COND_SCR_DIV_CODE": "11216",
+            },
         )
         return {
             "summary": pd.DataFrame([data.get("output1", {})]),
             "components": pd.DataFrame(data.get("output2", [])),
         }
 
-    def etf_nav_daily(self, etf_code: str,
-                      start_date: str, end_date: str) -> pd.DataFrame:
+    def etf_nav_daily(
+        self, etf_code: str, start_date: str, end_date: str
+    ) -> pd.DataFrame:
         """ETF NAV 비교추이 (일별)"""
         return self.fetch_dataframe(
             "/uapi/etfetn/v1/quotations/nav-comparison-daily-trend",
@@ -205,8 +215,9 @@ class KISClient:
     #  주문/매매
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def order_buy(self, stock_code: str, qty: int, price: int = 0,
-                  order_type: str = "00") -> dict:
+    def order_buy(
+        self, stock_code: str, qty: int, price: int = 0, order_type: str = "00"
+    ) -> dict:
         """현금 매수 주문
 
         Args:
@@ -227,11 +238,11 @@ class KISClient:
             "ORD_UNPR": str(price),
             "EXCG_ID_DVSN_CD": "KRX",
         }
-        return self.post("/uapi/domestic-stock/v1/trading/order-cash",
-                         tr_id, body)
+        return self.post("/uapi/domestic-stock/v1/trading/order-cash", tr_id, body)
 
-    def order_sell(self, stock_code: str, qty: int, price: int = 0,
-                   order_type: str = "00") -> dict:
+    def order_sell(
+        self, stock_code: str, qty: int, price: int = 0, order_type: str = "00"
+    ) -> dict:
         """현금 매도 주문"""
         if price == 0:
             order_type = "01"
@@ -245,11 +256,11 @@ class KISClient:
             "ORD_UNPR": str(price),
             "EXCG_ID_DVSN_CD": "KRX",
         }
-        return self.post("/uapi/domestic-stock/v1/trading/order-cash",
-                         tr_id, body)
+        return self.post("/uapi/domestic-stock/v1/trading/order-cash", tr_id, body)
 
-    def order_cancel(self, org_order_no: str, stock_code: str, qty: int,
-                     cancel_type: str = "02") -> dict:
+    def order_cancel(
+        self, org_order_no: str, stock_code: str, qty: int, cancel_type: str = "02"
+    ) -> dict:
         """주문 정정/취소
 
         Args:
@@ -270,8 +281,7 @@ class KISClient:
             "ORD_UNPR": "0",
             "QTY_ALL_ORD_YN": "Y",
         }
-        return self.post("/uapi/domestic-stock/v1/trading/order-rvsecncl",
-                         tr_id, body)
+        return self.post("/uapi/domestic-stock/v1/trading/order-rvsecncl", tr_id, body)
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  잔고/계좌
@@ -293,8 +303,9 @@ class KISClient:
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
         }
-        data = self.get("/uapi/domestic-stock/v1/trading/inquire-balance",
-                        tr_id, params)
+        data = self.get(
+            "/uapi/domestic-stock/v1/trading/inquire-balance", tr_id, params
+        )
 
         holdings = pd.DataFrame(data.get("output1", []))
         summary = pd.DataFrame(data.get("output2", []))
@@ -313,8 +324,8 @@ class KISClient:
             "OVRS_ICLD_YN": "N",
         }
         return self.fetch_dataframe(
-            "/uapi/domestic-stock/v1/trading/inquire-psbl-order",
-            tr_id, params)
+            "/uapi/domestic-stock/v1/trading/inquire-psbl-order", tr_id, params
+        )
 
     def inquire_daily_ccld(self, start_date: str, end_date: str) -> pd.DataFrame:
         """일별 체결내역 조회"""
@@ -336,16 +347,16 @@ class KISClient:
             "CTX_AREA_NK100": "",
         }
         return self.fetch_dataframe(
-            "/uapi/domestic-stock/v1/trading/inquire-daily-ccld",
-            tr_id, params)
+            "/uapi/domestic-stock/v1/trading/inquire-daily-ccld", tr_id, params
+        )
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  투자자별 매매동향
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    def inquire_investor(self, stock_code: str,
-                         start_date: str, end_date: str,
-                         market: str = "J") -> pd.DataFrame:
+    def inquire_investor(
+        self, stock_code: str, start_date: str, end_date: str, market: str = "J"
+    ) -> pd.DataFrame:
         """종목별 투자자 매매동향 (일별)
 
         Args:
@@ -397,8 +408,7 @@ class KISClient:
             },
         )
 
-    def fluctuation_rank(self, market: str = "J",
-                         sort: str = "0") -> pd.DataFrame:
+    def fluctuation_rank(self, market: str = "J", sort: str = "0") -> pd.DataFrame:
         """등락률 순위 (sort: 0=상승률, 1=하락률)"""
         return self.fetch_dataframe(
             "/uapi/domestic-stock/v1/ranking/fluctuation",

@@ -4,16 +4,17 @@ market_flow/formatter.py 의 시각 폭 헬퍼 / 색·부호 헬퍼 / 테이블 
 요일 표시 / 한국·미국·주간 포맷터의 결정론적 출력 동작을 검증한다.
 외부 의존성 없음 — 순수 함수.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from market_flow import formatter as F  # noqa: E402
 
-
 # ──────────────────────────────────────────────
 #  시각 폭 헬퍼 (_vw / _padr / _padl)
 # ──────────────────────────────────────────────
+
 
 class TestVw:
     def test_ascii_single_char_is_width_1(self):
@@ -34,7 +35,7 @@ class TestVw:
 
     def test_high_codepoint_emoji_is_width_2(self):
         # \U0001F680 (rocket) — _WIDE_EMOJI 에 없지만 ord >= 0x1F000
-        assert F._vw("\U0001F680") == 2
+        assert F._vw("\U0001f680") == 2
 
     def test_mixed_string_combines_widths(self):
         # "📊 외인" = 이모지(2) + 공백(1) + 한글 2자(4) = 7
@@ -69,24 +70,31 @@ class TestPadding:
 #  부호·색 헬퍼 (emoji / arrow / mark / signed / signed_pct)
 # ──────────────────────────────────────────────
 
+
 class TestEmojiArrowMark:
-    @pytest.mark.parametrize("v,expected", [
-        (100, "🔴"),
-        (1, "🔴"),
-        (-1, "🔵"),
-        (-1000, "🔵"),
-        (0, "⚪"),
-        (None, "⚪"),
-    ])
+    @pytest.mark.parametrize(
+        "v,expected",
+        [
+            (100, "🔴"),
+            (1, "🔴"),
+            (-1, "🔵"),
+            (-1000, "🔵"),
+            (0, "⚪"),
+            (None, "⚪"),
+        ],
+    )
     def test_emoji_by_sign(self, v, expected):
         assert F.emoji(v) == expected
 
-    @pytest.mark.parametrize("v,expected", [
-        (100, "▲"),
-        (-1, "▼"),
-        (0, "–"),
-        (None, "–"),
-    ])
+    @pytest.mark.parametrize(
+        "v,expected",
+        [
+            (100, "▲"),
+            (-1, "▼"),
+            (0, "–"),
+            (None, "–"),
+        ],
+    )
     def test_arrow_by_sign(self, v, expected):
         assert F.arrow(v) == expected
 
@@ -129,6 +137,7 @@ class TestSignedPct:
 #  요일 (kr_weekday)
 # ──────────────────────────────────────────────
 
+
 class TestKrWeekday:
     def test_monday(self):
         # 2026-05-25 은 월요일
@@ -146,6 +155,7 @@ class TestKrWeekday:
 # ──────────────────────────────────────────────
 #  _table — triple-backtick 블록 렌더
 # ──────────────────────────────────────────────
+
 
 class TestTable:
     def test_starts_and_ends_with_triple_backticks(self):
@@ -187,6 +197,7 @@ class TestTable:
 # ──────────────────────────────────────────────
 #  format_kr_daily
 # ──────────────────────────────────────────────
+
 
 def _make_kr_side(prefix=1):
     """코스피/코스닥 한 쪽(side) 데이터 빌더."""
@@ -238,7 +249,7 @@ class TestFormatKrDaily:
         assert out.count("```") >= 8  # 시작·끝 짝수
 
     def test_5day_section_when_at_least_5_rows(self):
-        rows = [_make_daily_row(f"05.{20+i:02d}", scale=i + 1) for i in range(5)]
+        rows = [_make_daily_row(f"05.{20 + i:02d}", scale=i + 1) for i in range(5)]
         data = {
             "bizdate": "20260525",
             "kospi": _make_kr_side(),
@@ -285,10 +296,24 @@ class TestFormatKrDaily:
 
     def test_sector_section_when_present(self):
         sectors = [
-            {"code": "091160", "label": "반도체", "close": 35000.0,
-             "pct": 2.5, "vol_ratio": 1.6, "trade_value_eok": 500.0, "date": "20260525"},
-            {"code": "132030", "label": "금", "close": 13000.0,
-             "pct": -1.2, "vol_ratio": 0.9, "trade_value_eok": 200.0, "date": "20260525"},
+            {
+                "code": "091160",
+                "label": "반도체",
+                "close": 35000.0,
+                "pct": 2.5,
+                "vol_ratio": 1.6,
+                "trade_value_eok": 500.0,
+                "date": "20260525",
+            },
+            {
+                "code": "132030",
+                "label": "금",
+                "close": 13000.0,
+                "pct": -1.2,
+                "vol_ratio": 0.9,
+                "trade_value_eok": 200.0,
+                "date": "20260525",
+            },
         ]
         data = {
             "bizdate": "20260525",
@@ -307,8 +332,15 @@ class TestFormatKrDaily:
 
     def test_sector_section_handles_none_vol_ratio(self):
         sectors = [
-            {"code": "091160", "label": "반도체", "close": 35000.0,
-             "pct": 1.0, "vol_ratio": None, "trade_value_eok": None, "date": "20260525"},
+            {
+                "code": "091160",
+                "label": "반도체",
+                "close": 35000.0,
+                "pct": 1.0,
+                "vol_ratio": None,
+                "trade_value_eok": None,
+                "date": "20260525",
+            },
         ]
         data = {
             "bizdate": "20260525",
@@ -338,8 +370,14 @@ class TestFormatKrDaily:
     def test_money_flow_etf_only(self):
         mf = {
             "etfs": [
-                {"code": "396500", "name": "TIGER 반도체TOP10", "grade": "B",
-                 "foreign_eok": -19.0, "orgn_eok": 688.0, "both_buy": False},
+                {
+                    "code": "396500",
+                    "name": "TIGER 반도체TOP10",
+                    "grade": "B",
+                    "foreign_eok": -19.0,
+                    "orgn_eok": 688.0,
+                    "both_buy": False,
+                },
             ],
             "stocks": [],
         }
@@ -360,12 +398,24 @@ class TestFormatKrDaily:
     def test_money_flow_both_sections_and_fire_marker(self):
         mf = {
             "etfs": [
-                {"code": "462330", "name": "KODEX 2차전지", "grade": "B",
-                 "foreign_eok": 23.0, "orgn_eok": 334.0, "both_buy": True},
+                {
+                    "code": "462330",
+                    "name": "KODEX 2차전지",
+                    "grade": "B",
+                    "foreign_eok": 23.0,
+                    "orgn_eok": 334.0,
+                    "both_buy": True,
+                },
             ],
             "stocks": [
-                {"code": "417010", "name": "나노팀", "grade": "S",
-                 "foreign_eok": 54.0, "orgn_eok": 0.0, "both_buy": False},
+                {
+                    "code": "417010",
+                    "name": "나노팀",
+                    "grade": "S",
+                    "foreign_eok": 54.0,
+                    "orgn_eok": 0.0,
+                    "both_buy": False,
+                },
             ],
         }
         data = {
@@ -403,6 +453,7 @@ class TestFormatKrDaily:
 # ──────────────────────────────────────────────
 #  format_us_daily
 # ──────────────────────────────────────────────
+
 
 def _us_entry(label, close=100.0, pct=1.0, vol_ratio=1.0, date="2026-05-22"):
     return {
@@ -484,9 +535,12 @@ class TestFormatUsDaily:
 #  format_weekly
 # ──────────────────────────────────────────────
 
+
 class TestFormatWeekly:
     def test_contains_required_tokens(self):
-        kospi_daily = [_make_daily_row(f"05.{20+i:02d}", scale=i + 1) for i in range(5)]
+        kospi_daily = [
+            _make_daily_row(f"05.{20 + i:02d}", scale=i + 1) for i in range(5)
+        ]
         watch_5d = {"QQQ": 2.5, "SMH": -1.2}
         out = F.format_weekly(kospi_daily, watch_5d)
         assert "📅" in out
@@ -507,7 +561,7 @@ class TestFormatWeekly:
 
     def test_truncates_to_5_days_when_more_rows(self):
         # 7일분 입력 → 5일만 사용
-        rows = [_make_daily_row(f"05.{15+i:02d}") for i in range(7)]
+        rows = [_make_daily_row(f"05.{15 + i:02d}") for i in range(7)]
         out = F.format_weekly(rows, {"QQQ": 1.0})
         # 일별 표에 5개만 표시 — 05.15, 05.16, 05.17, 05.18, 05.19 만 출력
         assert "05.15" in out

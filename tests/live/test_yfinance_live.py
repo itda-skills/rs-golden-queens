@@ -6,6 +6,7 @@ REQ-MF-TEST-009. 기본 ``pytest`` 실행에서는 conftest.py 의 자동 desele
 값 검증은 하지 않음 — Yahoo Finance 데이터는 변동/지연이 있으므로
 카테고리 키 구조와 ^GSPC 의 None 여부만 검증.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,11 +19,20 @@ def test_fetch_us_close_smoke():
     """실제 yfinance 호출 → 6 카테고리 키 dict 반환."""
     result = us_market.fetch_us_close()
     assert set(result.keys()) == {
-        "indices", "volatility", "risk_onoff", "macro", "sectors", "watch",
+        "indices",
+        "volatility",
+        "risk_onoff",
+        "macro",
+        "sectors",
+        "watch",
     }
     # ^GSPC 는 가장 안정적인 ticker — None 이 아니어야 함
     assert result["indices"]["^GSPC"] is not None
     # ^GSPC 출력 스키마 회귀 차단
     assert set(result["indices"]["^GSPC"].keys()) == {
-        "label", "close", "pct", "vol_ratio", "date",
+        "label",
+        "close",
+        "pct",
+        "vol_ratio",
+        "date",
     }

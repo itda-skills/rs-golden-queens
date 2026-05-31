@@ -7,6 +7,7 @@ dry-run 환경에서 fetch_kospi_daily 와 yf.download 모킹으로 main() 호�
 SPEC-MF-SCHED-001 의 ``tests/test_weekly.py`` 는 마지막 거래일 게이트에
 집중. 본 파일은 "정상 발송 + dry-run 출력 토큰 + _watch_5d_pct 계산" 검증.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -24,9 +25,19 @@ KST = ZoneInfo("Asia/Seoul")
 def _fake_kospi_daily():
     """fetch_kospi_daily 가 반환하는 5거래일 row 합성."""
     return [
-        {"date": f"05.{20+i:02d}", "personal": -100 - i, "foreign": 50 + i,
-         "institutional": 50, "finance": 10, "insurance": 5, "trust": 5,
-         "bank": 5, "other_fin": 5, "pension": 10, "other_corp": 10}
+        {
+            "date": f"05.{20 + i:02d}",
+            "personal": -100 - i,
+            "foreign": 50 + i,
+            "institutional": 50,
+            "finance": 10,
+            "insurance": 5,
+            "trust": 5,
+            "bank": 5,
+            "other_fin": 5,
+            "pension": 10,
+            "other_corp": 10,
+        }
         for i in range(5)
     ]
 
@@ -35,16 +46,23 @@ def _fake_kospi_daily():
 #  main() 통합
 # ──────────────────────────────────────────────
 
+
 def test_weekly_main_dry_run_outputs_report(monkeypatch, capsys):
     """마지막 거래일 + dry-run → 주간 리포트 stdout 출력."""
     # 2025-09-19 금요일 정상 거래일
     now = datetime(2025, 9, 19, 18, 30, tzinfo=KST)
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
 
-    with patch("market_flow.weekly.fetch_kospi_daily", return_value=_fake_kospi_daily()) as mock_kr, \
-         patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 2.5, "SMH": -1.5}) as mock_watch, \
-         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=True):
+    with (
+        patch(
+            "market_flow.weekly.fetch_kospi_daily", return_value=_fake_kospi_daily()
+        ) as mock_kr,
+        patch(
+            "market_flow.weekly._watch_5d_pct", return_value={"QQQ": 2.5, "SMH": -1.5}
+        ) as mock_watch,
+        patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen,
+        patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=True),
+    ):
         weekly.main(now=now)
 
     mock_urlopen.assert_not_called()
@@ -64,10 +82,12 @@ def test_weekly_main_skips_when_not_last_trading_day(monkeypatch, capsys):
     now = datetime(2025, 9, 18, 18, 30, tzinfo=KST)  # 목요일
     monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
 
-    with patch("market_flow.weekly.fetch_kospi_daily") as mock_kr, \
-         patch("market_flow.weekly._watch_5d_pct") as mock_watch, \
-         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen, \
-         patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=False):
+    with (
+        patch("market_flow.weekly.fetch_kospi_daily") as mock_kr,
+        patch("market_flow.weekly._watch_5d_pct") as mock_watch,
+        patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen,
+        patch("market_flow.weekly.is_last_kr_trading_day_of_week", return_value=False),
+    ):
         weekly.main(now=now)
 
     # 모든 함수가 호출되지 않아야 함
@@ -83,6 +103,7 @@ def test_weekly_main_skips_when_not_last_trading_day(monkeypatch, capsys):
 # ──────────────────────────────────────────────
 #  _watch_5d_pct (yfinance 모킹)
 # ──────────────────────────────────────────────
+
 
 def _build_watch_df(tickers, close_data):
     """다중 ticker yfinance DataFrame 합성 — Close MultiIndex."""

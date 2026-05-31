@@ -19,6 +19,7 @@ GOLDENQUEENS_CHAT_ID 와 TEST_GOLDENQUEENS_CHAT_ID 는 **콤마로 구분된 여
   - ok 필드는 "전부 성공" 일 때만 True
   - 호출자는 종료 코드를 받지 않음 (best-effort)
 """
+
 import json
 import os
 import re
@@ -30,6 +31,7 @@ from pathlib import Path
 # .env 파일이 있으면 로드 (로컬 개발용)
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
     pass
@@ -46,7 +48,11 @@ def _warn(msg):
 
 
 def _is_test_send():
-    return os.environ.get("MARKET_FLOW_TEST_SEND", "").strip().lower() in {"1", "true", "yes"}
+    return os.environ.get("MARKET_FLOW_TEST_SEND", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 def _env_names_for(base_key):
@@ -147,7 +153,11 @@ def _mask_env_values(values):
 
 
 def _is_dry_run():
-    return os.environ.get("MARKET_FLOW_DRY_RUN", "").strip().lower() in {"1", "true", "yes"}
+    return os.environ.get("MARKET_FLOW_DRY_RUN", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 # ANSI 색상 — dry-run stdout 가독성용 (텔레그램 발송 텍스트와 무관)
@@ -173,13 +183,15 @@ def _colorize_for_stdout(text):
 
 def _post_message(token, chat_id, text, parse_mode, disable_notification):
     """단일 chat_id 에 sendMessage 호출. 실패 시 예외 그대로 전파."""
-    payload = urllib.parse.urlencode({
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": parse_mode,
-        "disable_notification": "true" if disable_notification else "false",
-        "disable_web_page_preview": "true",
-    }).encode()
+    payload = urllib.parse.urlencode(
+        {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": parse_mode,
+            "disable_notification": "true" if disable_notification else "false",
+            "disable_web_page_preview": "true",
+        }
+    ).encode()
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage", data=payload
     )
@@ -205,7 +217,9 @@ def _post_photo(token, chat_id, image_bytes, caption, parse_mode, disable_notifi
     add_field("disable_notification", "true" if disable_notification else "false")
 
     parts.append(f"--{boundary}\r\n".encode())
-    parts.append(b'Content-Disposition: form-data; name="photo"; filename="report.png"\r\n')
+    parts.append(
+        b'Content-Disposition: form-data; name="photo"; filename="report.png"\r\n'
+    )
     parts.append(b"Content-Type: image/png\r\n\r\n")
     parts.append(image_bytes)
     parts.append(b"\r\n")
@@ -261,8 +275,16 @@ def send(text, parse_mode="Markdown", disable_notification=False):
         print("─" * 60)
         print(_colorize_for_stdout(text))
         print("─" * 60)
-        results = [{"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True} for c in ids]
-        return {"ok": True, "dry_run": True, "result": {"message_id": 0}, "results": results}
+        results = [
+            {"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True}
+            for c in ids
+        ]
+        return {
+            "ok": True,
+            "dry_run": True,
+            "result": {"message_id": 0},
+            "results": results,
+        }
 
     token, token_env = _bot_token_with_source()
     ids, chat_id_env = _chat_ids_with_source()
@@ -279,17 +301,27 @@ def send(text, parse_mode="Markdown", disable_notification=False):
             resp = _post_message(token, cid, text, parse_mode, disable_notification)
             msg_id = (resp.get("result") or {}).get("message_id", 0)
             _log(f"  → chat={_mask_chat_id(cid)} ok=True msg_id={msg_id}")
-            results.append({"chat_id": cid, "ok": True, "result": resp.get("result", {"message_id": msg_id})})
+            results.append(
+                {
+                    "chat_id": cid,
+                    "ok": True,
+                    "result": resp.get("result", {"message_id": msg_id}),
+                }
+            )
         except Exception as e:
             _warn(f"  → chat={_mask_chat_id(cid)} 발송 실패: {type(e).__name__}: {e}")
-            results.append({"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"})
+            results.append(
+                {"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"}
+            )
 
     ok_n = sum(1 for r in results if r["ok"])
     _log(f"send() 완료 — 성공 {ok_n}/{len(results)}")
     return _aggregate(results)
 
 
-def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notification=False):
+def send_photo(
+    image_bytes, caption=None, parse_mode="Markdown", disable_notification=False
+):
     """텔레그램으로 이미지(PNG bytes) 발송. 다중 chat_id 지원.
 
     MARKET_FLOW_DRY_RUN=1 환경변수가 설정된 경우 ./out/ 디렉터리에 저장 후 종료.
@@ -315,8 +347,16 @@ def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notific
         if caption:
             print(f"[DRY-RUN] caption: {caption}")
         print("─" * 60)
-        results = [{"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True} for c in ids]
-        return {"ok": True, "dry_run": True, "result": {"message_id": 0}, "results": results}
+        results = [
+            {"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True}
+            for c in ids
+        ]
+        return {
+            "ok": True,
+            "dry_run": True,
+            "result": {"message_id": 0},
+            "results": results,
+        }
 
     token, token_env = _bot_token_with_source()
     ids, chat_id_env = _chat_ids_with_source()
@@ -331,13 +371,25 @@ def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notific
     results = []
     for cid in ids:
         try:
-            resp = _post_photo(token, cid, image_bytes, caption, parse_mode, disable_notification)
+            resp = _post_photo(
+                token, cid, image_bytes, caption, parse_mode, disable_notification
+            )
             msg_id = (resp.get("result") or {}).get("message_id", 0)
             _log(f"  → chat={_mask_chat_id(cid)} ok=True msg_id={msg_id}")
-            results.append({"chat_id": cid, "ok": True, "result": resp.get("result", {"message_id": msg_id})})
+            results.append(
+                {
+                    "chat_id": cid,
+                    "ok": True,
+                    "result": resp.get("result", {"message_id": msg_id}),
+                }
+            )
         except Exception as e:
-            _warn(f"  → chat={_mask_chat_id(cid)} 사진 발송 실패: {type(e).__name__}: {e}")
-            results.append({"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"})
+            _warn(
+                f"  → chat={_mask_chat_id(cid)} 사진 발송 실패: {type(e).__name__}: {e}"
+            )
+            results.append(
+                {"chat_id": cid, "ok": False, "error": f"{type(e).__name__}: {e}"}
+            )
 
     ok_n = sum(1 for r in results if r["ok"])
     _log(f"send_photo() 완료 — 성공 {ok_n}/{len(results)}")
@@ -347,4 +399,6 @@ def send_photo(image_bytes, caption=None, parse_mode="Markdown", disable_notific
 if __name__ == "__main__":
     text = sys.argv[1] if len(sys.argv) > 1 else "🤖 골든퀸즈 알리미 점검 메시지"
     resp = send(text)
-    print(f"✅ ok={resp['ok']} msg_id={resp['result']['message_id']} results={len(resp['results'])}")
+    print(
+        f"✅ ok={resp['ok']} msg_id={resp['result']['message_id']} results={len(resp['results'])}"
+    )

@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 
 from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
 from market_flow.fetchers.naver_kr import fetch_today
-from market_flow.formatter import format_kr_daily, render_kr_daily_html, kr_weekday
+from market_flow.formatter import format_kr_daily, kr_weekday, render_kr_daily_html
 from market_flow.publish_channel import maybe_publish, web_link_suffix
 from market_flow.publisher import build_holiday_snapshot, build_kr_snapshot
 from market_flow.telegram_push import send, send_photo

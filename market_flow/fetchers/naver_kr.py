@@ -3,6 +3,7 @@
 - 모바일 API: 코스피/코스닥 당일 합산 + 프로그램매매
 - 데스크탑 페이지: 시간별/일별 추세 (코스피 — 10거래일)
 """
+
 import json
 import re
 import urllib.request
@@ -78,19 +79,21 @@ def _parse_trend_rows(body, time_col):
         def n(s):
             return int(s.replace(",", "").replace("+", "")) if s and s != "-" else 0
 
-        out.append({
-            ("time" if time_col else "date"): cells[0],
-            "personal": n(cells[1]),
-            "foreign": n(cells[2]),
-            "institutional": n(cells[3]),
-            "finance": n(cells[4]),
-            "insurance": n(cells[5]),
-            "trust": n(cells[6]),
-            "bank": n(cells[7]),
-            "other_fin": n(cells[8]),
-            "pension": n(cells[9]),
-            "other_corp": n(cells[10]),
-        })
+        out.append(
+            {
+                ("time" if time_col else "date"): cells[0],
+                "personal": n(cells[1]),
+                "foreign": n(cells[2]),
+                "institutional": n(cells[3]),
+                "finance": n(cells[4]),
+                "insurance": n(cells[5]),
+                "trust": n(cells[6]),
+                "bank": n(cells[7]),
+                "other_fin": n(cells[8]),
+                "pension": n(cells[9]),
+                "other_corp": n(cells[10]),
+            }
+        )
     return out
 
 
@@ -109,5 +112,6 @@ def fetch_today(bizdate=None):
 
 if __name__ == "__main__":
     import sys
+
     bizdate = sys.argv[1] if len(sys.argv) > 1 else None
     print(json.dumps(fetch_today(bizdate), ensure_ascii=False, indent=2))

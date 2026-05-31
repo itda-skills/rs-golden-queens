@@ -6,7 +6,6 @@ KIS Open API 인증 모듈
 - 실전/모의투자 환경 전환
 """
 
-import json
 import os
 import time
 from datetime import datetime
@@ -68,8 +67,7 @@ class KISAuth:
             self._load_env_file(Path(env_path))
             return
         project_root = Path(__file__).resolve().parent.parent
-        for candidate in (project_root / ".env",
-                          project_root / "market_flow" / ".env"):
+        for candidate in (project_root / ".env", project_root / "market_flow" / ".env"):
             self._load_env_file(candidate)
 
     @staticmethod

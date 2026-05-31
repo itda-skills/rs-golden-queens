@@ -4,6 +4,7 @@ market_flow/fetchers/naver_kr.py 의 모바일 JSON 파서 / 데스크탑 HTML �
 fetch_today 통합 동작을 검증한다. ``urllib.request.urlopen`` 은 모두
 mock 으로 차단되어 실 네이버 호출이 발생하지 않는다.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -37,6 +38,7 @@ def _mock_urlopen_bytes(raw_bytes):
 # ──────────────────────────────────────────────
 #  fetch_daily_summary (모바일 API)
 # ──────────────────────────────────────────────
+
 
 class TestFetchDailySummary:
     def test_returns_seven_keys(self, naver_mobile_kospi_json):
@@ -119,6 +121,7 @@ class TestFetchDailySummary:
 #  _parse_trend_rows
 # ──────────────────────────────────────────────
 
+
 class TestParseTrendRows:
     def test_empty_body_returns_empty_list(self):
         assert naver_kr._parse_trend_rows("", time_col=True) == []
@@ -190,8 +193,17 @@ class TestParseTrendRows:
         )
         rows = naver_kr._parse_trend_rows(body, time_col=False)
         expected = {
-            "date", "personal", "foreign", "institutional", "finance",
-            "insurance", "trust", "bank", "other_fin", "pension", "other_corp",
+            "date",
+            "personal",
+            "foreign",
+            "institutional",
+            "finance",
+            "insurance",
+            "trust",
+            "bank",
+            "other_fin",
+            "pension",
+            "other_corp",
         }
         assert set(rows[0].keys()) == expected
 
@@ -200,11 +212,14 @@ class TestParseTrendRows:
 #  fetch_kospi_intraday / fetch_kospi_daily — fixture 기반
 # ──────────────────────────────────────────────
 
+
 class TestFetchKospiHtmlPaths:
     def test_intraday_returns_rows_with_time_key(self, naver_intraday_html):
         with patch(
             "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(naver_intraday_html.encode("euc-kr", errors="replace")),
+            return_value=_mock_urlopen_bytes(
+                naver_intraday_html.encode("euc-kr", errors="replace")
+            ),
         ):
             rows = naver_kr.fetch_kospi_intraday("20260525")
         assert len(rows) >= 2  # 정상 행 2개, 부족한 행 1개 무시
@@ -215,7 +230,9 @@ class TestFetchKospiHtmlPaths:
     def test_intraday_dash_cell_becomes_zero(self, naver_intraday_html):
         with patch(
             "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(naver_intraday_html.encode("euc-kr", errors="replace")),
+            return_value=_mock_urlopen_bytes(
+                naver_intraday_html.encode("euc-kr", errors="replace")
+            ),
         ):
             rows = naver_kr.fetch_kospi_intraday("20260525")
         # 두 번째 행 (15:00) 의 finance 셀이 "-" → 0
@@ -225,7 +242,9 @@ class TestFetchKospiHtmlPaths:
     def test_daily_returns_rows_with_date_key(self, naver_daily_html):
         with patch(
             "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(naver_daily_html.encode("euc-kr", errors="replace")),
+            return_value=_mock_urlopen_bytes(
+                naver_daily_html.encode("euc-kr", errors="replace")
+            ),
         ):
             rows = naver_kr.fetch_kospi_daily("20260525")
         assert len(rows) == 6
@@ -236,7 +255,9 @@ class TestFetchKospiHtmlPaths:
     def test_daily_numeric_values_are_int(self, naver_daily_html):
         with patch(
             "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(naver_daily_html.encode("euc-kr", errors="replace")),
+            return_value=_mock_urlopen_bytes(
+                naver_daily_html.encode("euc-kr", errors="replace")
+            ),
         ):
             rows = naver_kr.fetch_kospi_daily("20260525")
         row_first = rows[0]
@@ -249,12 +270,19 @@ class TestFetchKospiHtmlPaths:
 #  fetch_today (4개 소스 통합)
 # ──────────────────────────────────────────────
 
+
 class TestFetchToday:
     def test_combines_four_sources(self, monkeypatch):
         """fetch_today 는 4개 함수를 모두 호출하고 결과를 dict 로 묶는다."""
-        fake_summary = {"bizdate": "20260525", "personal": 1, "foreign": 2,
-                        "institutional": 3, "program_arb": 0, "program_nonarb": 0,
-                        "program_total": 0}
+        fake_summary = {
+            "bizdate": "20260525",
+            "personal": 1,
+            "foreign": 2,
+            "institutional": 3,
+            "program_arb": 0,
+            "program_nonarb": 0,
+            "program_total": 0,
+        }
         fake_intraday = [{"time": "15:30"}]
         fake_daily = [{"date": "05.25"}]
         monkeypatch.setattr(naver_kr, "fetch_daily_summary", lambda m: fake_summary)
@@ -262,8 +290,13 @@ class TestFetchToday:
         monkeypatch.setattr(naver_kr, "fetch_kospi_daily", lambda b: fake_daily)
 
         result = naver_kr.fetch_today("20260525")
-        assert set(result.keys()) == {"bizdate", "kospi", "kosdaq",
-                                       "kospi_intraday", "kospi_daily"}
+        assert set(result.keys()) == {
+            "bizdate",
+            "kospi",
+            "kosdaq",
+            "kospi_intraday",
+            "kospi_daily",
+        }
         assert result["bizdate"] == "20260525"
         assert result["kospi"] is fake_summary
         assert result["kospi_intraday"] is fake_intraday
@@ -273,10 +306,16 @@ class TestFetchToday:
         """bizdate=None 시 datetime.now().strftime("%Y%m%d") 사용."""
         captured = {}
         monkeypatch.setattr(naver_kr, "fetch_daily_summary", lambda m: {})
-        monkeypatch.setattr(naver_kr, "fetch_kospi_intraday",
-                             lambda b: captured.setdefault("intraday_bizdate", b) or [])
-        monkeypatch.setattr(naver_kr, "fetch_kospi_daily",
-                             lambda b: captured.setdefault("daily_bizdate", b) or [])
+        monkeypatch.setattr(
+            naver_kr,
+            "fetch_kospi_intraday",
+            lambda b: captured.setdefault("intraday_bizdate", b) or [],
+        )
+        monkeypatch.setattr(
+            naver_kr,
+            "fetch_kospi_daily",
+            lambda b: captured.setdefault("daily_bizdate", b) or [],
+        )
 
         result = naver_kr.fetch_today(None)
         # 둘 다 같은 bizdate 가 전달되어야 함

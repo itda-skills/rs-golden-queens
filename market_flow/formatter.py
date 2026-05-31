@@ -8,9 +8,9 @@
 인라인 코드의 클라이언트별 강조 색(빨강)을 회피하고
 등폭 폰트로 정렬되도록 한다.
 """
+
 import unicodedata
 from datetime import datetime
-
 
 # ───────────────────────────────────────────────
 #  시각 폭 헬퍼 — CJK/이모지 2칸, ASCII 1칸
@@ -69,7 +69,9 @@ def _card(rows, aligns, sep="  "):
         parts = []
         for i, cell in enumerate(r):
             s = str(cell)
-            parts.append(_padl(s, widths[i]) if aligns[i] == "r" else _padr(s, widths[i]))
+            parts.append(
+                _padl(s, widths[i]) if aligns[i] == "r" else _padr(s, widths[i])
+            )
         out.append(sep.join(parts).rstrip())
     out.append("```")
     return "\n".join(out)
@@ -93,7 +95,9 @@ def _table(rows, aligns, header=None, sep_char="─"):
         parts = []
         for i, cell in enumerate(r):
             s = str(cell)
-            parts.append(_padl(s, widths[i]) if aligns[i] == "r" else _padr(s, widths[i]))
+            parts.append(
+                _padl(s, widths[i]) if aligns[i] == "r" else _padr(s, widths[i])
+            )
         return "  ".join(parts).rstrip()
 
     out = ["```"]
@@ -109,6 +113,7 @@ def _table(rows, aligns, header=None, sep_char="─"):
 # ───────────────────────────────────────────────
 #  부호/색 헬퍼
 # ───────────────────────────────────────────────
+
 
 def emoji(v):
     if v is None:
@@ -156,12 +161,13 @@ def kr_weekday(bizdate):
 #  한국장
 # ───────────────────────────────────────────────
 
+
 def _kr_main_table(side):
     """코스피/코스닥 외인·기관·개인 행. 컬럼: 라벨, 숫자(우측), 마크."""
     return [
-        ["외인", signed(side["foreign"]),       emoji(side["foreign"])],
+        ["외인", signed(side["foreign"]), emoji(side["foreign"])],
         ["기관", signed(side["institutional"]), emoji(side["institutional"])],
-        ["개인", signed(side["personal"]),      emoji(side["personal"])],
+        ["개인", signed(side["personal"]), emoji(side["personal"])],
     ]
 
 
@@ -170,11 +176,11 @@ def _kr_detail_table(detail):
     rows = []
     pairs = [
         ("금융투자", "finance"),
-        ("보험",     "insurance"),
-        ("투신",     "trust"),
-        ("은행",     "bank"),
+        ("보험", "insurance"),
+        ("투신", "trust"),
+        ("은행", "bank"),
         ("기타금융", "other_fin"),
-        ("연기금",   "pension"),
+        ("연기금", "pension"),
         ("기타법인", "other_corp"),
     ]
     for label, key in pairs:
@@ -185,9 +191,9 @@ def _kr_detail_table(detail):
 
 def _kr_program_table(side):
     return [
-        ["차익",   signed(side["program_arb"]),    emoji(side["program_arb"])],
+        ["차익", signed(side["program_arb"]), emoji(side["program_arb"])],
         ["비차익", signed(side["program_nonarb"]), emoji(side["program_nonarb"])],
-        ["합계",   signed(side["program_total"]),  emoji(side["program_total"])],
+        ["합계", signed(side["program_total"]), emoji(side["program_total"])],
     ]
 
 
@@ -274,7 +280,9 @@ def format_kr_daily(data):
             vr = s.get("vol_ratio")
             vr_str = f"×{vr:.2f}" if vr else "-"
             hot = "🔥" if vr and vr >= 1.5 else ""
-            rows.append([s["label"], signed_pct(s["pct"]), f"{vr_str}{hot}", emoji(s["pct"])])
+            rows.append(
+                [s["label"], signed_pct(s["pct"]), f"{vr_str}{hot}", emoji(s["pct"])]
+            )
         L.append(_card(rows, ["l", "r", "l", "l"]))
 
     # 동적 수급 워치 (오늘의 수급 Top)
@@ -308,14 +316,16 @@ def _money_flow_rows(items):
         f_eok = r.get("foreign_eok") or 0
         o_eok = r.get("orgn_eok") or 0
         both = "🔥" if r.get("both_buy") else ""
-        rows.append([
-            r.get("code", "-"),
-            name,
-            grade,
-            f"외{f_eok:+.0f}",
-            f"기{o_eok:+.0f}",
-            both,
-        ])
+        rows.append(
+            [
+                r.get("code", "-"),
+                name,
+                grade,
+                f"외{f_eok:+.0f}",
+                f"기{o_eok:+.0f}",
+                both,
+            ]
+        )
     return rows
 
 
@@ -323,15 +333,31 @@ def _money_flow_rows(items):
 #  미국장
 # ───────────────────────────────────────────────
 
-INDICES = [("^GSPC", "S&P500"), ("^IXIC", "나스닥"),
-           ("^DJI", "다우"), ("^RUT", "러셀2000")]
+INDICES = [
+    ("^GSPC", "S&P500"),
+    ("^IXIC", "나스닥"),
+    ("^DJI", "다우"),
+    ("^RUT", "러셀2000"),
+]
 VOLATILITY = [("^VIX", "VIX"), ("^VVIX", "VVIX"), ("^SKEW", "SKEW")]
-MACRO = [("^TNX", "10Y금리"), ("^TYX", "30Y금리"),
-         ("DX-Y.NYB", "DXY"), ("KRW=X", "원달러"),
-         ("CL=F", "WTI"), ("GC=F", "금")]
-WATCH = [("QQQ", "나스닥100"), ("SMH", "반도체"), ("NLR", "원자력"),
-         ("XLE", "에너지"), ("GLD", "금"), ("SLV", "은"),
-         ("ITA", "방산"), ("XOVR", "SpaceX")]
+MACRO = [
+    ("^TNX", "10Y금리"),
+    ("^TYX", "30Y금리"),
+    ("DX-Y.NYB", "DXY"),
+    ("KRW=X", "원달러"),
+    ("CL=F", "WTI"),
+    ("GC=F", "금"),
+]
+WATCH = [
+    ("QQQ", "나스닥100"),
+    ("SMH", "반도체"),
+    ("NLR", "원자력"),
+    ("XLE", "에너지"),
+    ("GLD", "금"),
+    ("SLV", "은"),
+    ("ITA", "방산"),
+    ("XOVR", "SpaceX"),
+]
 
 
 def _us_price_table(catalog, source):
@@ -341,7 +367,9 @@ def _us_price_table(catalog, source):
         d = source.get(t)
         if not d:
             continue
-        rows.append([d["label"], f"{d['close']:,.2f}", signed_pct(d["pct"]), emoji(d["pct"])])
+        rows.append(
+            [d["label"], f"{d['close']:,.2f}", signed_pct(d["pct"]), emoji(d["pct"])]
+        )
     return rows
 
 
@@ -366,7 +394,9 @@ def render_us_daily_html(data):
             d = source.get(t)
             if not d:
                 continue
-            out.append({"label": d["label"], "close": d.get("close"), "pct": d.get("pct")})
+            out.append(
+                {"label": d["label"], "close": d.get("close"), "pct": d.get("pct")}
+            )
         return out
 
     idx = data.get("indices") or {}
@@ -402,14 +432,16 @@ def render_us_daily_html(data):
         if not d:
             continue
         vr = d.get("vol_ratio")
-        watch_list.append({
-            "ticker": t,
-            "label": d["label"],
-            "close": d["close"],
-            "pct": d["pct"],
-            "vol_str": f"×{vr:.2f}" if vr else "-",
-            "hot": bool(vr and vr >= 1.5),
-        })
+        watch_list.append(
+            {
+                "ticker": t,
+                "label": d["label"],
+                "close": d["close"],
+                "pct": d["pct"],
+                "vol_str": f"×{vr:.2f}" if vr else "-",
+                "hot": bool(vr and vr >= 1.5),
+            }
+        )
 
     return render_template(
         "us_daily.html.j2",
@@ -478,8 +510,12 @@ def format_us_daily(data):
     L.append("")
 
     L.append("💼 *섹터 (S&P 11)* _(등락 기준 정렬)_")
-    sec_rows = [[v["label"], signed_pct(v["pct"]), emoji(v["pct"])]
-                for _, v in sorted([(k, v) for k, v in sec.items() if v], key=lambda x: -x[1]["pct"])]
+    sec_rows = [
+        [v["label"], signed_pct(v["pct"]), emoji(v["pct"])]
+        for _, v in sorted(
+            [(k, v) for k, v in sec.items() if v], key=lambda x: -x[1]["pct"]
+        )
+    ]
     L.append(_card(sec_rows, ["l", "r", "l"]))
     L.append("")
 
@@ -493,14 +529,16 @@ def format_us_daily(data):
         vr = d.get("vol_ratio")
         vr_str = f"×{vr:.2f}" if vr else "-"
         hot = "🔥" if vr and vr >= 1.5 else ""
-        watch_rows.append([
-            t,
-            d["label"],
-            f"${d['close']:,.2f}",
-            signed_pct(d["pct"]),
-            f"{vr_str}{hot}",
-            emoji(d["pct"]),
-        ])
+        watch_rows.append(
+            [
+                t,
+                d["label"],
+                f"${d['close']:,.2f}",
+                signed_pct(d["pct"]),
+                f"{vr_str}{hot}",
+                emoji(d["pct"]),
+            ]
+        )
     L.append(_card(watch_rows, ["l", "l", "r", "r", "r", "l"]))
 
     return "\n".join(L)
@@ -509,6 +547,7 @@ def format_us_daily(data):
 # ───────────────────────────────────────────────
 #  주간
 # ───────────────────────────────────────────────
+
 
 def render_weekly_html(kospi_daily, watch_5d):
     """주간 리포트 → HTML 문자열 (이미지 렌더용)."""
@@ -565,20 +604,24 @@ def format_weekly(kospi_daily, watch_5d):
         L.append("일별 _(일자 · 외인 · 기관)_:")
         daily_rows_t = []
         for r in kospi_daily:
-            daily_rows_t.append([
-                r["date"],
-                signed(r["foreign"]),
-                emoji(r["foreign"]),
-                signed(r["institutional"]),
-                emoji(r["institutional"]),
-            ])
+            daily_rows_t.append(
+                [
+                    r["date"],
+                    signed(r["foreign"]),
+                    emoji(r["foreign"]),
+                    signed(r["institutional"]),
+                    emoji(r["institutional"]),
+                ]
+            )
         L.append(_card(daily_rows_t, ["l", "r", "l", "r", "l"]))
         L.append("")
 
     if watch_5d:
         L.append("🇺🇸 *워치 ETF 5거래일 누적 등락*")
-        watch_rows = [[ticker, signed_pct(pct), emoji(pct)]
-                      for ticker, pct in sorted(watch_5d.items(), key=lambda x: -x[1])]
+        watch_rows = [
+            [ticker, signed_pct(pct), emoji(pct)]
+            for ticker, pct in sorted(watch_5d.items(), key=lambda x: -x[1])
+        ]
         L.append(_card(watch_rows, ["l", "r", "l"]))
 
     return "\n".join(L)

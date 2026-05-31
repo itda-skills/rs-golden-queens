@@ -12,6 +12,7 @@
 import 규약: 프로젝트 루트에서 ``pytest`` 를 실행하면 ``market_flow`` 패키지가
 자동 인식된다. 별도 sys.path 조작은 필요하지 않다.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,6 +28,7 @@ _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 # ──────────────────────────────────────────────────────────────────
 #  live 마커 등록 + 자동 deselect (REQ-MF-TEST-002)
 # ──────────────────────────────────────────────────────────────────
+
 
 def pytest_configure(config: pytest.Config) -> None:
     """``live`` 마커를 pytest 에 등록한다."""
@@ -87,6 +89,7 @@ def _isolate_market_flow_env(monkeypatch: pytest.MonkeyPatch) -> None:
 #  합성 fixture 로더 (REQ-MF-TEST-010)
 # ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     """``tests/fixtures/`` 절대 경로."""
@@ -96,9 +99,7 @@ def fixtures_dir() -> Path:
 @pytest.fixture
 def naver_mobile_kospi_json(fixtures_dir: Path) -> str:
     """네이버 모바일 KOSPI 응답 (raw JSON 문자열)."""
-    return (fixtures_dir / "naver_kr" / "mobile_kospi.json").read_text(
-        encoding="utf-8"
-    )
+    return (fixtures_dir / "naver_kr" / "mobile_kospi.json").read_text(encoding="utf-8")
 
 
 @pytest.fixture
@@ -112,17 +113,13 @@ def naver_mobile_kosdaq_json(fixtures_dir: Path) -> str:
 @pytest.fixture
 def naver_intraday_html(fixtures_dir: Path) -> str:
     """네이버 데스크탑 시간별 추세 HTML (utf-8 디코딩된 문자열)."""
-    return (fixtures_dir / "naver_kr" / "intraday.html").read_text(
-        encoding="utf-8"
-    )
+    return (fixtures_dir / "naver_kr" / "intraday.html").read_text(encoding="utf-8")
 
 
 @pytest.fixture
 def naver_daily_html(fixtures_dir: Path) -> str:
     """네이버 데스크탑 일별 추세 HTML (utf-8 디코딩된 문자열)."""
-    return (fixtures_dir / "naver_kr" / "daily.html").read_text(
-        encoding="utf-8"
-    )
+    return (fixtures_dir / "naver_kr" / "daily.html").read_text(encoding="utf-8")
 
 
 @pytest.fixture

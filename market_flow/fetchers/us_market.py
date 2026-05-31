@@ -1,25 +1,49 @@
 """미국장 마감 요약 — yfinance"""
+
 import sys
 from datetime import datetime, timedelta
 
 import yfinance as yf
 
-INDICES = [("^GSPC", "S&P500"), ("^IXIC", "나스닥"),
-           ("^DJI", "다우"), ("^RUT", "러셀2000")]
+INDICES = [
+    ("^GSPC", "S&P500"),
+    ("^IXIC", "나스닥"),
+    ("^DJI", "다우"),
+    ("^RUT", "러셀2000"),
+]
 VOLATILITY = [("^VIX", "VIX"), ("^VVIX", "VVIX"), ("^SKEW", "SKEW")]
 RISK_ONOFF = [("HYG", "고수익채권"), ("IEF", "7-10Y국채")]
-MACRO = [("^TNX", "10Y금리"), ("^TYX", "30Y금리"),
-         ("DX-Y.NYB", "DXY"), ("KRW=X", "원달러"),
-         ("CL=F", "WTI"), ("GC=F", "금")]
-SECTORS = [
-    ("XLK", "기술"), ("XLF", "금융"), ("XLV", "헬스케어"),
-    ("XLY", "임의소비"), ("XLC", "통신"), ("XLI", "산업"),
-    ("XLP", "필수소비"), ("XLE", "에너지"), ("XLU", "유틸"),
-    ("XLB", "소재"), ("XLRE", "리츠"),
+MACRO = [
+    ("^TNX", "10Y금리"),
+    ("^TYX", "30Y금리"),
+    ("DX-Y.NYB", "DXY"),
+    ("KRW=X", "원달러"),
+    ("CL=F", "WTI"),
+    ("GC=F", "금"),
 ]
-WATCH = [("QQQ", "나스닥100"), ("SMH", "반도체"), ("NLR", "원자력"),
-         ("XLE", "에너지"), ("GLD", "금"), ("SLV", "은"),
-         ("ITA", "방산"), ("XOVR", "SpaceX")]
+SECTORS = [
+    ("XLK", "기술"),
+    ("XLF", "금융"),
+    ("XLV", "헬스케어"),
+    ("XLY", "임의소비"),
+    ("XLC", "통신"),
+    ("XLI", "산업"),
+    ("XLP", "필수소비"),
+    ("XLE", "에너지"),
+    ("XLU", "유틸"),
+    ("XLB", "소재"),
+    ("XLRE", "리츠"),
+]
+WATCH = [
+    ("QQQ", "나스닥100"),
+    ("SMH", "반도체"),
+    ("NLR", "원자력"),
+    ("XLE", "에너지"),
+    ("GLD", "금"),
+    ("SLV", "은"),
+    ("ITA", "방산"),
+    ("XOVR", "SpaceX"),
+]
 
 
 def _fetch_yf(tickers, target_date=None):
@@ -30,8 +54,12 @@ def _fetch_yf(tickers, target_date=None):
     """
     syms = " ".join(t for t, _ in tickers)
     if target_date:
-        end = (datetime.strptime(target_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-        start = (datetime.strptime(target_date, "%Y-%m-%d") - timedelta(days=45)).strftime("%Y-%m-%d")
+        end = (datetime.strptime(target_date, "%Y-%m-%d") + timedelta(days=1)).strftime(
+            "%Y-%m-%d"
+        )
+        start = (
+            datetime.strptime(target_date, "%Y-%m-%d") - timedelta(days=45)
+        ).strftime("%Y-%m-%d")
     else:
         end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=45)).strftime("%Y-%m-%d")
@@ -42,7 +70,11 @@ def _fetch_yf(tickers, target_date=None):
         try:
             if len(tickers) > 1:
                 close = df["Close"][ticker].dropna()
-                vol = df["Volume"][ticker].dropna() if "Volume" in df.columns.get_level_values(0) else None
+                vol = (
+                    df["Volume"][ticker].dropna()
+                    if "Volume" in df.columns.get_level_values(0)
+                    else None
+                )
             else:
                 close = df["Close"].dropna()
                 vol = df["Volume"].dropna() if "Volume" in df.columns else None
@@ -84,10 +116,13 @@ def fetch_us_close(target_date=None):
 
 def fetch_watch_history(days=5):
     """워치 ETF 최근 N거래일 등락 (주간 리포트용)"""
-    return _fetch_yf(WATCH)  # 단순화 — 최근 1일치만 우선. 주간은 weekly.py에서 N일 합산.
+    return _fetch_yf(
+        WATCH
+    )  # 단순화 — 최근 1일치만 우선. 주간은 weekly.py에서 N일 합산.
 
 
 if __name__ == "__main__":
     import json
+
     target = sys.argv[1] if len(sys.argv) > 1 else None
     print(json.dumps(fetch_us_close(target), ensure_ascii=False, indent=2, default=str))

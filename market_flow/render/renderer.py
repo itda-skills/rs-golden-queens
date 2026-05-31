@@ -3,6 +3,7 @@
 GitHub Actions ubuntu-latest 의 사전 설치된 Chrome 또는 macOS 의 시스템 Chrome 을
 ``html2image`` 가 자동 탐색한다. 별도 브라우저 설치 단계 불필요.
 """
+
 from __future__ import annotations
 
 import io
@@ -73,7 +74,9 @@ def html_to_png(
     return data
 
 
-def _trim_borders(png_bytes: bytes, bg_color: tuple, padding: int = 0, tol: int = 6) -> bytes:
+def _trim_borders(
+    png_bytes: bytes, bg_color: tuple, padding: int = 0, tol: int = 6
+) -> bytes:
     """이미지의 4방향 배경색 영역을 모두 잘라낸다.
 
     tol 만큼 색상 오차 허용. 콘텐츠 박스 외곽에 padding 만큼 여백 보존.
@@ -84,9 +87,11 @@ def _trim_borders(png_bytes: bytes, bg_color: tuple, padding: int = 0, tol: int 
 
     def is_bg(x, y):
         r, g, b = px[x, y]
-        return (abs(r - bg_color[0]) <= tol and
-                abs(g - bg_color[1]) <= tol and
-                abs(b - bg_color[2]) <= tol)
+        return (
+            abs(r - bg_color[0]) <= tol
+            and abs(g - bg_color[1]) <= tol
+            and abs(b - bg_color[2]) <= tol
+        )
 
     # 상하좌우 배경색 영역의 경계 찾기 (샘플링 4픽셀 간격)
     step = 4

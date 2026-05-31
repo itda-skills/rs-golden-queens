@@ -2,6 +2,7 @@
 
 미국장 us_market 워치 ETF 의 한국판. KIS API 사용.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,8 +46,12 @@ def _fetch_one(client: KISClient, code: str, label: str) -> dict | None:
     if df.empty or len(df) < 2:
         return None
 
-    rename = {"stck_bsop_date": "date", "stck_clpr": "close",
-              "acml_vol": "volume", "acml_tr_pbmn": "trade_value"}
+    rename = {
+        "stck_bsop_date": "date",
+        "stck_clpr": "close",
+        "acml_vol": "volume",
+        "acml_tr_pbmn": "trade_value",
+    }
     df = df.rename(columns={k: v for k, v in rename.items() if k in df.columns})
     for col in ["close", "volume", "trade_value"]:
         if col in df.columns:
@@ -98,5 +103,6 @@ def fetch_kr_sectors(client: KISClient | None = None) -> list[dict]:
 
 if __name__ == "__main__":
     import json
+
     rows = fetch_kr_sectors()
     print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))

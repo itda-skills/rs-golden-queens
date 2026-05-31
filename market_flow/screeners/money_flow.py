@@ -16,6 +16,7 @@ Usage (CLI):
     # JSON
     python -m market_flow.screeners.money_flow --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,10 +30,28 @@ import pandas as pd
 from kis import KISClient
 
 ETF_PREFIXES = (
-    "KODEX", "TIGER", "SOL", "ACE", "HANARO", "KOSEF",
-    "KBSTAR", "ARIRANG", "KOACT", "KoAct", "RISE", "PLUS",
-    "TIMEFOLIO", "마이다스", "히어로즈", "WOORI", "WON",
-    "마이티", "FOCUS", "VITA", "ITF", "BNK",
+    "KODEX",
+    "TIGER",
+    "SOL",
+    "ACE",
+    "HANARO",
+    "KOSEF",
+    "KBSTAR",
+    "ARIRANG",
+    "KOACT",
+    "KoAct",
+    "RISE",
+    "PLUS",
+    "TIMEFOLIO",
+    "마이다스",
+    "히어로즈",
+    "WOORI",
+    "WON",
+    "마이티",
+    "FOCUS",
+    "VITA",
+    "ITF",
+    "BNK",
 )
 
 GRADE_SCORE = {"S": 30, "A": 22, "B": 15, "C": 8, "D": 4}
@@ -61,18 +80,26 @@ def fetch_universe(client: KISClient, top: int) -> pd.DataFrame:
     df = client.volume_rank()
     if df.empty:
         return df
-    keep = ["mksc_shrn_iscd", "hts_kor_isnm", "stck_prpr",
-            "prdy_ctrt", "acml_vol", "acml_tr_pbmn"]
+    keep = [
+        "mksc_shrn_iscd",
+        "hts_kor_isnm",
+        "stck_prpr",
+        "prdy_ctrt",
+        "acml_vol",
+        "acml_tr_pbmn",
+    ]
     keep = [c for c in keep if c in df.columns]
     df = df[keep].copy()
-    df = df.rename(columns={
-        "mksc_shrn_iscd": "code",
-        "hts_kor_isnm": "name",
-        "stck_prpr": "price",
-        "prdy_ctrt": "chg_pct",
-        "acml_vol": "volume",
-        "acml_tr_pbmn": "trade_value",
-    })
+    df = df.rename(
+        columns={
+            "mksc_shrn_iscd": "code",
+            "hts_kor_isnm": "name",
+            "stck_prpr": "price",
+            "prdy_ctrt": "chg_pct",
+            "acml_vol": "volume",
+            "acml_tr_pbmn": "trade_value",
+        }
+    )
     for col in ["price", "chg_pct", "volume", "trade_value"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -133,7 +160,9 @@ def calc_supply_metrics(client: KISClient, code: str) -> dict:
     }
 
 
-def calc_investor_flow(client: KISClient, code: str, window: int, last_close: float) -> dict:
+def calc_investor_flow(
+    client: KISClient, code: str, window: int, last_close: float
+) -> dict:
     """외인·기관 윈도우 누적 순매수 (수량 → 금액 환산)."""
     end = datetime.now().strftime("%Y%m%d")
     start = (datetime.now() - timedelta(days=window * 3 + 10)).strftime("%Y%m%d")
@@ -153,8 +182,12 @@ def calc_investor_flow(client: KISClient, code: str, window: int, last_close: fl
     df = df.tail(window)
 
     if "stck_clpr" in df.columns and df["stck_clpr"].notna().any():
-        df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(last_close)
-        df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(last_close)
+        df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(
+            last_close
+        )
+        df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * df["stck_clpr"].fillna(
+            last_close
+        )
     else:
         df["frgn_value"] = df["frgn_ntby_qty"].fillna(0) * last_close
         df["orgn_value"] = df["orgn_ntby_qty"].fillna(0) * last_close
@@ -176,8 +209,15 @@ def percentile_score(values: pd.Series, max_score: int) -> pd.Series:
     return (pos / pos.max() * max_score).round(1)
 
 
-def screen(client: KISClient, mode: str, window: int, top: int,
-           min_foreign: float, min_orgn: float, sort: str) -> pd.DataFrame:
+def screen(
+    client: KISClient,
+    mode: str,
+    window: int,
+    top: int,
+    min_foreign: float,
+    min_orgn: float,
+    sort: str,
+) -> pd.DataFrame:
     universe = fetch_universe(client, top)
     if universe.empty:
         return universe
@@ -208,23 +248,27 @@ def screen(client: KISClient, mode: str, window: int, top: int,
         if orgn_eok < min_orgn:
             continue
 
-        rows.append({
-            "code": code,
-            "name": name,
-            "price": supply["last_close"],
-            "ret_5": supply["ret_5"],
-            "ret_20": supply["ret_20"],
-            "trade_value_eok": row.get("trade_value", 0) / 1e8 if pd.notna(row.get("trade_value", 0)) else 0,
-            "ma5_eok": supply["ma5"] / 1e8,
-            "r_5_20": supply["r_5_20"],
-            "r_5_60": supply["r_5_60"],
-            "grade": supply["grade"],
-            "foreign_eok": foreign_eok,
-            "orgn_eok": orgn_eok,
-            "combined_eok": foreign_eok + orgn_eok,
-            "both_buy": flow["both_buy"],
-            "is_etf": is_etf(name),
-        })
+        rows.append(
+            {
+                "code": code,
+                "name": name,
+                "price": supply["last_close"],
+                "ret_5": supply["ret_5"],
+                "ret_20": supply["ret_20"],
+                "trade_value_eok": row.get("trade_value", 0) / 1e8
+                if pd.notna(row.get("trade_value", 0))
+                else 0,
+                "ma5_eok": supply["ma5"] / 1e8,
+                "r_5_20": supply["r_5_20"],
+                "r_5_60": supply["r_5_60"],
+                "grade": supply["grade"],
+                "foreign_eok": foreign_eok,
+                "orgn_eok": orgn_eok,
+                "combined_eok": foreign_eok + orgn_eok,
+                "both_buy": flow["both_buy"],
+                "is_etf": is_etf(name),
+            }
+        )
 
     if not rows:
         return pd.DataFrame()
@@ -234,10 +278,16 @@ def screen(client: KISClient, mode: str, window: int, top: int,
     df["score_foreign"] = percentile_score(df["foreign_eok"], 25)
     df["score_orgn"] = percentile_score(df["orgn_eok"], 25)
     df["score_both"] = df["both_buy"].apply(lambda x: 10 if x else 0)
-    df["score_mom"] = ((df["ret_5"] > 0).astype(int) * 5
-                      + (df["ret_20"] > 0).astype(int) * 5)
-    df["mf_score"] = (df["score_grade"] + df["score_foreign"]
-                     + df["score_orgn"] + df["score_both"] + df["score_mom"]).round(1)
+    df["score_mom"] = (df["ret_5"] > 0).astype(int) * 5 + (df["ret_20"] > 0).astype(
+        int
+    ) * 5
+    df["mf_score"] = (
+        df["score_grade"]
+        + df["score_foreign"]
+        + df["score_orgn"]
+        + df["score_both"]
+        + df["score_mom"]
+    ).round(1)
 
     # 정렬 키 — 모두 부호 있는 값의 내림차순.
     # combined: 자금 유입 Top (음수 종목은 하위로 밀림 — 매도 종목 강조엔 부적합).
@@ -308,15 +358,23 @@ def main():
     ap.add_argument("--window", type=int, choices=[1, 5, 20], default=5)
     ap.add_argument("--top", type=int, default=30, help="후보 풀 (max 60)")
     ap.add_argument("--show", type=int, default=15, help="표시 종목 수")
-    ap.add_argument("--min-foreign", type=float, default=0.0, help="외인 최소 순매수 (억)")
+    ap.add_argument(
+        "--min-foreign", type=float, default=0.0, help="외인 최소 순매수 (억)"
+    )
     ap.add_argument("--min-orgn", type=float, default=0.0, help="기관 최소 순매수 (억)")
-    ap.add_argument("--sort", choices=["combined", "foreign", "orgn", "value", "score"],
-                    default="score")
+    ap.add_argument(
+        "--sort",
+        choices=["combined", "foreign", "orgn", "value", "score"],
+        default="score",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     client = KISClient(svr="prod")
-    print(f"[money-flow] mode={args.mode} window={args.window}일 top={args.top}", file=sys.stderr)
+    print(
+        f"[money-flow] mode={args.mode} window={args.window}일 top={args.top}",
+        file=sys.stderr,
+    )
 
     df = screen(
         client,

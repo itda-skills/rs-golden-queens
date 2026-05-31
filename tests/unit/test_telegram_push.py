@@ -3,6 +3,7 @@
 market_flow/telegram_push.py 의 dry-run 분기 / 실 HTTP 분기 / 환경변수
 검증 / ANSI 색 처리 동작을 검증한다. 외부 호출은 모두 mock 으로 차단.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,13 +15,15 @@ import pytest
 
 from market_flow import telegram_push as tp  # noqa: E402
 
-
 # ──────────────────────────────────────────────
 #  _is_dry_run
 # ──────────────────────────────────────────────
 
+
 class TestIsDryRun:
-    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "YES", " 1 ", "True"])
+    @pytest.mark.parametrize(
+        "value", ["1", "true", "TRUE", "yes", "YES", " 1 ", "True"]
+    )
     def test_truthy_values(self, value, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_DRY_RUN", value)
         assert tp._is_dry_run() is True
@@ -39,8 +42,11 @@ class TestIsDryRun:
 #  MARKET_FLOW_TEST_SEND
 # ──────────────────────────────────────────────
 
+
 class TestIsTestSend:
-    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "YES", " 1 ", "True"])
+    @pytest.mark.parametrize(
+        "value", ["1", "true", "TRUE", "yes", "YES", " 1 ", "True"]
+    )
     def test_truthy_values(self, value, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_TEST_SEND", value)
         assert tp._is_test_send() is True
@@ -58,6 +64,7 @@ class TestIsTestSend:
 # ──────────────────────────────────────────────
 #  _env
 # ──────────────────────────────────────────────
+
 
 class TestEnv:
     def test_returns_value_when_set(self, monkeypatch):
@@ -83,6 +90,7 @@ class TestEnv:
 # ──────────────────────────────────────────────
 #  send — dry-run 분기 (REQ-MF-TEST-004)
 # ──────────────────────────────────────────────
+
 
 class TestSendDryRun:
     def test_does_not_call_urlopen(self, monkeypatch):
@@ -140,6 +148,7 @@ class TestSendDryRun:
 #  send — 실제 HTTP 분기 (REQ-MF-TEST-005)
 # ──────────────────────────────────────────────
 
+
 class TestSendRealHttp:
     def _setup_env(self, monkeypatch):
         monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
@@ -158,20 +167,32 @@ class TestSendRealHttp:
 
     def test_calls_urlopen_exactly_once(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
             tp.send("test")
             assert mock_u.call_count == 1
 
     def test_url_contains_bot_token_and_sendmessage(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
             tp.send("test")
             request_arg = mock_u.call_args.args[0]
-            assert request_arg.full_url == "https://api.telegram.org/botTEST_TOKEN/sendMessage"
+            assert (
+                request_arg.full_url
+                == "https://api.telegram.org/botTEST_TOKEN/sendMessage"
+            )
 
     def test_payload_contains_required_keys(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
             tp.send("hello")
             request_arg = mock_u.call_args.args[0]
             data = request_arg.data.decode()
@@ -187,7 +208,10 @@ class TestSendRealHttp:
     def test_returns_parsed_response_json(self, monkeypatch):
         self._setup_env(monkeypatch)
         payload = {"ok": True, "result": {"message_id": 999}}
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response(payload)):
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(payload),
+        ):
             resp = tp.send("test")
             # 백워드 호환 핵심 필드만 검증 (results 키가 추가됨)
             assert resp["ok"] is True
@@ -215,7 +239,10 @@ class TestSendRealHttp:
 
     def test_disable_notification_true_serialized(self, monkeypatch):
         self._setup_env(monkeypatch)
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
             tp.send("test", disable_notification=True)
             data = mock_u.call_args.args[0].data.decode()
             parsed = urllib.parse.parse_qs(data)
@@ -225,6 +252,7 @@ class TestSendRealHttp:
 # ──────────────────────────────────────────────
 #  send — 테스트 secret 분기
 # ──────────────────────────────────────────────
+
 
 class TestSendWithTestSecrets:
     def _make_mock_response(self, payload=None):
@@ -243,7 +271,10 @@ class TestSendWithTestSecrets:
         monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
         monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
 
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()) as mock_u:
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
             tp.send("hello")
 
         req = mock_u.call_args.args[0]
@@ -256,7 +287,10 @@ class TestSendWithTestSecrets:
         monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
         monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
 
-        with patch("market_flow.telegram_push.urllib.request.urlopen", return_value=self._make_mock_response()):
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ):
             tp.send("hello")
 
         out = capsys.readouterr().out
@@ -289,6 +323,7 @@ class TestSendWithTestSecrets:
 #  _colorize_for_stdout
 # ──────────────────────────────────────────────
 
+
 class TestColorize:
     def test_no_tty_returns_unchanged(self, monkeypatch):
         # capsys 환경에서 sys.stdout.isatty() 는 자연 False
@@ -319,6 +354,7 @@ class TestColorize:
 # ──────────────────────────────────────────────
 #  _chat_ids — 콤마 분리 파서 (SPEC-MF-MULTI-CHAT)
 # ──────────────────────────────────────────────
+
 
 class TestChatIds:
     def test_single_value(self, monkeypatch):
@@ -365,6 +401,7 @@ class TestChatIds:
 # ──────────────────────────────────────────────
 #  send — 다중 chat_id 발송 (SPEC-MF-MULTI-CHAT)
 # ──────────────────────────────────────────────
+
 
 class TestSendMultiChat:
     def _setup_env(self, monkeypatch, chat_ids):

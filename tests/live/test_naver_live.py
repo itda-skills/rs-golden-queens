@@ -5,6 +5,7 @@ REQ-MF-TEST-009. 기본 ``pytest`` 실행에서는 conftest.py 의 자동 desele
 
 값 검증은 하지 않음 — 외부 데이터는 매일 변동하므로 스키마와 키 존재 여부만 확인.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,8 +21,13 @@ def test_fetch_daily_summary_kospi_smoke():
     assert "bizdate" in result
     # 7-key 스키마 회귀 차단
     assert set(result.keys()) == {
-        "bizdate", "personal", "foreign", "institutional",
-        "program_arb", "program_nonarb", "program_total",
+        "bizdate",
+        "personal",
+        "foreign",
+        "institutional",
+        "program_arb",
+        "program_nonarb",
+        "program_total",
     }
 
 
@@ -30,6 +36,7 @@ def test_fetch_kospi_daily_smoke():
     """실제 네이버 데스크탑 페이지 → 10거래일 row 반환."""
     # bizdate 는 현재 시각 기준
     from datetime import datetime
+
     bizdate = datetime.now().strftime("%Y%m%d")
     rows = naver_kr.fetch_kospi_daily(bizdate)
     assert isinstance(rows, list)

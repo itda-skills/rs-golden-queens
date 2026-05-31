@@ -2,10 +2,10 @@
 
 ETF Top N + 개별주 Top N을 각각 별도로 뽑아 반환.
 """
+
 from __future__ import annotations
 
 from kis import KISClient
-
 from market_flow.screeners.money_flow import screen
 
 
@@ -60,5 +60,6 @@ def fetch_money_flow_watch(
 
 if __name__ == "__main__":
     import json
+
     out = fetch_money_flow_watch(window=1, etf_show=5, stock_show=5)
     print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
