@@ -39,6 +39,73 @@ def _warn_block(warnings: list[str]) -> str:
     return ("\n\n" + "\n".join(warnings)) if warnings else ""
 
 
+def _norm_yyyymmdd(s: Optional[str], year_hint: Optional[str] = None) -> Optional[str]:
+    """다양한 날짜 표기를 YYYYMMDD 로 정규화.
+
+    '20260529'(YYYYMMDD) → '20260529', '26.05.29'(YY.MM.DD) → '20260529',
+    '2026-05-29' → '20260529', '05.29'(MM.DD) → year_hint 의 연도를 붙여 해석.
+    형식 불명이거나 MM.DD 인데 year_hint 가 없으면 None.
+
+    Args:
+        year_hint: MM.DD 해석에 쓸 기준 날짜(YYYYMMDD 8자리). 데스크탑 일별 추이가
+            'MM.DD'로 오므로 요청 bizdate 연도를 붙인다(일별은 요청일 부근이라 안전).
+    """
+    if not s:
+        return None
+    digits = s.replace(".", "").replace("-", "").strip()
+    if len(digits) == 8 and digits.isdigit():
+        return digits
+    if len(digits) == 6 and digits.isdigit():  # YY.MM.DD
+        return "20" + digits
+    if len(digits) == 4 and digits.isdigit() and year_hint and len(year_hint) >= 4:
+        return year_hint[:4] + digits  # MM.DD → 요청 연도 + MMDD
+    return None
+
+
+def _build_kr_freshness_warnings(data: dict, req_bizdate: str) -> list[str]:
+    """E7 + KIS 날짜 신선도: 데이터 실제 기준일이 요청일과 다르면 경고(사실 안내만).
+
+    - E7: 모바일 당일 합산(kospi/kosdaq)은 날짜 파라미터가 없어 항상 최신값이다.
+      과거일 재발송·마감 직후 미갱신 시 제목(요청일)과 어긋나므로 본문에 노출한다.
+      코스피·코스닥 두 시장의 bizdate 를 모두 본다.
+    - 데스크탑 일별 추이의 최신 행 날짜(MM.DD)도 요청일과 대조한다.
+    - KIS 섹터 ETF 데이터의 기준일은 모든 항목을 검사한다(등락률 정렬이라
+      첫 항목만으로는 mixed/stale 을 놓친다).
+    """
+    w: list[str] = []
+    req = _norm_yyyymmdd(req_bizdate)
+    if not req:
+        return w
+
+    # E7: 모바일 투자자별 당일 합산 기준일 (코스피·코스닥 둘 다)
+    mobs = set()
+    for mk in ("kospi", "kosdaq"):
+        m = _norm_yyyymmdd((data.get(mk) or {}).get("bizdate"))
+        if m:
+            mobs.add(m)
+    stale_mob = sorted(d for d in mobs if d != req)
+    if stale_mob:
+        w.append(
+            f"⚠️ 투자자별 당일 합산은 {kr_weekday(stale_mob[0])} 기준 (요청 {kr_weekday(req)})"
+        )
+
+    # E7: 데스크탑 일별 추이 최신 행 (MM.DD → 요청 연도로 해석)
+    daily = data.get("kospi_daily") or []
+    desk = _norm_yyyymmdd(daily[0].get("date"), year_hint=req) if daily else None
+    if desk and desk != req:
+        w.append(f"⚠️ 일별 추이 최신일은 {kr_weekday(desk)} (요청 {kr_weekday(req)})")
+
+    # KIS 섹터 ETF 기준일 — 모든 항목 검사 (P0-a 로 과거일 재발송은 KIS 스킵 → 오늘만 도달)
+    sec_dates = {_norm_yyyymmdd(s.get("date")) for s in (data.get("sectors") or [])}
+    stale_sec = sorted(d for d in sec_dates if d and d != req)
+    if stale_sec:
+        w.append(
+            f"⚠️ 섹터 ETF는 {kr_weekday(stale_sec[0])} 기준 (오늘 {kr_weekday(req)})"
+        )
+
+    return w
+
+
 def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
     """KIS 섹터 ETF·동적 수급을 독립적으로 수집해 data 에 채운다.
 
@@ -134,6 +201,13 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if kis_warnings:
         print("⚠️  본문 경고: " + " | ".join(kis_warnings))
 
+    # E7 + KIS 날짜 신선도: 데이터 실제 기준일 ↔ 요청일 경고 (기준일 정합)
+    freshness_warnings = _build_kr_freshness_warnings(data, bizdate)
+    if freshness_warnings:
+        print("⚠️  기준일 경고: " + " | ".join(freshness_warnings))
+    # 기준일 경고를 먼저(맥락), 그다음 KIS 부분실패 경고
+    all_warnings = freshness_warnings + kis_warnings
+
     iso_date = (
         f"{bizdate[:4]}-{bizdate[4:6]}-{bizdate[6:]}" if len(bizdate) == 8 else bizdate
     )
@@ -152,12 +226,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         png = html_to_png(html)
         caption = (
             f"📊 *{kr_weekday(bizdate)} 마감 매매동향*"
-            f"{_warn_block(kis_warnings)}{sources}"
+            f"{_warn_block(all_warnings)}{sources}"
         )
         print(f"📤 Telegram 발송 시작 (사진, {len(png)} bytes)")
         resp = send_photo(png, caption=caption)
     else:
-        text = format_kr_daily(data) + _warn_block(kis_warnings) + sources
+        text = format_kr_daily(data) + _warn_block(all_warnings) + sources
         print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
         resp = send(text)
 
