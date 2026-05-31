@@ -9,6 +9,8 @@ import {
 } from "@/lib/format";
 import type {
   KrDailyRow,
+  KrForeignInst,
+  KrForeignInstItem,
   KrInvestorFlow,
   KrMoneyFlow,
   KrMoneyFlowItem,
@@ -256,6 +258,61 @@ export function MoneyFlowSellTable({ mf }: { mf: KrMoneyFlow }) {
         <div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">개별주</p>
           <MoneyFlowSellRows items={stocksSell} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 외국인·기관 가집계 한 그룹 (I4, #10) — 장중 추정 금액(억원). 색은 값 부호에서 재현.
+function ForeignInstRows({ items }: { items: KrForeignInstItem[] }) {
+  return (
+    <table className="w-full text-sm tabular-nums">
+      <tbody>
+        {items.map((it) => (
+          <tr
+            key={it.code}
+            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+          >
+            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
+              {it.name}
+              <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
+            </td>
+            <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
+              외{" "}
+              {it.foreign_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.foreign_eok))}
+            </td>
+            <td className={`py-1.5 text-right ${colorClass(it.orgn_eok)}`}>
+              기{" "}
+              {it.orgn_eok == null ? "–" : signedAmount(Math.round(it.orgn_eok))}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// 외국인·기관 가집계 (I4, #10) — 장중 추정(확정 아님). 순매수·순매도 분리.
+export function ForeignInstTable({ fi }: { fi: KrForeignInst }) {
+  return (
+    <div className="space-y-3">
+      {fi.buy.length > 0 && (
+        <div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
+            순매수 상위
+          </p>
+          <ForeignInstRows items={fi.buy} />
+        </div>
+      )}
+      {fi.sell.length > 0 && (
+        <div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
+            순매도 상위
+          </p>
+          <ForeignInstRows items={fi.sell} />
         </div>
       )}
     </div>

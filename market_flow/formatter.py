@@ -294,6 +294,25 @@ def format_kr_daily(data):
         L.append("*개별주*")
         L.append(_card(_money_flow_sell_rows(stocks_sell), ["l", "l", "r", "r"]))
 
+    # 외국인·기관 가집계 (장중 추정, KIS FHPTJ04400000) — 확정 아님, 금액 사실값만(I4)
+    fi = data.get("foreign_inst") or {}
+    fi_buy = fi.get("buy") or []
+    fi_sell = fi.get("sell") or []
+    if fi_buy or fi_sell:
+        L.append("")
+        L.append("🏛 *외국인·기관 가집계 (장중 추정)*")
+        L.append("_증권사 장중 입력 누계(최종 ~14:30) · 확정 아님 / 단위: 억원_")
+
+    if fi_buy:
+        L.append("")
+        L.append("*순매수 상위*")
+        L.append(_card(_foreign_inst_rows(fi_buy), ["l", "l", "r", "r"]))
+
+    if fi_sell:
+        L.append("")
+        L.append("*순매도 상위*")
+        L.append(_card(_foreign_inst_rows(fi_sell), ["l", "l", "r", "r"]))
+
     return "\n".join(L)
 
 
@@ -331,6 +350,22 @@ def _money_flow_sell_rows(items):
         f_eok = r.get("foreign_eok") or 0
         o_eok = r.get("orgn_eok") or 0
         rows.append([r.get("code", "-"), name, f"외{f_eok:+.0f}", f"기{o_eok:+.0f}"])
+    return rows
+
+
+def _foreign_inst_rows(items):
+    """가집계 행: [코드, 종목명(14자), 외인(억), 기관(억)] — 금액 사실값만(시그널 없이).
+
+    결측(None)은 0 이 아니라 '-' 로 표기한다(가짜 0 방지).
+    """
+    rows = []
+    for r in items:
+        name = (r.get("name") or "")[:14]
+        f = r.get("foreign_eok")
+        o = r.get("orgn_eok")
+        f_str = "외-" if f is None else f"외{f:+.0f}"
+        o_str = "기-" if o is None else f"기{o:+.0f}"
+        rows.append([r.get("code", "-"), name, f_str, o_str])
     return rows
 
 

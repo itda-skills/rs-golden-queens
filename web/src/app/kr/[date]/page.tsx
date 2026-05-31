@@ -6,6 +6,7 @@ import {
   SourceList,
 } from "@/components/Layout";
 import {
+  ForeignInstTable,
   InvestorFlowTable,
   KospiDailyTable,
   MoneyFlowSellTable,
@@ -121,6 +122,19 @@ export default async function KrDetail({
                   }
                 >
                   <MoneyFlowSellTable mf={snap.payload.money_flow} />
+                </Card>
+              )}
+            {snap.payload.foreign_inst &&
+              ((snap.payload.foreign_inst.buy?.length ?? 0) > 0 ||
+                (snap.payload.foreign_inst.sell?.length ?? 0) > 0) && (
+                <Card
+                  title="외국인·기관 가집계"
+                  subtitle="장중 추정 · 증권사 입력 누계 (억원)"
+                  info={
+                    <InfoTooltip tooltip="증권사가 장중 집계·입력한 외국인·기관 순매수/순매도 누계(최종 ~14:30 추정치, 확정 아님). 금액(억원) 사실값일 뿐 향후 방향·권유가 아니다." />
+                  }
+                >
+                  <ForeignInstTable fi={snap.payload.foreign_inst} />
                 </Card>
               )}
             <Card

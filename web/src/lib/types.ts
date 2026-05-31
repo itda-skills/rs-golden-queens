@@ -93,6 +93,20 @@ export interface KrMoneyFlow {
   stocks_sell?: KrMoneyFlowSellItem[];
 }
 
+// 외국인·기관 가집계 항목 (KIS FHPTJ04400000, #10 I4) — 장중 추정 금액(억원), 사실값만.
+export interface KrForeignInstItem {
+  code: string;
+  name: string;
+  foreign_eok: number | null;
+  orgn_eok: number | null;
+  combined_eok: number | null;
+}
+
+export interface KrForeignInst {
+  buy: KrForeignInstItem[];
+  sell: KrForeignInstItem[];
+}
+
 export interface KrPayload {
   bizdate: string;
   kospi: KrInvestorFlow;
@@ -102,6 +116,8 @@ export interface KrPayload {
   // 구버전 스냅샷엔 없을 수 있어 optional (없으면 카드 미표시).
   sectors?: KrSector[] | null;
   money_flow?: KrMoneyFlow | null;
+  // I4: 외국인·기관 매매종목 가집계(장중 추정). optional — 없으면 카드 미표시.
+  foreign_inst?: KrForeignInst | null;
 }
 
 export interface KrSnapshot extends SnapshotBase {

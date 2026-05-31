@@ -504,6 +504,73 @@ class TestFormatKrDaily:
         out = F.format_kr_daily(data)
         assert "순매도 상위" not in out
 
+    def test_foreign_inst_tally_section_labeled_provisional(self):
+        # I4: 가집계 섹션은 '장중 추정' 라벨 + 금액만(시그널 단어 없이)
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "foreign_inst": {
+                "buy": [
+                    {
+                        "code": "005930",
+                        "name": "삼성전자",
+                        "foreign_eok": 700.0,
+                        "orgn_eok": 300.0,
+                        "combined_eok": 1000.0,
+                    }
+                ],
+                "sell": [
+                    {
+                        "code": "000660",
+                        "name": "SK하이닉스",
+                        "foreign_eok": -500.0,
+                        "orgn_eok": -100.0,
+                        "combined_eok": -600.0,
+                    }
+                ],
+            },
+        }
+        out = F.format_kr_daily(data)
+        assert "가집계" in out and "장중 추정" in out  # 추정 라벨 필수
+        assert "삼성전자" in out and "외+700" in out
+        assert "SK하이닉스" in out and "외-500" in out  # 순매도 음수 그대로
+
+    def test_no_foreign_inst_section_when_empty(self):
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "foreign_inst": {"buy": [], "sell": []},
+        }
+        assert "가집계" not in F.format_kr_daily(data)
+
+    def test_foreign_inst_none_renders_dash_not_zero(self):
+        # 결측(None) 금액은 '-' 로 — 가짜 0(외+0) 금지
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "foreign_inst": {
+                "buy": [
+                    {
+                        "code": "005930",
+                        "name": "삼성전자",
+                        "foreign_eok": None,
+                        "orgn_eok": 300.0,
+                        "combined_eok": None,
+                    }
+                ],
+                "sell": [],
+            },
+        }
+        out = F.format_kr_daily(data)
+        assert "외-" in out  # None → '-'
+        assert "외+0" not in out  # 가짜 0 아님
+
 
 # ──────────────────────────────────────────────
 #  format_us_daily

@@ -173,10 +173,12 @@ class TestKr:
             "kospi_daily",
             "sectors",
             "money_flow",
+            "foreign_inst",
         }
-        # KIS 데이터(섹터·수급)가 없으면 None 으로 발행된다 (P0-c)
+        # KIS 데이터(섹터·수급·가집계)가 없으면 None 으로 발행된다 (P0-c/I4)
         assert snap["payload"]["sectors"] is None
         assert snap["payload"]["money_flow"] is None
+        assert snap["payload"]["foreign_inst"] is None
 
     def test_intraday_excluded(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
@@ -271,6 +273,38 @@ class TestKr:
         snap = P.build_kr_snapshot(data, _NOW_KST)
         assert snap["payload"]["money_flow"] is None
         assert snap["payload"]["sectors"] is None
+
+    def test_foreign_inst_published_facts_only(self, kr_data):
+        """I4: 가집계를 발행하되 사실 금액 필드만(라벨·시그널 문자열 미저장)."""
+        data = dict(kr_data)
+        data["foreign_inst"] = {
+            "buy": [
+                {
+                    "code": "005930",
+                    "name": "삼성전자",
+                    "foreign_eok": 700.0,
+                    "orgn_eok": 300.0,
+                    "combined_eok": 1000.0,
+                }
+            ],
+            "sell": [],
+        }
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        fi = snap["payload"]["foreign_inst"]
+        item = fi["buy"][0]
+        assert item["code"] == "005930"
+        assert item["combined_eok"] == 1000.0
+        assert set(item.keys()) == set(P._KR_FI_FIELDS)
+        assert fi["sell"] == []
+        # '장중 추정'·'가집계' 라벨 문자열은 발행 데이터에 없다(웹이 맥락을 자체 렌더)
+        blob = P.to_json(snap)
+        assert "장중 추정" not in blob and "가집계" not in blob
+
+    def test_foreign_inst_none_when_absent(self, kr_data):
+        data = dict(kr_data)
+        data["foreign_inst"] = None
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        assert snap["payload"]["foreign_inst"] is None
 
     def test_money_flow_sell_published_without_buy_fields(self, kr_data):
         """I1: 순매도 블록을 발행하되 매수 개념(grade·both_buy)은 담지 않는다."""

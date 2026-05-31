@@ -136,6 +136,28 @@ def _kr_money_flow_payload(mf: Any) -> Optional[dict[str, Any]]:
     }
 
 
+# 외국인·기관 가집계(I4) 발행 필드 — 사실 금액만(가집계 = 장중 추정치).
+_KR_FI_FIELDS = ("code", "name", "foreign_eok", "orgn_eok", "combined_eok")
+
+
+def _kr_foreign_inst_payload(fi: Any) -> Optional[dict[str, Any]]:
+    """외국인·기관 가집계(fetch_foreign_inst_tally 반환)를 발행용으로 정제. None 이면 None.
+
+    가집계는 증권사 장중 입력 누계(추정)다 — 웹도 '장중 추정' 맥락에서 동일하게
+    보여주기 위해 사실 금액만 담는다(시그널·라벨 문자열 미저장).
+    """
+    if not fi:
+        return None
+
+    def pick(item: dict[str, Any]) -> dict[str, Any]:
+        return {k: item.get(k) for k in _KR_FI_FIELDS}
+
+    return {
+        "buy": [pick(x) for x in (fi.get("buy") or [])],
+        "sell": [pick(x) for x in (fi.get("sell") or [])],
+    }
+
+
 def build_kr_snapshot(data: dict[str, Any], now: datetime) -> dict[str, Any]:
     """한국장 일일 스냅샷.
 
@@ -152,6 +174,7 @@ def build_kr_snapshot(data: dict[str, Any], now: datetime) -> dict[str, Any]:
     # 섹터는 색/이모지 없는 값만(kr_etfs 반환 그대로), 수급은 표시 필드만 정제해 담는다.
     payload["sectors"] = data.get("sectors")
     payload["money_flow"] = _kr_money_flow_payload(data.get("money_flow"))
+    payload["foreign_inst"] = _kr_foreign_inst_payload(data.get("foreign_inst"))
     snap["payload"] = payload
     snap["sources"] = [
         {"label": label, "url": url.format(bizdate=bizdate)}

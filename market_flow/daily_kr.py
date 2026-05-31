@@ -173,6 +173,21 @@ def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
         print(f"⚠️  수급 스크리닝 실패 (메시지에서 제외): {e}", file=sys.stderr)
         warnings.append("⚠️ 수급 스크리닝 실패")
 
+    try:
+        from market_flow.fetchers.kr_foreign_inst import fetch_foreign_inst_tally
+
+        print("📥 KIS 외국인·기관 가집계(장중 추정) 수집 시작")
+        fi = fetch_foreign_inst_tally(client, show=5)
+        n_buy = len(fi.get("buy", []))
+        n_sell = len(fi.get("sell", []))
+        print(f"📊 가집계 완료 — 순매수 {n_buy}종 + 순매도 {n_sell}종")
+        data["foreign_inst"] = fi
+        if n_buy == 0 and n_sell == 0:
+            warnings.append("⚠️ 가집계 수집 결과 없음")
+    except Exception as e:  # noqa: BLE001 — 발송 보호: 가집계 실패가 전체를 막지 않음
+        print(f"⚠️  가집계 수집 실패 (메시지에서 제외): {e}", file=sys.stderr)
+        warnings.append("⚠️ 가집계 수집 실패")
+
 
 def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> None:
     if argv is None:
@@ -210,6 +225,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     #     bizdate == today_kst 가 되어 스킵이 무력화됐다. argv 존재로 직접 판정한다.
     data["sectors"] = None
     data["money_flow"] = None
+    data["foreign_inst"] = None
     kis_warnings: list[str] = []
     if argv:
         print(
@@ -224,7 +240,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
             client = KISClient(svr="prod")
         except Exception as e:  # noqa: BLE001 — 발송 보호: KIS 연결 실패가 전체를 막지 않음
             print(f"⚠️  KIS 클라이언트 생성 실패: {e}", file=sys.stderr)
-            kis_warnings.append("⚠️ KIS 연결 실패 (섹터·수급 제외)")
+            kis_warnings.append("⚠️ KIS 연결 실패 (섹터·수급·가집계 제외)")
         if client is not None:
             _collect_kis_sections(client, data, kis_warnings)
     if kis_warnings:

@@ -431,6 +431,39 @@ class KISClient:
             },
         )
 
+    def foreign_institution_total(
+        self,
+        market: str = "V",
+        iscd: str = "0000",
+        div: str = "1",
+        sort: str = "0",
+        etc: str = "0",
+    ) -> pd.DataFrame:
+        """국내기관·외국인 매매종목 가집계 (FHPTJ04400000, HTS [0440]).
+
+        증권사 직원이 장중 집계·입력한 단순 누계(가집계=장중 추정치, 확정 아님).
+        네이티브 순매수 거래대금(frgn/orgn_ntby_tr_pbmn)을 반환한다.
+
+        Args:
+            market: 조건 시장 분류 코드 (V).
+            iscd: 0000:전체, 0001:코스피, 1001:코스닥.
+            div: 0:수량정렬, 1:금액정렬.
+            sort: 0:순매수상위, 1:순매도상위.
+            etc: 0:전체, 1:외국인, 2:기관계, 3:기타.
+        """
+        return self.fetch_dataframe(
+            "/uapi/domestic-stock/v1/quotations/foreign-institution-total",
+            "FHPTJ04400000",
+            {
+                "FID_COND_MRKT_DIV_CODE": market,
+                "FID_COND_SCR_DIV_CODE": "16449",
+                "FID_INPUT_ISCD": iscd,
+                "FID_DIV_CLS_CODE": div,
+                "FID_RANK_SORT_CLS_CODE": sort,
+                "FID_ETC_CLS_CODE": etc,
+            },
+        )
+
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  업종/시장 정보
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
