@@ -465,14 +465,21 @@ def format_us_daily(data):
     L.append(_card(_us_price_table(MACRO, mac), PRICE_ALIGNS))
     L.append("")
 
-    L.append("💼 *섹터 (S&P 11)* _(등락 기준 정렬)_")
-    sec_rows = [
-        [v["label"], signed_pct(v["pct"]), emoji(v["pct"])]
-        for _, v in sorted(
-            [(k, v) for k, v in sec.items() if v], key=lambda x: -x[1]["pct"]
-        )
-    ]
-    L.append(_card(sec_rows, ["l", "r", "l"]))
+    L.append("💼 *섹터 (S&P 11)* _(등락 정렬 · vs S&P500 · 거래량강도)_")
+    sp500_pct = (idx.get("^GSPC") or {}).get("pct")
+    sec_rows = []
+    for _, v in sorted(
+        [(k, v) for k, v in sec.items() if v], key=lambda x: -(x[1]["pct"] or 0)
+    ):
+        pct = v["pct"]
+        # ^GSPC 대비 상대강도(%p) — 같은 날 시장 대비 초과/미달. 둘 다 있을 때만.
+        rel = (pct - sp500_pct) if (sp500_pct is not None and pct is not None) else None
+        rel_str = f"vs{rel:+.2f}" if rel is not None else "vs-"
+        vr = v.get("vol_ratio")
+        # vol_ratio=0(유효값)을 결측처럼 '-' 로 떨구지 않는다(웹 ×0.00 과 정합).
+        vr_str = f"×{vr:.2f}{'🔥' if vr >= 1.5 else ''}" if vr is not None else "-"
+        sec_rows.append([v["label"], signed_pct(pct), emoji(pct), rel_str, vr_str])
+    L.append(_card(sec_rows, ["l", "r", "l", "r", "l"]))
     L.append("")
 
     L.append("⭐ *워치 ETF* _(티커 · 테마 · 종가 · 등락 · 거래량강도)_")

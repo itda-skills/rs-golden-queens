@@ -13,6 +13,27 @@ import { adjacent } from "@/lib/adjacent";
 import { CARD_INFO } from "@/lib/card-info";
 import { getIndex, getUsSnapshot } from "@/lib/data";
 import { longDate, shortDateWeekday } from "@/lib/format";
+import type { UsPayload } from "@/lib/types";
+
+// US 섹터: 등락률 막대 + 우측 note 에 ^GSPC 대비 상대강도(%p)·거래량강도(×, 🔥) 병기.
+// 모두 발행 스냅샷 값에서 파생(상대치 = 섹터pct − S&P500pct). 등락 내림차순.
+function usSectorBars(p: UsPayload) {
+  const sp = p.indices?.["^GSPC"]?.pct ?? null;
+  return Object.values(p.sectors)
+    .filter(Boolean)
+    .map((q) => {
+      const rel = sp != null && q.pct != null ? q.pct - sp : null;
+      const relStr = rel != null ? `vs${rel >= 0 ? "+" : ""}${rel.toFixed(2)}` : "";
+      const vr = q.vol_ratio;
+      const vrStr = vr != null ? `×${vr.toFixed(2)}${vr >= 1.5 ? "🔥" : ""}` : "";
+      return {
+        label: q.label,
+        value: q.pct,
+        note: [relStr, vrStr].filter(Boolean).join(" "),
+      };
+    })
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+}
 
 export const revalidate = 600;
 
@@ -87,15 +108,12 @@ export default async function UsDetail({
             </Card>
             <Card
               title="섹터 (S&P 11)"
-              subtitle="등락 기준 정렬"
+              subtitle="등락 정렬 · vs S&P500 · 거래량강도"
               info={<InfoTooltip {...CARD_INFO.usSectors} />}
             >
               <HBarChart
-                data={Object.values(p.sectors)
-                  .filter(Boolean)
-                  .map((q) => ({ label: q.label, value: q.pct }))
-                  .sort((a, b) => b.value - a.value)}
-                ariaLabel="S&P 11 섹터 등락"
+                data={usSectorBars(p)}
+                ariaLabel="S&P 11 섹터 등락 (vs S&P500 · 거래량강도)"
               />
             </Card>
             <Card

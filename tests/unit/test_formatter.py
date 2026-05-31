@@ -652,6 +652,18 @@ class TestFormatUsDaily:
         # QQQ 는 vol_ratio=1.6 → 🔥 표시
         assert "🔥" in out
 
+    def test_sector_shows_relative_strength_and_vol_ratio(self):
+        # I5: 섹터에 ^GSPC(0.5%) 대비 상대강도(%p) + 거래량강도 병기
+        data = _build_us_data()
+        data["sectors"] = {
+            "XLK": _us_entry("기술", close=200.0, pct=1.2, vol_ratio=1.6),
+            "XLF": _us_entry("금융", close=50.0, pct=0.3, vol_ratio=0.9),
+        }
+        out = F.format_us_daily(data)
+        assert "vs S&P500" in out  # 부제
+        assert "vs+0.70" in out and "×1.60" in out  # XLK: 1.2-0.5, vol 1.6
+        assert "vs-0.20" in out and "×0.90" in out  # XLF: 0.3-0.5, vol 0.9
+
 
 # ──────────────────────────────────────────────
 #  format_weekly

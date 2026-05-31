@@ -51,7 +51,7 @@ export const CARD_INFO = {
   },
   usSectors: {
     tooltip:
-      "S&P 11섹터의 당일 등락률 순위. '가격이 올랐다'이지 '그 섹터로 자금이 들어왔다(순매수)'가 아니다.",
+      "S&P 11섹터의 당일 등락률(막대)과 ^GSPC(S&P500) 대비 상대강도(vs ±%p)·거래량강도(×배수, 🔥=×1.5↑). 상대강도가 +면 시장보다 강했다는 사실일 뿐 자금 유입·권유가 아니다.",
     href: "/guide#us-sector-watch",
   },
   usWatch: {

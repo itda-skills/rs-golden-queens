@@ -67,11 +67,11 @@ export function HBarChart({
               >
                 {fmt(v)}
               </span>
-              {d.note != null && (
-                <span className="w-14 shrink-0 truncate text-right text-xs text-neutral-400">
+              {d.note ? (
+                <span className="w-24 shrink-0 truncate text-right text-xs text-neutral-400">
                   {d.note}
                 </span>
-              )}
+              ) : null}
             </li>
           );
         })}
