@@ -75,35 +75,111 @@ def grade_from_ratios(ratio_5_20: float, ratio_5_60: float) -> str:
     return "D"
 
 
+# 랭킹 API 마다 코드 컬럼명이 다르다(거래량=mksc_shrn_iscd, 등락률=stck_shrn_iscd 등).
+# 공통 스키마(code,name,price,chg_pct,volume,trade_value)로 정규화한다.
+_RANK_CODE_COLS = ("mksc_shrn_iscd", "stck_shrn_iscd", "stck_iscd")
+_RANK_NUM_COLS = {
+    "price": "stck_prpr",
+    "chg_pct": "prdy_ctrt",
+    "volume": "acml_vol",
+    "trade_value": "acml_tr_pbmn",
+}
+
+
+_BOGUS_CODES = {"", "nan", "none", "<na>", "null"}
+
+
+def _normalize_rank_df(df: pd.DataFrame) -> pd.DataFrame:
+    """랭킹 응답을 공통 스키마로. 코드 컬럼을 못 찾으면 빈 DF(해당 축 무시)."""
+    if df is None or getattr(df, "empty", True):
+        return pd.DataFrame()
+    code_col = next((c for c in _RANK_CODE_COLS if c in df.columns), None)
+    if code_col is None:
+        return pd.DataFrame()
+    d = df[df[code_col].notna()].reset_index(drop=True)  # None/NaN 코드 먼저 제거
+    out = pd.DataFrame()
+    out["code"] = d[code_col].astype(str).str.strip()
+    out["name"] = d["hts_kor_isnm"].astype(str) if "hts_kor_isnm" in d.columns else ""
+    for std, raw in _RANK_NUM_COLS.items():
+        out[std] = pd.to_numeric(d[raw], errors="coerce") if raw in d.columns else pd.NA
+    out = out[
+        ~out["code"].str.lower().isin(_BOGUS_CODES)
+    ]  # 'None'/'nan' 등 가짜 코드 제거
+    return out.reset_index(drop=True)
+
+
+def _safe_rank(label: str, fn) -> pd.DataFrame:
+    """랭킹 호출 1건 보호 — 한 축 실패가 후보 풀 전체를 막지 않는다(침묵 종료 금지).
+
+    응답은 있는데 코드 컬럼/값을 못 알아본 경우(스키마 변경 의심)도 경고로 드러낸다.
+    """
+    try:
+        raw = fn()
+    except Exception as e:  # noqa: BLE001 — 발송 보호: 한 축 실패 허용
+        print(f"⚠️  {label} 순위 조회 실패: {e}", file=sys.stderr)
+        return pd.DataFrame()
+    norm = _normalize_rank_df(raw)
+    if norm.empty and raw is not None and not getattr(raw, "empty", True):
+        print(
+            f"⚠️  {label} 순위 응답에서 유효 코드 인식 실패 (KIS 스키마 변경?)",
+            file=sys.stderr,
+        )
+    return norm
+
+
+def _interleave_dedupe(frames: list[pd.DataFrame], top: int) -> pd.DataFrame:
+    """여러 축의 상위를 round-robin 으로 뽑아 code 중복 제거, top 개까지.
+
+    한 축(거래량)이 후보를 독식하지 않도록 축을 번갈아 채우되, 저장 레코드는 축
+    우선순위(frames 순서: 거래량→거래대금→상승→하락)의 정규 레코드를 쓴다. 그래야
+    같은 종목이 등락률 축에서 먼저 선택돼도 거래량 행의 풍부한 필드(거래대금 등)를
+    잃지 않는다. 종목당 후속 호출 비용은 top 으로 고정(풀만 다양화)된다.
+    """
+    record_lists = [f.to_dict("records") for f in frames if not f.empty]
+    if not record_lists:
+        return pd.DataFrame()
+    # 코드별 정규 레코드 — frames 우선순위로 setdefault(앞 축이 이김)
+    canonical: dict[str, dict] = {}
+    for rl in record_lists:
+        for rec in rl:
+            canonical.setdefault(rec["code"], rec)
+    picked: list[dict] = []
+    seen: set[str] = set()
+    i = 0
+    while len(picked) < top and any(i < len(rl) for rl in record_lists):
+        for rl in record_lists:
+            if i < len(rl):
+                code = rl[i]["code"]
+                if code and code not in seen:
+                    seen.add(code)
+                    picked.append(canonical[code])
+                    if len(picked) >= top:
+                        break
+        i += 1
+    return pd.DataFrame(picked)
+
+
 def fetch_universe(client: KISClient, top: int) -> pd.DataFrame:
-    """거래량 순위에서 상위 N개를 후보로 가져온다."""
-    df = client.volume_rank()
-    if df.empty:
-        return df
-    keep = [
-        "mksc_shrn_iscd",
-        "hts_kor_isnm",
-        "stck_prpr",
-        "prdy_ctrt",
-        "acml_vol",
-        "acml_tr_pbmn",
-    ]
-    keep = [c for c in keep if c in df.columns]
-    df = df[keep].copy()
-    df = df.rename(
-        columns={
-            "mksc_shrn_iscd": "code",
-            "hts_kor_isnm": "name",
-            "stck_prpr": "price",
-            "prdy_ctrt": "chg_pct",
-            "acml_vol": "volume",
-            "acml_tr_pbmn": "trade_value",
-        }
-    )
-    for col in ["price", "chg_pct", "volume", "trade_value"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df.head(top).reset_index(drop=True)
+    """다축 랭킹 합집합으로 후보 풀을 넓힌다(I3).
+
+    단일 거래량 순위(~30행)만으로는 조용한 매집·저회전 대형주·약세 종목을 놓친다.
+    거래량·거래대금·등락률(상승/하락) 상위를 round-robin 합집합해 top 개로 캡한다.
+    하락률 상위는 I1 순매도 보완에도 기여. code 중복은 거래량 축 우선으로 dedupe.
+    추가 비용은 랭킹 호출 2건뿐(종목당 2콜 비용은 top 으로 고정).
+    """
+    vol = _safe_rank("거래량", client.volume_rank)
+    rise = _safe_rank("등락률 상승", lambda: client.fluctuation_rank(sort="0"))
+    fall = _safe_rank("등락률 하락", lambda: client.fluctuation_rank(sort="1"))
+    # 거래대금 축 — 추가 호출 없이 거래량 응답을 재정렬(저회전 대형주 보강)
+    if (
+        not vol.empty
+        and "trade_value" in vol.columns
+        and vol["trade_value"].notna().any()
+    ):
+        value = vol.sort_values("trade_value", ascending=False).reset_index(drop=True)
+    else:
+        value = pd.DataFrame()
+    return _interleave_dedupe([vol, value, rise, fall], top)
 
 
 def calc_supply_metrics(client: KISClient, code: str) -> dict:

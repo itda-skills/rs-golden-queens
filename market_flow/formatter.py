@@ -264,7 +264,7 @@ def format_kr_daily(data):
     if etfs or stocks:
         L.append("")
         L.append("🔥 *오늘의 수급 Top (자동 스크리닝)*")
-        L.append("_거래대금 상위 + 외인·기관 합산 (당일 / 단위: 억원)_")
+        L.append("_거래량·거래대금·등락률 상위 후보 + 외인·기관 합산 (당일 / 억원)_")
 
     if etfs:
         L.append("")
