@@ -203,10 +203,19 @@ def calc_investor_flow(
 
 
 def percentile_score(values: pd.Series, max_score: int) -> pd.Series:
+    """양수(순매수) 값의 분위수 점수 [0, max_score]. 음수·0(비매수)은 0점.
+
+    이전 구현(value / max * max_score)은 한 종목의 초대형 순매수가 나머지를 0 근처로
+    깔아뭉개 변별력을 잃었다(예: [5000,300,250,200,180] → [25,1.5,1.25,1.0,0.9]).
+    분위수(rank)는 이상치에 강건해 상대 서열을 보존한다
+    ([5000,300,250,200,180] → [25,20,15,10,5]). 음수(순매도)는 매수 점수 0 으로 둔다.
+    """
     pos = values.clip(lower=0)
-    if pos.max() == 0:
-        return pd.Series([0] * len(values), index=values.index)
-    return (pos / pos.max() * max_score).round(1)
+    mask = pos > 0
+    out = pd.Series(0.0, index=values.index)
+    if mask.any():
+        out.loc[mask] = (pos[mask].rank(pct=True) * max_score).round(1)
+    return out
 
 
 def screen(
