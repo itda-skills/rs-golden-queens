@@ -1,41 +1,37 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+const NAV_LINKS = [
+  { href: "/", label: "홈" },
+  { href: "/archive", label: "아카이브" },
+  { href: "/calendar", label: "캘린더" },
+  { href: "/guide", label: "가이드" },
+  { href: "/search", label: "검색" },
+];
+
 export function SiteHeader() {
+  // 좁은 화면(iPhone)에서 메뉴명이 2줄로 접히던 문제: 링크는 항상 1줄
+  // (whitespace-nowrap·shrink-0)로 두고, 모바일은 로고/nav 를 세로 스택해 nav 가
+  // 전체 폭을 쓰게 한다. sm+ 는 가로 배치. 넘치면 nav 가 가로 스크롤(안전망).
   return (
     <header className="border-b border-neutral-200 dark:border-neutral-800">
-      <div className="mx-auto max-w-3xl px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg tracking-tight">
+      <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4">
+        <Link
+          href="/"
+          className="shrink-0 whitespace-nowrap text-lg font-bold tracking-tight"
+        >
           📊 Golden Queens
         </Link>
-        <nav className="flex gap-4 text-sm text-neutral-600 dark:text-neutral-300">
-          <Link href="/" className="hover:text-neutral-900 dark:hover:text-white">
-            홈
-          </Link>
-          <Link
-            href="/archive"
-            className="hover:text-neutral-900 dark:hover:text-white"
-          >
-            아카이브
-          </Link>
-          <Link
-            href="/calendar"
-            className="hover:text-neutral-900 dark:hover:text-white"
-          >
-            캘린더
-          </Link>
-          <Link
-            href="/guide"
-            className="hover:text-neutral-900 dark:hover:text-white"
-          >
-            가이드
-          </Link>
-          <Link
-            href="/search"
-            className="hover:text-neutral-900 dark:hover:text-white"
-          >
-            검색
-          </Link>
+        <nav className="-mx-4 flex gap-4 overflow-x-auto whitespace-nowrap px-4 text-sm text-neutral-600 dark:text-neutral-300 sm:mx-0 sm:px-0">
+          {NAV_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="shrink-0 hover:text-neutral-900 dark:hover:text-white"
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
       </div>
     </header>
