@@ -221,6 +221,9 @@ def render_kr_daily_html(data):
             "kosdaq": data["kosdaq"],
             "detail": detail,
             "cum5": cum5,
+            # SoT: 텍스트 모드(format_kr_daily)와 동일 섹션을 이미지에도 렌더한다.
+            "sectors": data.get("sectors") or [],
+            "money_flow": data.get("money_flow") or {},
         },
     )
 

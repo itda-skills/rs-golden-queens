@@ -171,7 +171,12 @@ class TestKr:
             "kospi",
             "kosdaq",
             "kospi_daily",
+            "sectors",
+            "money_flow",
         }
+        # KIS 데이터(섹터·수급)가 없으면 None 으로 발행된다 (P0-c)
+        assert snap["payload"]["sectors"] is None
+        assert snap["payload"]["money_flow"] is None
 
     def test_intraday_excluded(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
@@ -191,6 +196,126 @@ class TestKr:
     def test_path(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
         assert P.snapshot_path(snap) == "snapshots/kr/2026-05-29.json"
+
+    def test_sectors_and_money_flow_published(self, kr_data):
+        """P0-c SoT: 텔레그램이 보내는 섹터 ETF·동적 수급을 발행 payload 에도 담는다."""
+        data = dict(kr_data)
+        data["sectors"] = [
+            {
+                "code": "091160",
+                "label": "반도체",
+                "close": 12345.0,
+                "pct": 1.2,
+                "vol_ratio": 1.6,
+                "trade_value_eok": 500.0,
+                "date": "20260529",
+            }
+        ]
+        data["money_flow"] = {
+            "etfs": [
+                {
+                    # 표시 필드
+                    "code": "069500",
+                    "name": "KODEX200",
+                    "grade": "A",
+                    "price": 30000,
+                    "ret_5": 1.5,
+                    "trade_value_eok": 1000,
+                    "foreign_eok": 100.0,
+                    "orgn_eok": 50.0,
+                    "combined_eok": 150.0,
+                    "both_buy": True,
+                    # 발행에서 제외되어야 할 내부 필드 (screen() 실제 컬럼 전체)
+                    "is_etf": True,
+                    "ret_20": 2.0,
+                    "ma5_eok": 900.0,
+                    "r_5_20": 1.1,
+                    "r_5_60": 1.2,
+                    "score_grade": 22.0,
+                    "score_foreign": 25.0,
+                    "score_orgn": 20.0,
+                    "score_both": 10.0,
+                    "score_mom": 10.0,
+                    "mf_score": 80.0,
+                }
+            ],
+            "stocks": [],
+        }
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        p = snap["payload"]
+
+        # 섹터는 값 그대로 (색/이모지 없음)
+        assert p["sectors"][0]["label"] == "반도체"
+        assert p["sectors"][0]["pct"] == 1.2
+        assert p["sectors"][0]["vol_ratio"] == 1.6
+
+        # 수급은 표시 필드만 — 화이트리스트 정합(내부 점수/플래그 한 개도 새지 않음)
+        etf = p["money_flow"]["etfs"][0]
+        assert etf["code"] == "069500"
+        assert etf["grade"] == "A"
+        assert etf["combined_eok"] == 150.0
+        assert etf["both_buy"] is True
+        assert set(etf.keys()) == set(P._KR_MF_FIELDS)
+        assert p["money_flow"]["stocks"] == []
+
+        # 색/이모지 문자열은 발행하지 않는다 (값에서 재현)
+        blob = P.to_json(snap)
+        for ch in ("🔴", "🔵", "🔥", "▲", "▼"):
+            assert ch not in blob
+
+    def test_money_flow_none_when_absent(self, kr_data):
+        """수급 데이터가 None(과거일 재발송·KIS 스킵)이면 money_flow=None."""
+        data = dict(kr_data)
+        data["money_flow"] = None
+        data["sectors"] = None
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        assert snap["payload"]["money_flow"] is None
+        assert snap["payload"]["sectors"] is None
+
+    def test_nan_serialized_as_null_not_nan_token(self, kr_data):
+        """NaN/Inf 는 유효 JSON(null)으로 — 'NaN' 토큰은 웹 res.json()이 거부한다.
+
+        pandas 유래 값에 NaN 이 섞여도 발행 스냅샷은 표준 JSON 이어야 한다.
+        """
+        data = dict(kr_data)
+        data["sectors"] = [
+            {
+                "code": "091160",
+                "label": "반도체",
+                "close": 12345.0,
+                "pct": float("nan"),  # 결측 등락
+                "vol_ratio": float("inf"),
+                "trade_value_eok": 500.0,
+                "date": "20260529",
+            }
+        ]
+        data["money_flow"] = {
+            "etfs": [
+                {
+                    "code": "069500",
+                    "name": "KODEX200",
+                    "grade": "A",
+                    "price": 30000,
+                    "ret_5": 1.5,
+                    "trade_value_eok": 1000,
+                    "foreign_eok": float("nan"),
+                    "orgn_eok": 50.0,
+                    "combined_eok": 150.0,
+                    "both_buy": True,
+                }
+            ],
+            "stocks": [],
+        }
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        blob = P.to_json(snap)
+        # 표준이 아닌 토큰이 새어나가지 않는다
+        assert "NaN" not in blob
+        assert "Infinity" not in blob
+        # 표준 파서로 왕복 가능 + NaN→null
+        reparsed = json.loads(blob)
+        assert reparsed["payload"]["sectors"][0]["pct"] is None
+        assert reparsed["payload"]["sectors"][0]["vol_ratio"] is None
+        assert reparsed["payload"]["money_flow"]["etfs"][0]["foreign_eok"] is None
 
 
 # ──────────────────────────────────────────────
@@ -281,6 +406,19 @@ class TestToJson:
     def test_roundtrip(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
         assert json.loads(P.to_json(snap)) == snap
+
+    def test_json_safe_coerces_datetime_and_nan(self):
+        """제네릭 안전망: datetime/date → ISO, NaN/Inf → null (표준 JSON 보장)."""
+        import datetime as _dt
+
+        out = P.to_json(
+            {"d": _dt.date(2026, 5, 29), "nan": float("nan"), "inf": float("inf")}
+        )
+        assert "NaN" not in out and "Infinity" not in out
+        reparsed = json.loads(out)
+        assert reparsed["d"] == "2026-05-29"
+        assert reparsed["nan"] is None
+        assert reparsed["inf"] is None
 
     def test_sorted_keys_deterministic(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)

@@ -11,6 +11,30 @@
   </tr>
 {% endmacro %}
 
+{# 섹터 ETF 한 행: 라벨 · 등락 화살표/% · 거래량강도(🔥) — 색은 pct 부호에서 #}
+{% macro pct_row(label, pct, vol_ratio) %}
+  {% set cls = 'up' if pct is not none and pct > 0 else ('down' if pct is not none and pct < 0 else 'flat') %}
+  {% set arr = '▲' if pct is not none and pct > 0 else ('▼' if pct is not none and pct < 0 else '–') %}
+  <tr>
+    <td class="label">{{ label }}</td>
+    <td class="arrow {{ cls }}">{{ arr }}</td>
+    <td class="value {{ cls }}">{% if pct is none %}-{% elif pct >= 0 %}+{{ '%.2f'|format(pct) }}%{% else %}{{ '%.2f'|format(pct) }}%{% endif %}</td>
+    <td class="value-secondary">{% if vol_ratio %}×{{ '%.2f'|format(vol_ratio) }}{% if vol_ratio >= 1.5 %} 🔥{% endif %}{% endif %}</td>
+  </tr>
+{% endmacro %}
+
+{# 동적 수급 한 행: 종목명·등급 · 외인(억) · 기관(억) · 쌍끌이(🔥) #}
+{% macro mf_row(it) %}
+  {% set fc = 'up' if it.foreign_eok is not none and it.foreign_eok > 0 else ('down' if it.foreign_eok is not none and it.foreign_eok < 0 else 'flat') %}
+  {% set oc = 'up' if it.orgn_eok is not none and it.orgn_eok > 0 else ('down' if it.orgn_eok is not none and it.orgn_eok < 0 else 'flat') %}
+  <tr>
+    <td class="label">{{ it.name }} <span class="sub">{{ it.code }}</span> <span class="sub">{{ it.grade }}</span></td>
+    <td class="value {{ fc }}">외 {% if it.foreign_eok is none %}-{% elif it.foreign_eok >= 0 %}+{{ '{:,.0f}'.format(it.foreign_eok) }}{% else %}{{ '{:,.0f}'.format(it.foreign_eok) }}{% endif %}</td>
+    <td class="value {{ oc }}">기 {% if it.orgn_eok is none %}-{% elif it.orgn_eok >= 0 %}+{{ '{:,.0f}'.format(it.orgn_eok) }}{% else %}{{ '{:,.0f}'.format(it.orgn_eok) }}{% endif %}</td>
+    <td class="arrow accent">{% if it.both_buy %}🔥{% endif %}</td>
+  </tr>
+{% endmacro %}
+
 {% block body %}
 <header>
   <h1>📊 {{ weekday }} 마감 매매동향</h1>
@@ -77,6 +101,33 @@
     {{ row('외인', cum5.foreign) }}
     {{ row('기관', cum5.institutional) }}
     {{ row('개인', cum5.personal) }}
+  </table>
+</section>
+{% endif %}
+
+{% if sectors %}
+<section>
+  <h2>💼 섹터 ETF (18종) <span class="unit">(등락 정렬)</span></h2>
+  <table>
+    {% for s in sectors %}{{ pct_row(s.label, s.pct, s.vol_ratio) }}{% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% if money_flow and money_flow.etfs %}
+<section>
+  <h2>🔥 오늘의 수급 · ⭐ ETF Top <span class="unit">(외인·기관, 억원)</span></h2>
+  <table>
+    {% for it in money_flow.etfs %}{{ mf_row(it) }}{% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% if money_flow and money_flow.stocks %}
+<section>
+  <h2>🔥 오늘의 수급 · 📈 개별주 Top <span class="unit">(외인·기관, 억원)</span></h2>
+  <table>
+    {% for it in money_flow.stocks %}{{ mf_row(it) }}{% endfor %}
   </table>
 </section>
 {% endif %}

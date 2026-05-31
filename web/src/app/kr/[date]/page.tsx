@@ -8,7 +8,9 @@ import {
 import {
   InvestorFlowTable,
   KospiDailyTable,
+  MoneyFlowTable,
   ProgramTable,
+  SectorTable,
 } from "@/components/Tables";
 import { KospiTrendCharts } from "@/components/TrendCharts";
 import { PrevNext } from "@/components/PrevNext";
@@ -83,6 +85,30 @@ export default async function KrDetail({
             >
               <ProgramTable flow={snap.payload.kospi} />
             </Card>
+            {snap.payload.sectors && snap.payload.sectors.length > 0 && (
+              <Card
+                title="섹터 ETF"
+                subtitle="당일 등락률 · 거래량강도 (KIS)"
+                info={
+                  <InfoTooltip tooltip="KIS 제공 섹터 대표 ETF의 당일 등락률과 거래량강도. '가격이 올랐다'이지 '그 섹터로 순매수가 들어왔다'가 아니다. 🔥(×1.5↑)는 거래량 급증 표시일 뿐 방향·권유가 아니다." />
+                }
+              >
+                <SectorTable sectors={snap.payload.sectors} />
+              </Card>
+            )}
+            {snap.payload.money_flow &&
+              (snap.payload.money_flow.etfs.length > 0 ||
+                snap.payload.money_flow.stocks.length > 0) && (
+                <Card
+                  title="오늘의 수급 Top"
+                  subtitle="외국인·기관 순매수 (억원)"
+                  info={
+                    <InfoTooltip tooltip="외국인·기관의 당일 순매수 상위 종목(억원). 외인·기관이 같은 방향이면 🔥로 표시. 당일 순매수 규모일 뿐 향후 방향·권유가 아니다." />
+                  }
+                >
+                  <MoneyFlowTable mf={snap.payload.money_flow} />
+                </Card>
+              )}
             <Card
               title="코스피 일별 추이"
               subtitle="최근 거래일 (억원)"
