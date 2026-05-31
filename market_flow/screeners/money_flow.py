@@ -399,21 +399,25 @@ def screen(
     return df
 
 
-def recommend(score: float) -> str:
+def flow_strength(score: float) -> str:
+    """순매수 자금 유입 강도 구간(사실 표현). 투자 권유·매매 시점 판단이 아니다(#10).
+
+    '강력매집' 같은 매수 권유 톤을 쓰지 않고 자금 유입 강도만 사실로 표기한다.
+    """
     if score >= 80:
-        return "★★★ 강력매집"
+        return "유입 매우강"
     if score >= 60:
-        return "★★ 매집진행"
+        return "유입 강"
     if score >= 40:
-        return "★ 부분유입"
-    return "무신호"
+        return "유입 보통"
+    return "유입 약/없음"
 
 
 def render_table(df: pd.DataFrame, show: int) -> str:
     if df.empty:
         return "(스크리닝 결과 없음)"
     df = df.head(show).copy()
-    df["추천"] = df["mf_score"].apply(recommend)
+    df["유입강도"] = df["mf_score"].apply(flow_strength)
     df["타입"] = df["is_etf"].apply(lambda x: "ETF" if x else "주식")
 
     cols = [
@@ -428,7 +432,7 @@ def render_table(df: pd.DataFrame, show: int) -> str:
         ("orgn_eok", "기관(억)"),
         ("combined_eok", "합산(억)"),
         ("mf_score", "MF점수"),
-        ("추천", "추천"),
+        ("유입강도", "유입강도"),
     ]
     out = df[[c for c, _ in cols]].copy()
     out.columns = [k for _, k in cols]
@@ -491,7 +495,7 @@ def main():
     print(title)
     print(render_table(df, args.show))
     print()
-    print("[Score] 80+ ★★★ 강력매집 | 60+ ★★ 매집진행 | 40+ ★ 부분유입 | <40 무신호")
+    print("[Score] 80+ 유입 매우강 | 60+ 유입 강 | 40+ 유입 보통 | <40 유입 약/없음")
     print("[등급] 거래대금 5MA/20MA, 5MA/60MA — S/A/B/C/D")
 
 

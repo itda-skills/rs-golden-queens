@@ -297,3 +297,14 @@ def test_grade_from_ratios_boundaries():
     assert MF.grade_from_ratios(1.2, 1.1) == "B"  # 1.2 는 >1.2 아님 → A 불충족
     assert MF.grade_from_ratios(0.8, 0.5) == "B"  # 0.8 inclusive → B
     assert MF.grade_from_ratios(0.6, 0.5) == "C"  # 0.6 inclusive → C
+
+
+def test_flow_strength_neutral_labels():
+    # #10 중립화: 권유성('강력매집'/별표) 제거 — 자금 유입 강도 사실 표기만
+    assert MF.flow_strength(85) == "유입 매우강"
+    assert MF.flow_strength(65) == "유입 강"
+    assert MF.flow_strength(45) == "유입 보통"
+    assert MF.flow_strength(30) == "유입 약/없음"
+    for s in (85, 65, 45, 30):
+        label = MF.flow_strength(s)
+        assert "매집" not in label and "매수" not in label and "★" not in label
