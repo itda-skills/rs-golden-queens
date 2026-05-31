@@ -26,7 +26,7 @@ def kr_snap():
         "date": "2026-05-29",
         "generated_at": _NOW.isoformat(),
         "is_holiday": False,
-        "payload": {"bizdate": "20260529"},
+        "payload": {"bizdate": "20260529", "kospi": {"foreign": -17314}},
         "sources": [],
     }
 
@@ -172,12 +172,62 @@ class TestWebLink:
         monkeypatch.setenv("MARKET_FLOW_WEB_URL", "https://x.example/")
         assert C.web_detail_url("us", "2026-05-28") == "https://x.example/us/2026-05-28"
 
-    def test_suffix_empty_when_publish_off(self, monkeypatch):
-        monkeypatch.delenv("MARKET_FLOW_PUBLISH", raising=False)
-        assert C.web_link_suffix("kr", "2026-05-29") == ""
 
-    def test_suffix_present_when_publish_on(self, monkeypatch):
+# ──────────────────────────────────────────────
+#  발행 무결성 게이트 (#10 I9)
+# ──────────────────────────────────────────────
+
+
+class TestPublishGate:
+    def test_invalid_snapshot_not_published(self, monkeypatch):
         monkeypatch.setenv("MARKET_FLOW_PUBLISH", "1")
-        s = C.web_link_suffix("weekly", "2026-W22")
-        assert "weekly/2026-W22" in s
-        assert s.startswith("\n")
+        called = []
+        monkeypatch.setattr(
+            C, "publish_snapshot", lambda s, n=None: called.append(s) or True
+        )
+        bad = {
+            "market": "us",
+            "date": None,
+            "is_holiday": False,
+            "payload": {"indices": {}},
+        }
+        assert C.maybe_publish(bad) is False  # 게이트가 보류
+        assert called == []  # 발행 시도 자체를 안 함
+
+    def test_valid_snapshot_published(self, monkeypatch, kr_snap):
+        monkeypatch.setenv("MARKET_FLOW_PUBLISH", "1")
+        called = []
+        monkeypatch.setattr(
+            C, "publish_snapshot", lambda s, n=None: called.append(s) or True
+        )
+        assert C.maybe_publish(kr_snap) is True
+        assert len(called) == 1
+
+    def test_disabled_skips_before_validation(self, monkeypatch):
+        # 발행 비활성이면 검증 이전에 False (게이트는 활성 경로에서만)
+        monkeypatch.delenv("MARKET_FLOW_PUBLISH", raising=False)
+        assert C.maybe_publish({"market": "us", "date": None}) is False
+
+
+class TestWebLinkForSnapshot:
+    """web_link_suffix_for_snapshot — 발행될 스냅샷에만 링크(#10 I9 P1-2)."""
+
+    def test_off_when_publish_disabled(self, monkeypatch, kr_snap):
+        monkeypatch.delenv("MARKET_FLOW_PUBLISH", raising=False)
+        assert C.web_link_suffix_for_snapshot(kr_snap) == ""
+
+    def test_link_when_valid_and_enabled(self, monkeypatch, kr_snap):
+        monkeypatch.setenv("MARKET_FLOW_PUBLISH", "1")
+        assert "kr/2026-05-29" in C.web_link_suffix_for_snapshot(kr_snap)
+
+    def test_no_link_when_gate_holds(self, monkeypatch):
+        # 발행 활성이어도 보류될 스냅샷(weekly 빈 payload)엔 링크 없음 — 404 방지
+        monkeypatch.setenv("MARKET_FLOW_PUBLISH", "1")
+        empty_weekly = {
+            "market": "weekly",
+            "date": "2026-05-29",
+            "week": "2026-W22",
+            "is_holiday": False,
+            "payload": {"kospi_daily": [], "watch_5d": []},
+        }
+        assert C.web_link_suffix_for_snapshot(empty_weekly) == ""

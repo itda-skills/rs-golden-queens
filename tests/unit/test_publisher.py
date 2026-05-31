@@ -488,6 +488,136 @@ class TestToJson:
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
         assert json.loads(P.to_json(snap)) == snap
 
+
+# ──────────────────────────────────────────────
+#  발행 무결성 게이트 (#10 I9)
+# ──────────────────────────────────────────────
+
+
+class TestValidateSnapshot:
+    def test_valid_kr_passes(self, kr_data):
+        assert P.validate_snapshot(P.build_kr_snapshot(kr_data, _NOW_KST)) is None
+
+    def test_valid_us_passes(self, us_data):
+        assert P.validate_snapshot(P.build_us_snapshot(us_data, _NOW_ET)) is None
+
+    def test_calendar_passes(self):
+        assert P.validate_snapshot(P.build_calendar_snapshot(_NOW_KST)) is None
+
+    def test_holiday_payload_none_ok(self):
+        snap = P.build_holiday_snapshot("kr", "[KR] 휴장", _NOW_KST)
+        assert P.validate_snapshot(snap) is None
+
+    def test_date_none_blocked(self):
+        snap = {
+            "market": "us",
+            "date": None,
+            "is_holiday": False,
+            "payload": {"indices": {"^GSPC": {"close": 1}}},
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_date_empty_blocked(self):
+        snap = {
+            "market": "kr",
+            "date": "",
+            "is_holiday": False,
+            "payload": {"kospi": {"foreign": 1}},
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_date_malformed_blocked(self):
+        snap = {
+            "market": "us",
+            "date": "2026/05/28",
+            "is_holiday": False,
+            "payload": {"indices": {"a": {"close": 1}}},
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_us_all_sections_empty_blocked(self):
+        snap = {
+            "market": "us",
+            "date": "2026-05-28",
+            "is_holiday": False,
+            "payload": {
+                "indices": {},
+                "volatility": {},
+                "macro": {},
+                "sectors": {},
+                "watch": {},
+                "risk_onoff": {},
+            },
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_us_partial_sections_ok(self):
+        snap = {
+            "market": "us",
+            "date": "2026-05-28",
+            "is_holiday": False,
+            "payload": {"indices": {"^GSPC": {"close": 1}}, "volatility": {}},
+        }
+        assert P.validate_snapshot(snap) is None
+
+    def test_weekly_requires_week(self):
+        snap = {
+            "market": "weekly",
+            "date": "2026-05-29",
+            "is_holiday": False,
+            "payload": {"kospi_daily": [{"x": 1}]},
+        }
+        assert P.validate_snapshot(snap) is not None  # week 누락
+        snap["week"] = "2026-W22"
+        assert P.validate_snapshot(snap) is None
+
+    def test_weekly_empty_payload_blocked(self):
+        snap = {
+            "market": "weekly",
+            "date": "2026-05-29",
+            "week": "2026-W22",
+            "is_holiday": False,
+            "payload": {"kospi_daily": [], "watch_5d": []},
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_unknown_market_blocked(self):
+        assert P.validate_snapshot({"market": "xx", "date": "2026-05-29"}) is not None
+
+    def test_kr_bizdate_only_blocked(self):
+        # bizdate 만 있고 당일 합산·일별이 다 빈 KR(네이버 빈응답) → 보류(P1-1)
+        snap = {
+            "market": "kr",
+            "date": "2026-05-29",
+            "is_holiday": False,
+            "payload": {
+                "bizdate": "20260529",
+                "kospi": {"bizdate": "20260529", "foreign": None, "personal": None},
+                "kosdaq": {"bizdate": "20260529", "foreign": None},
+                "kospi_daily": [],
+            },
+        }
+        assert P.validate_snapshot(snap) is not None
+
+    def test_kr_with_values_passes(self):
+        snap = {
+            "market": "kr",
+            "date": "2026-05-29",
+            "is_holiday": False,
+            "payload": {"bizdate": "20260529", "kospi": {"foreign": -17314}},
+        }
+        assert P.validate_snapshot(snap) is None
+
+    def test_iso_date_rejects_single_digit(self):
+        # strptime 은 '2026-5-9' 도 통과하나 게이트는 자릿수 고정으로 거른다(P2)
+        snap = {
+            "market": "us",
+            "date": "2026-5-9",
+            "is_holiday": False,
+            "payload": {"indices": {"^GSPC": {"close": 1}}},
+        }
+        assert P.validate_snapshot(snap) is not None
+
     def test_json_safe_coerces_datetime_and_nan(self):
         """제네릭 안전망: datetime/date → ISO, NaN/Inf → null (표준 JSON 보장)."""
         import datetime as _dt

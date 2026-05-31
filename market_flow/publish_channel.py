@@ -79,15 +79,19 @@ def web_detail_url(market: str, entry_id: str) -> str:
     return f"{web_base_url()}/{market}/{entry_id}"
 
 
-def web_link_suffix(market: str, entry_id: str) -> str:
-    """발행이 활성일 때만 '웹에서 보기' 링크 한 줄을 반환한다.
+def web_link_suffix_for_snapshot(snapshot: dict[str, Any]) -> str:
+    """발행될 스냅샷에만 '웹에서 보기' 링크를 붙인다(#10 I9).
 
-    발행을 하지 않으면 해당 URL이 아직 없으므로(404) 링크를 붙이지 않는다.
-    텔레그램 메시지 출처 뒤에 덧붙이는 용도.
+    발행 게이트(validate_snapshot)와 같은 판단을 공유해, 발행이 보류될(또는 비활성)
+    스냅샷에는 링크를 붙이지 않는다 — 텔레그램에 404 링크가 나가는 것을 막는다.
     """
     if not is_publish_enabled():
         return ""
-    return f"\n🔗 웹에서 보기: {web_detail_url(market, entry_id)}"
+    if P.validate_snapshot(snapshot) is not None:
+        return ""
+    market = snapshot.get("market")
+    entry = snapshot.get("week") if market == "weekly" else snapshot.get("date")
+    return f"\n🔗 웹에서 보기: {web_detail_url(market, entry)}"
 
 
 def maybe_publish(snapshot: dict[str, Any], now: Optional[datetime] = None) -> bool:
@@ -102,6 +106,15 @@ def maybe_publish(snapshot: dict[str, Any], now: Optional[datetime] = None) -> b
     if not is_publish_enabled():
         return False
     try:
+        # 무결성 게이트(#10 I9): date None/빈/형식오류·payload 전부결측이면 발행 보류.
+        # snapshots/<market>/None.json 경로 오염과 빈 페이지 발행을 막는다(발송과 무관).
+        # validate 자체의 예외도 여기서 흡수해 발송 흐름에 전파하지 않는다.
+        reason = P.validate_snapshot(snapshot)
+        if reason:
+            _warn(
+                f"발행 보류 ({snapshot.get('market')}): {reason} — 깨진/빈 스냅샷 미발행"
+            )
+            return False
         return publish_snapshot(snapshot, now)
     except Exception as e:  # noqa: BLE001 — 발송 흐름 보호: 어떤 경우에도 전파 금지
         _warn(

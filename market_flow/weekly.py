@@ -20,7 +20,7 @@ from market_flow.calendar_utils import is_last_kr_trading_day_of_week
 from market_flow.fetchers.naver_kr import fetch_kospi_daily
 from market_flow.fetchers.us_market import WATCH
 from market_flow.formatter import format_weekly
-from market_flow.publish_channel import maybe_publish, web_link_suffix
+from market_flow.publish_channel import maybe_publish, web_link_suffix_for_snapshot
 from market_flow.publisher import build_weekly_snapshot
 from market_flow.telegram_push import send
 
@@ -78,7 +78,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
         "\n\n출처: "
         f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
         " · [Yahoo Finance](https://finance.yahoo.com/markets/)"
-        f"{web_link_suffix('weekly', snapshot['week'])}"
+        f"{web_link_suffix_for_snapshot(snapshot)}"
     )
 
     text = format_weekly(kospi_daily, watch_5d) + sources

@@ -253,6 +253,7 @@ class KISClient:
         period: str = "D",
         adj_price: str = "0",
         market: str = "J",
+        max_pages: int = 2,
     ) -> pd.DataFrame:
         """일/주/월/년봉 차트 데이터 조회
 
@@ -262,6 +263,8 @@ class KISClient:
             end_date: 종료일 (YYYYMMDD)
             period: D=일, W=주, M=월, Y=년
             adj_price: 0=수정주가, 1=원주가
+            max_pages: 차트는 단일 응답(≤100건)이 일반적이라 기본 2 로 제한해
+                불필요한 연속조회·콜 누적을 막는다(#10 I9).
         """
         return self.fetch_dataframe(
             "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
@@ -275,6 +278,7 @@ class KISClient:
                 "FID_ORG_ADJ_PRC": adj_price,
             },
             output_key="output2",
+            max_pages=max_pages,
         )
 
     def inquire_asking_price(self, stock_code: str, market: str = "J") -> pd.DataFrame:

@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from market_flow.calendar_utils import format_holiday_message, is_kr_trading_day
 from market_flow.fetchers.naver_kr import fetch_today
 from market_flow.formatter import format_kr_daily, kr_weekday
-from market_flow.publish_channel import maybe_publish, web_link_suffix
+from market_flow.publish_channel import maybe_publish, web_link_suffix_for_snapshot
 from market_flow.publisher import build_holiday_snapshot, build_kr_snapshot
 from market_flow.telegram_push import send
 
@@ -271,14 +271,12 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     # 기준일 → 정합성 → KIS 부분실패 순으로 본문 경고를 쌓는다
     all_warnings = freshness_warnings + integrity_warnings + kis_warnings
 
-    iso_date = (
-        f"{bizdate[:4]}-{bizdate[4:6]}-{bizdate[6:]}" if len(bizdate) == 8 else bizdate
-    )
+    snapshot = build_kr_snapshot(data, now)
     sources = (
         "\n\n출처: "
         f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
         f" · [모바일 통합](https://m.stock.naver.com/domestic/index/KOSPI/total)"
-        f"{web_link_suffix('kr', iso_date)}"
+        f"{web_link_suffix_for_snapshot(snapshot)}"
     )
 
     text = format_kr_daily(data) + _warn_block(all_warnings) + sources
@@ -294,7 +292,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     print(f"✅ 한국장 푸시: msg_id={msg_id}, bizdate={bizdate}{suffix}")
 
     # 발행 단계 (발송과 완전 분리 — 실패해도 위 발송에 영향 없음)
-    maybe_publish(build_kr_snapshot(data, now), now)
+    maybe_publish(snapshot, now)
 
 
 if __name__ == "__main__":

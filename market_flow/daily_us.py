@@ -32,7 +32,7 @@ from market_flow.calendar_utils import (
 )
 from market_flow.fetchers.us_market import fetch_us_close
 from market_flow.formatter import format_us_daily
-from market_flow.publish_channel import maybe_publish, web_link_suffix
+from market_flow.publish_channel import maybe_publish, web_link_suffix_for_snapshot
 from market_flow.publisher import build_holiday_snapshot, build_us_snapshot
 from market_flow.telegram_push import send
 
@@ -165,7 +165,8 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     if warnings:
         print("⚠️  본문 경고: " + " | ".join(warnings))
 
-    web_link = web_link_suffix("us", snapshot["date"]) if snapshot.get("date") else ""
+    # stale(잘못된 날짜)이면 발행을 건너뛰므로 웹 링크도 붙이지 않는다(#10 I9 — 404 방지).
+    web_link = web_link_suffix_for_snapshot(snapshot) if not stale else ""
     sources = (
         "\n\n출처: "
         "[Yahoo Finance](https://finance.yahoo.com/markets/)"
