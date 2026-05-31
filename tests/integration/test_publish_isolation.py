@@ -69,6 +69,7 @@ class TestPublishGate:
         with (
             s as mock_send,
             f as mock_fetch,
+            patch("kis.KISClient", side_effect=RuntimeError("test: no network")),
             patch("market_flow.daily_kr.maybe_publish") as mock_pub,
         ):
             mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
@@ -87,6 +88,7 @@ class TestPublishIsolation:
         with (
             s as mock_send,
             f as mock_fetch,
+            patch("kis.KISClient", side_effect=RuntimeError("test: no network")),
             patch("market_flow.publish_channel.publish_snapshot") as mock_pub,
         ):
             mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
@@ -104,6 +106,7 @@ class TestPublishIsolation:
         with (
             s as mock_send,
             f as mock_fetch,
+            patch("kis.KISClient", side_effect=RuntimeError("test: no network")),
             patch("market_flow.publish_channel.publish_snapshot") as mock_pub,
         ):
             mock_send.return_value = {"ok": True, "result": {"message_id": 1}}

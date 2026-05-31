@@ -351,7 +351,7 @@ def render_us_daily_html(data):
 
     # target 날짜 라벨 추출 (기존 format_us_daily 와 동일 로직)
     target = None
-    for cat in ("indices", "watch"):
+    for cat in ("indices", "volatility", "macro", "sectors", "watch", "risk_onoff"):
         for d in (data.get(cat) or {}).values():
             if d and d.get("date"):
                 dt = datetime.strptime(d["date"], "%Y-%m-%d")
@@ -431,7 +431,7 @@ def render_us_daily_html(data):
 def format_us_daily(data):
     """미국장 마감 요약. data = fetchers.us_market.fetch_us_close() 결과"""
     target = None
-    for cat in ("indices", "watch"):
+    for cat in ("indices", "volatility", "macro", "sectors", "watch", "risk_onoff"):
         for d in (data.get(cat) or {}).values():
             if d and d.get("date"):
                 dt = datetime.strptime(d["date"], "%Y-%m-%d")

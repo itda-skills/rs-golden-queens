@@ -19,3 +19,4 @@ kis/.token_cache.json
 # Claude Code: 개인 설정·작업 산출물은 제외 (재사용 워크플로우 .claude/workflows/ 는 추적)
 .claude/settings.local.json
 .claude/*-draft.md
+.context/

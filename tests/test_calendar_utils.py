@@ -3,6 +3,7 @@
 시각 주입(`now: datetime`) 기반으로 DST/거래일/마지막 거래일을
 결정론적으로 검증한다. acceptance.md Section 1.5, 1.6, 5, 8 커버.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,6 +18,7 @@ ET = ZoneInfo("America/New_York")
 # ──────────────────────────────────────────────
 #  DST 판정 (is_us_in_dst)
 # ──────────────────────────────────────────────
+
 
 class TestIsUsInDst:
     def test_edt_period_returns_true(self):
@@ -50,6 +52,7 @@ class TestIsUsInDst:
 # ──────────────────────────────────────────────
 #  미국 거래일 판정 (is_us_trading_day)
 # ──────────────────────────────────────────────
+
 
 class TestIsUsTradingDay:
     def test_christmas_is_holiday(self):
@@ -86,6 +89,7 @@ class TestIsUsTradingDay:
 #  한국 거래일 판정 (is_kr_trading_day)
 # ──────────────────────────────────────────────
 
+
 class TestIsKrTradingDay:
     def test_childrens_day_is_holiday(self):
         now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
@@ -119,6 +123,7 @@ class TestIsKrTradingDay:
 # ──────────────────────────────────────────────
 #  마지막 거래일 판정 (is_last_kr_trading_day_of_week)
 # ──────────────────────────────────────────────
+
 
 class TestIsLastKrTradingDayOfWeek:
     def test_friday_is_trading_day_returns_true_on_friday(self):
@@ -159,34 +164,82 @@ class TestFormatHolidayMessage:
 
     def test_kr_childrens_day(self):
         now = datetime(2025, 5, 5, 18, 10, tzinfo=KST)
-        assert cu.format_holiday_message("KR", now) == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("KR", now)
+            == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+        )
 
     def test_kr_liberation_day_friday(self):
         now = datetime(2025, 8, 15, 18, 10, tzinfo=KST)
-        assert cu.format_holiday_message("KR", now) == "[KR] 2025-08-15 (금) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("KR", now)
+            == "[KR] 2025-08-15 (금) 오늘은 휴장입니다"
+        )
 
     def test_us_christmas_thursday(self):
         now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
-        assert cu.format_holiday_message("US", now) == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("US", now)
+            == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+        )
 
     def test_us_independence_day_friday(self):
         now = datetime(2025, 7, 4, 16, 30, tzinfo=ET)
-        assert cu.format_holiday_message("US", now) == "[US] 2025-07-04 (금) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("US", now)
+            == "[US] 2025-07-04 (금) 오늘은 휴장입니다"
+        )
 
     def test_us_uses_et_local_date_not_utc(self):
         """ET 자정 직전 호출 시 ET 로컬 날짜를 사용하는지 검증."""
         # 2025-12-25 23:30 ET → UTC로는 2025-12-26 04:30이지만 ET 로컬은 여전히 12-25
         now = datetime(2025, 12, 25, 23, 30, tzinfo=ET)
-        assert cu.format_holiday_message("US", now) == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("US", now)
+            == "[US] 2025-12-25 (목) 오늘은 휴장입니다"
+        )
 
     def test_kr_uses_kst_local_date(self):
         """UTC로 받은 시각도 KST 로컬 날짜로 변환되는지 검증."""
         from zoneinfo import ZoneInfo as _ZI
+
         # 2025-05-04 22:00 UTC = 2025-05-05 07:00 KST (어린이날)
         now = datetime(2025, 5, 4, 22, 0, tzinfo=_ZI("UTC"))
-        assert cu.format_holiday_message("KR", now) == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+        assert (
+            cu.format_holiday_message("KR", now)
+            == "[KR] 2025-05-05 (월) 오늘은 휴장입니다"
+        )
 
     def test_default_now_returns_string(self):
         msg = cu.format_holiday_message("KR")
         assert msg.startswith("[KR] ")
         assert msg.endswith(") 오늘은 휴장입니다")
+
+
+# ──────────────────────────────────────────────
+#  기대 거래일 (last_us_trading_day) — #10 P0-a 신선도 기준
+# ──────────────────────────────────────────────
+
+
+class TestLastUsTradingDay:
+    def test_trading_day_returns_self(self):
+        # 2025-09-15 월요일 거래일 → 자기 자신
+        now = datetime(2025, 9, 15, 16, 30, tzinfo=ET)
+        assert cu.last_us_trading_day(now) == "2025-09-15"
+
+    def test_weekend_returns_prev_friday(self):
+        # 2025-09-13 토요일 → 직전 거래일 09-12 금요일
+        now = datetime(2025, 9, 13, 10, 0, tzinfo=ET)
+        assert cu.last_us_trading_day(now) == "2025-09-12"
+
+    def test_holiday_returns_prev_session(self):
+        # 2025-12-25 크리스마스(목, 휴장) → 직전 거래일 12-24 수요일
+        now = datetime(2025, 12, 25, 16, 30, tzinfo=ET)
+        assert cu.last_us_trading_day(now) == "2025-12-24"
+
+    def test_accepts_utc_now(self):
+        # UTC 시각도 ET로 변환해 판정 (2025-09-15 20:00 UTC = 16:00 ET 월)
+        from zoneinfo import ZoneInfo as _ZI
+
+        now = datetime(2025, 9, 15, 20, 0, tzinfo=_ZI("UTC"))
+        assert cu.last_us_trading_day(now) == "2025-09-15"

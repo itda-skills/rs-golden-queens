@@ -172,3 +172,26 @@ def us_trading_days(start: date, end: date) -> list[str]:
     """[start, end] 구간의 미국(NYSE) 거래일을 ISO 날짜 문자열 리스트로 반환."""
     days = _NYSE.valid_days(start.isoformat(), end.isoformat())
     return [d.date().isoformat() if hasattr(d, "date") else str(d)[:10] for d in days]
+
+
+def last_us_trading_day(now: Optional[datetime] = None) -> Optional[str]:
+    """now(ET) 시점 기준, 오늘을 포함한 직전 미국(NYSE) 거래일 ISO 문자열.
+
+    yfinance가 반환한 데이터의 실제 거래일이 '기대 거래일'과 일치하는지
+    대조하는 신선도 검증(SPEC-MF-SCHED 외 E1)의 기준값으로 쓴다.
+
+    Args:
+        now: 판정 기준 시각. None이면 `datetime.now(America/New_York)`.
+             tz-naive면 ET로 가정.
+
+    Returns:
+        직전 거래일 ISO(YYYY-MM-DD). 구간 내 거래일이 없으면 None.
+    """
+    if now is None:
+        now = _now_in(_ET)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=_ET)
+    end = now.astimezone(_ET).date()
+    start = end - timedelta(days=10)
+    days = us_trading_days(start, end)
+    return days[-1] if days else None
