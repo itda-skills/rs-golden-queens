@@ -15,7 +15,6 @@ import type {
   KrMoneyFlow,
   KrMoneyFlowItem,
   KrMoneyFlowSellItem,
-  KrSector,
   UsSection,
 } from "@/lib/types";
 
@@ -119,32 +118,6 @@ export function UsSectionTable({
             {showVol && (
               <td className="py-1.5 text-right text-xs text-neutral-400">{volRatio(q.vol_ratio)}</td>
             )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-// 한국 섹터 ETF (KIS, #10 P0-c) — 발행 순서 그대로 표시(정렬은 fetcher 가 소유:
-// 등락 내림차순). 웹은 순서를 재계산하지 않는다(SoT: 시장 로직 재구현 금지).
-export function SectorTable({ sectors }: { sectors: KrSector[] }) {
-  return (
-    <table className="w-full text-sm tabular-nums">
-      <tbody>
-        {sectors.map((s) => (
-          <tr
-            key={s.code}
-            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
-          >
-            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">{s.label}</td>
-            <td className={`py-1.5 text-right font-medium ${colorClass(s.pct)}`}>
-              {signedPct(s.pct)} <span className="text-xs">{arrow(s.pct)}</span>
-            </td>
-            <td className="py-1.5 text-right text-xs text-neutral-400">
-              {volRatio(s.vol_ratio)}
-              {s.vol_ratio != null && s.vol_ratio >= 1.5 ? " 🔥" : ""}
-            </td>
           </tr>
         ))}
       </tbody>

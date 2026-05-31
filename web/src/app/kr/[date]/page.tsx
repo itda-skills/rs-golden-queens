@@ -12,8 +12,8 @@ import {
   MoneyFlowSellTable,
   MoneyFlowTable,
   ProgramTable,
-  SectorTable,
 } from "@/components/Tables";
+import { HBarChart } from "@/components/BarChart";
 import { KospiTrendCharts } from "@/components/TrendCharts";
 import { PrevNext } from "@/components/PrevNext";
 import { InfoTooltip } from "@/components/InfoTooltip";
@@ -95,7 +95,19 @@ export default async function KrDetail({
                   <InfoTooltip tooltip="KIS 제공 섹터 대표 ETF의 당일 등락률과 거래량강도. '가격이 올랐다'이지 '그 섹터로 순매수가 들어왔다'가 아니다. 🔥(×1.5↑)는 거래량 급증 표시일 뿐 방향·권유가 아니다." />
                 }
               >
-                <SectorTable sectors={snap.payload.sectors} />
+                <HBarChart
+                  data={snap.payload.sectors.map((s) => ({
+                    label: s.label,
+                    value: s.pct,
+                    note:
+                      s.vol_ratio != null
+                        ? `×${s.vol_ratio.toFixed(2)}${
+                            s.vol_ratio >= 1.5 ? " 🔥" : ""
+                          }`
+                        : undefined,
+                  }))}
+                  ariaLabel="KR 섹터 ETF 등락"
+                />
               </Card>
             )}
             {snap.payload.money_flow &&

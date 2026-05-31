@@ -6,6 +6,7 @@ import {
   SourceList,
 } from "@/components/Layout";
 import { UsSectionTable } from "@/components/Tables";
+import { HBarChart } from "@/components/BarChart";
 import { PrevNext } from "@/components/PrevNext";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { adjacent } from "@/lib/adjacent";
@@ -89,7 +90,13 @@ export default async function UsDetail({
               subtitle="등락 기준 정렬"
               info={<InfoTooltip {...CARD_INFO.usSectors} />}
             >
-              <UsSectionTable section={p.sectors} sortByPct />
+              <HBarChart
+                data={Object.values(p.sectors)
+                  .filter(Boolean)
+                  .map((q) => ({ label: q.label, value: q.pct }))
+                  .sort((a, b) => b.value - a.value)}
+                ariaLabel="S&P 11 섹터 등락"
+              />
             </Card>
             <Card
               title="워치 ETF"
