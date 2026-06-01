@@ -208,6 +208,35 @@ class TestParseTrendRows:
         }
         assert set(rows[0].keys()) == expected
 
+    def test_skips_pagination_row(self):
+        # 네이버 페이지 하단 페이지네이션("1 2 3 … 10")이 11컬럼으로 잡혀도
+        # 첫 셀이 날짜 형식이 아니므로 제외된다(E8 회귀 방지).
+        body = (
+            "<tr>"
+            "<td>26.05.29</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
+            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
+            "</tr>"
+            "<tr>"
+            "<td>1</td><td>2</td><td>3</td><td>4</td><td>5</td>"
+            "<td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td>"
+            "</tr>"
+        )
+        rows = naver_kr._parse_trend_rows(body, time_col=False)
+        assert len(rows) == 1
+        assert rows[0]["date"] == "26.05.29"
+
+    def test_accepts_both_date_formats(self):
+        # 데스크탑 일별은 YY.MM.DD, 일부는 MM.DD — 둘 다 허용(페이지네이션만 차단).
+        row1 = "<tr><td>05.25</td>" + "<td>+1</td>" * 10 + "</tr>"
+        row2 = "<tr><td>26.05.25</td>" + "<td>+1</td>" * 10 + "</tr>"
+        rows = naver_kr._parse_trend_rows(row1 + row2, time_col=False)
+        assert [r["date"] for r in rows] == ["05.25", "26.05.25"]
+
+    def test_time_col_skips_non_time_first_cell(self):
+        # 시간별도 첫 셀이 HH:MM 형식이 아니면 제외.
+        body = "<tr><td>1</td>" + "<td>2</td>" * 10 + "</tr>"
+        assert naver_kr._parse_trend_rows(body, time_col=True) == []
+
 
 # ──────────────────────────────────────────────
 #  fetch_kospi_intraday / fetch_kospi_daily — fixture 기반

@@ -128,11 +128,20 @@ def _parse_trend_rows(body, time_col):
     있으면 stderr 경고(조용한 0행 차단).
     """
     out = []
+    # 일별은 YY.MM.DD, 시간별은 HH:MM — 첫 셀이 이 형식인 행만 데이터로 채택한다.
+    # 네이버 페이지 하단 페이지네이션("1 2 3 … 10")이 11컬럼으로 잡혀 가짜 행으로
+    # 들어오는 것을 차단한다(E8).
+    key_re = re.compile(
+        r"^\d{1,2}:\d{2}$" if time_col else r"^\d{2}\.\d{2}(?:\.\d{2})?$"
+    )
     for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", body, re.DOTALL):
         cells = [
             _strip_tags(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.DOTALL)
         ]
         if len(cells) < 11:
+            continue
+        # 첫 셀이 날짜/시간 형식이 아니면(페이지네이션 등 비-데이터 행) 제외한다.
+        if not key_re.match(cells[0].strip()):
             continue
         out.append(
             {
