@@ -1,6 +1,12 @@
 import { Card, Container } from "@/components/Layout";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { getCalendar, getIndex, getKrSnapshot, getUsSnapshot } from "@/lib/data";
+import {
+  getCalendar,
+  getIndex,
+  getKrSnapshot,
+  getUsSnapshot,
+  getWeeklySnapshot,
+} from "@/lib/data";
 import type { CalendarOverviews } from "@/lib/types";
 
 export const revalidate = 600;
@@ -40,6 +46,19 @@ async function buildOverviews(
   return out;
 }
 
+// 주간 리포트 기준일(snap.date) → ISO week 매핑. 그 날짜 셀 팝오버에 주간 링크를
+// 배치하기 위함. 발행된 주(소수)만 병렬 fetch. 원본 스냅샷의 기준일을 그대로 쓴다.
+async function buildWeeklyByDate(
+  weeks: string[],
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const snaps = await Promise.all(weeks.map((w) => getWeeklySnapshot(w)));
+  snaps.forEach((s, i) => {
+    if (s?.date) out[s.date] = weeks[i];
+  });
+  return out;
+}
+
 export default async function CalendarPage() {
   const [cal, index] = await Promise.all([getCalendar(), getIndex()]);
 
@@ -59,7 +78,10 @@ export default async function CalendarPage() {
   const krPublished = index?.kr ?? [];
   const usPublished = index?.us ?? [];
   const weeklyPublished = [...(index?.weekly ?? [])].sort().reverse();
-  const overviews = await buildOverviews(krPublished, usPublished);
+  const [overviews, weeklyByDate] = await Promise.all([
+    buildOverviews(krPublished, usPublished),
+    buildWeeklyByDate(weeklyPublished),
+  ]);
 
   // 발행 데이터가 있는 달만 표시 (없으면 캘린더 range 폴백).
   const publishedDates = [...krPublished, ...usPublished].sort();
@@ -90,6 +112,10 @@ export default async function CalendarPage() {
           </span>{" "}
           발행됨 (클릭하여 보기)
         </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-4 h-4 rounded-full bg-blue-600 ring-2 ring-amber-400 ring-inset" />{" "}
+          주간 리포트 포함
+        </span>
       </div>
       <CalendarGrid
         krDays={cal.kr}
@@ -97,7 +123,7 @@ export default async function CalendarPage() {
         krPublished={krPublished}
         usPublished={usPublished}
         overviews={overviews}
-        weekly={weeklyPublished}
+        weeklyByDate={weeklyByDate}
         start={rangeStart}
         end={rangeEnd}
       />
