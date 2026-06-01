@@ -68,11 +68,26 @@ def _add_test_arg(parser: argparse.ArgumentParser) -> None:
 def _cmd_smoke_kr(args: argparse.Namespace) -> None:
     from datetime import datetime
 
+    from kis import KISClient
+    from market_flow.fetchers.kr_market_investor import fetch_kosdaq_daily
     from market_flow.fetchers.naver_kr import fetch_today
 
-    data = fetch_today(datetime.now().strftime("%Y%m%d"))
+    bizdate = datetime.now().strftime("%Y%m%d")
+    data = fetch_today(bizdate)
     keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
     print("naver_kr OK:", keys)
+    kosdaq = fetch_kosdaq_daily(bizdate, client=KISClient(svr="prod"))
+    if not kosdaq:
+        raise RuntimeError("kosdaq_daily KIS returned no rows")
+    first = kosdaq[0]
+    print(
+        "kosdaq_daily KIS OK:",
+        f"rows={len(kosdaq)}",
+        f"first={first['date']}",
+        f"foreign={first['foreign']}",
+        f"institutional={first['institutional']}",
+        f"personal={first['personal']}",
+    )
 
 
 def _cmd_smoke_us(args: argparse.Namespace) -> None:
@@ -135,7 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_test_arg(p_ping)
     p_ping.set_defaults(func=_cmd_notify_test)
 
-    p_skr = sub.add_parser("smoke-kr", help="네이버 fetch 단독 점검")
+    p_skr = sub.add_parser("smoke-kr", help="KR 데이터 소스 단독 점검")
     p_skr.set_defaults(func=_cmd_smoke_kr)
 
     p_sus = sub.add_parser("smoke-us", help="yfinance fetch 단독 점검")

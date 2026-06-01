@@ -623,20 +623,23 @@ def format_us_daily(data):
 # ───────────────────────────────────────────────
 
 
-def format_weekly(kospi_daily, watch_5d):
+def format_weekly(kospi_daily, kosdaq_daily, watch_5d):
     """주간 리포트.
     kospi_daily: 네이버에서 받은 코스피 일별(최대 10개)
+    kosdaq_daily: KIS에서 받은 코스닥 일별(최대 10개)
     watch_5d: 워치 ETF 최근 N거래일 종가/등락 (yfinance에서 별도 fetch)
     """
     L = [f"📅 *주간 매매동향 리포트* ({datetime.now().strftime('%m/%d')} 기준)", ""]
 
-    if kospi_daily and len(kospi_daily) >= 1:
-        days = min(5, len(kospi_daily))
-        kospi_daily = kospi_daily[:days]
-        f = sum(r["foreign"] for r in kospi_daily)
-        i = sum(r["institutional"] for r in kospi_daily)
-        p = sum(r["personal"] for r in kospi_daily)
-        L.append(f"🇰🇷 *코스피 {days}거래일 누적* (억원)")
+    def _kr_block(title, daily):
+        if not (daily and len(daily) >= 1):
+            return
+        days = min(5, len(daily))
+        rows = daily[:days]
+        f = sum(r["foreign"] for r in rows)
+        i = sum(r["institutional"] for r in rows)
+        p = sum(r["personal"] for r in rows)
+        L.append(f"🇰🇷 *{title} {days}거래일 누적* (억원)")
         cum_rows = [
             ["외인", signed(f), emoji(f)],
             ["기관", signed(i), emoji(i)],
@@ -647,7 +650,7 @@ def format_weekly(kospi_daily, watch_5d):
 
         L.append("일별 _(일자 · 외인 · 기관)_:")
         daily_rows_t = []
-        for r in kospi_daily:
+        for r in rows:
             daily_rows_t.append(
                 [
                     r["date"],
@@ -659,6 +662,9 @@ def format_weekly(kospi_daily, watch_5d):
             )
         L.append(_card(daily_rows_t, ["l", "r", "l", "r", "l"]))
         L.append("")
+
+    _kr_block("코스피", kospi_daily)
+    _kr_block("코스닥", kosdaq_daily)
 
     if watch_5d:
         L.append("🇺🇸 *워치 ETF 5거래일 누적 등락*")

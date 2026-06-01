@@ -9,7 +9,7 @@ import {
 } from "@/lib/format";
 import type {
   HighYieldOas,
-  KrDailyRow,
+  KrDailyFlow,
   KrForeignInst,
   KrForeignInstItem,
   KrInvestorFlow,
@@ -66,8 +66,8 @@ export function ProgramTable({ flow }: { flow: KrInvestorFlow }) {
   );
 }
 
-// 코스피 일별 추이 (외인/기관/개인) — 최신순
-export function KospiDailyTable({ rows }: { rows: KrDailyRow[] }) {
+// 일별 투자자 추이 (외인/기관/개인) — 코스피·코스닥 공용, 최신순
+export function InvestorDailyTable({ rows }: { rows: KrDailyFlow[] }) {
   return (
     <table className="w-full text-sm tabular-nums">
       <thead>

@@ -16,7 +16,9 @@ from zoneinfo import ZoneInfo
 
 import yfinance as yf
 
+from kis import KISClient
 from market_flow.calendar_utils import is_last_kr_trading_day_of_week
+from market_flow.fetchers.kr_market_investor import fetch_kosdaq_daily
 from market_flow.fetchers.naver_kr import fetch_kospi_daily
 from market_flow.fetchers.us_market import WATCH
 from market_flow.formatter import format_weekly
@@ -72,19 +74,31 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     print(
         f"📊 코스피 일별 수집 완료 — rows={len(kospi_daily) if isinstance(kospi_daily, (list, dict)) else '?'}"
     )
+    kosdaq_daily = []
+    try:
+        print("📥 코스닥 일별(KIS) 수집 시작")
+        kosdaq_daily = fetch_kosdaq_daily(bizdate, client=KISClient(svr="prod"))
+        print(f"📊 코스닥 일별 수집 완료 — rows={len(kosdaq_daily)}")
+    except Exception as e:
+        print(
+            f"⚠️ 코스닥 일별 수집 실패(코스피·워치는 계속) — {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+
     print("📥 워치 ETF 5거래일 누적 등락 수집 시작")
     watch_5d = _watch_5d_pct()
     print(f"📊 워치 ETF 수집 완료 — tickers={list(watch_5d.keys())}")
 
-    snapshot = build_weekly_snapshot(kospi_daily, watch_5d, now)
+    snapshot = build_weekly_snapshot(kospi_daily, kosdaq_daily, watch_5d, now)
     sources = (
         "\n\n출처: "
         f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
+        " · [KIS 코스닥 일별](https://apiportal.koreainvestment.com/apiservice/apiservice-domestic-stock-quotations#L_3d3dd20d-a64d-44ef-a7e2-ca110a5fe72e)"
         " · [Yahoo Finance](https://finance.yahoo.com/markets/)"
         f"{web_link_suffix_for_snapshot(snapshot)}"
     )
 
-    text = format_weekly(kospi_daily, watch_5d) + sources
+    text = format_weekly(kospi_daily, kosdaq_daily, watch_5d) + sources
     print(f"📤 Telegram 발송 시작 (텍스트, {len(text)} chars)")
     resp = send(text)
 

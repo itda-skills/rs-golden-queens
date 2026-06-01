@@ -102,7 +102,7 @@ weekly:  ## 주간 리포트 발송
 notify-test:  ## 텔레그램 핑 메시지 1회 (환경변수 동작 확인)
 		@$(PY) main.py notify-test $(TEST_ARG)
 
-smoke-kr:  ## 네이버 fetch 단독 점검 (텔레그램 발송 없음)
+smoke-kr:  ## KR 데이터 소스 단독 점검 (네이버 + KIS, 텔레그램 발송 없음)
 	@$(PY) main.py smoke-kr
 
 smoke-us:  ## yfinance fetch 단독 점검 (텔레그램 발송 없음)

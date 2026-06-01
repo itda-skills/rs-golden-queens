@@ -29,6 +29,10 @@ FAKE_KOSPI_DAILY = [
     },
 ]
 
+FAKE_KOSDAQ_DAILY = [
+    {"date": "09.19", "personal": -30, "foreign": 10, "institutional": 20}
+]
+
 
 def test_weekly_sends_on_friday_normal(monkeypatch):
     # 2025-09-19 금요일 정상 거래일
@@ -39,11 +43,16 @@ def test_weekly_sends_on_friday_normal(monkeypatch):
         patch(
             "market_flow.weekly.fetch_kospi_daily", return_value=FAKE_KOSPI_DAILY
         ) as mock_fetch,
+        patch(
+            "market_flow.weekly.fetch_kosdaq_daily", return_value=FAKE_KOSDAQ_DAILY
+        ) as mock_kosdaq,
+        patch("market_flow.weekly.KISClient"),
         patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 1.5}),
     ):
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         weekly.main(now=now)
         mock_fetch.assert_called_once()
+        mock_kosdaq.assert_called_once()
         mock_send.assert_called_once()
 
 
@@ -71,11 +80,16 @@ def test_weekly_sends_on_thursday_when_friday_holiday(monkeypatch):
         patch(
             "market_flow.weekly.fetch_kospi_daily", return_value=FAKE_KOSPI_DAILY
         ) as mock_fetch,
+        patch(
+            "market_flow.weekly.fetch_kosdaq_daily", return_value=FAKE_KOSDAQ_DAILY
+        ) as mock_kosdaq,
+        patch("market_flow.weekly.KISClient"),
         patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 1.0}),
     ):
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         weekly.main(now=now)
         mock_fetch.assert_called_once()
+        mock_kosdaq.assert_called_once()
         mock_send.assert_called_once()
 
 
@@ -98,6 +112,8 @@ def test_weekly_dry_run_on_last_trading_day(monkeypatch, capsys):
     with (
         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen,
         patch("market_flow.weekly.fetch_kospi_daily", return_value=FAKE_KOSPI_DAILY),
+        patch("market_flow.weekly.fetch_kosdaq_daily", return_value=FAKE_KOSDAQ_DAILY),
+        patch("market_flow.weekly.KISClient"),
         patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 1.5}),
     ):
         weekly.main(now=now)
@@ -105,6 +121,29 @@ def test_weekly_dry_run_on_last_trading_day(monkeypatch, capsys):
         out = capsys.readouterr().out
         # 주간 리포트 본문이 stdout에 출력되어야 함
         assert "주간" in out or "코스피" in out
+        assert "코스닥" in out
+
+
+def test_weekly_continues_when_kosdaq_fetch_fails(monkeypatch, capsys):
+    now = datetime(2025, 9, 19, 18, 30, tzinfo=KST)
+    monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
+    with (
+        patch("market_flow.weekly.send") as mock_send,
+        patch("market_flow.weekly.fetch_kospi_daily", return_value=FAKE_KOSPI_DAILY),
+        patch(
+            "market_flow.weekly.fetch_kosdaq_daily",
+            side_effect=RuntimeError("kis down"),
+        ),
+        patch("market_flow.weekly.KISClient"),
+        patch("market_flow.weekly._watch_5d_pct", return_value={"QQQ": 1.5}),
+    ):
+        mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
+        weekly.main(now=now)
+
+    mock_send.assert_called_once()
+    captured = capsys.readouterr()
+    assert "코스닥 일별 수집 실패" in captured.err
+    assert "✅ 주간 리포트 푸시" in captured.out
 
 
 def test_watch_5d_pct_single_ticker(monkeypatch):

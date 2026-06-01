@@ -42,6 +42,10 @@ _WEEKLY_SOURCES_TMPL = [
         "네이버 일별",
         "https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate}",
     ),
+    (
+        "KIS 코스닥 일별",
+        "https://apiportal.koreainvestment.com/apiservice/apiservice-domestic-stock-quotations#L_3d3dd20d-a64d-44ef-a7e2-ca110a5fe72e",
+    ),
     ("Yahoo Finance", "https://finance.yahoo.com/markets/"),
 ]
 
@@ -221,6 +225,7 @@ def _us_trade_date(data: dict[str, Any]) -> Optional[str]:
 
 def build_weekly_snapshot(
     kospi_daily: list[dict[str, Any]],
+    kosdaq_daily: list[dict[str, Any]],
     watch_5d: dict[str, float],
     now: datetime,
 ) -> dict[str, Any]:
@@ -228,6 +233,7 @@ def build_weekly_snapshot(
 
     Args:
         kospi_daily: ``naver_kr.fetch_kospi_daily()`` 반환 (KR 일일과 동일 행 구조).
+        kosdaq_daily: ``kr_market_investor.fetch_kosdaq_daily()`` 반환 (3주체 행).
         watch_5d: {ticker: pct_5d} (``weekly._watch_5d_pct()`` 반환).
         now: 발행 기준 시각 (KST aware 권장, 주차/날짜 산출에 사용).
     """
@@ -238,6 +244,7 @@ def build_weekly_snapshot(
     snap["week"] = _iso_week(kst_now)
     snap["payload"] = {
         "kospi_daily": kospi_daily,
+        "kosdaq_daily": kosdaq_daily,
         "watch_5d": [{"ticker": t, "pct_5d": pct} for t, pct in watch_5d.items()],
     }
     snap["sources"] = [
@@ -316,7 +323,11 @@ def _payload_all_empty(snapshot: dict[str, Any]) -> bool:
         sections = ("indices", "volatility", "risk_onoff", "macro", "sectors", "watch")
         return all(not payload.get(k) for k in sections)
     if market == "weekly":
-        return not (payload.get("kospi_daily") or payload.get("watch_5d"))
+        return not (
+            payload.get("kospi_daily")
+            or payload.get("kosdaq_daily")
+            or payload.get("watch_5d")
+        )
     if market == "kr":
         # bizdate 만으로는 유효가 아니다 — 빈 네이버 응답도 field=None dict 를 만든다.
         # 당일 합산(kospi/kosdaq)에 실제 수치가 하나라도 있거나 일별 추이가 있어야

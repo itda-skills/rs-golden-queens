@@ -32,11 +32,14 @@ export interface KrInvestorFlow {
   bizdate?: string;
 }
 
-export interface KrDailyRow {
+export interface KrDailyFlow {
   date: string; // "26.05.29"
   personal: number;
   foreign: number;
   institutional: number;
+}
+
+export interface KrDailyRow extends KrDailyFlow {
   finance: number;
   insurance: number;
   trust: number;
@@ -175,6 +178,8 @@ export interface Watch5d {
 
 export interface WeeklyPayload {
   kospi_daily: KrDailyRow[];
+  // 추가 키라 구버전 스냅샷엔 없을 수 있어 optional (없으면 코스닥 카드 미표시).
+  kosdaq_daily?: KrDailyFlow[];
   watch_5d: Watch5d[];
 }
 

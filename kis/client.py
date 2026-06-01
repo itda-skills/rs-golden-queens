@@ -585,6 +585,29 @@ class KISClient:
             },
         )
 
+    def inquire_investor_daily_by_market(
+        self, market: str, base_date: str
+    ) -> pd.DataFrame:
+        """시장별 투자자매매동향(일별) (FHPTJ04040000, HTS [0404]).
+
+        Args:
+            market: "KSP"=코스피, "KSQ"=코스닥.
+            base_date: 기준 최신일(YYYYMMDD). 응답은 최신순 일별 행.
+        """
+        iscd = "1001" if market == "KSQ" else "0001"
+        return self.fetch_dataframe(
+            "/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market",
+            "FHPTJ04040000",
+            {
+                "FID_COND_MRKT_DIV_CODE": "U",
+                "FID_INPUT_ISCD": iscd,
+                "FID_INPUT_DATE_1": base_date,
+                "FID_INPUT_ISCD_1": market,
+                "FID_INPUT_DATE_2": base_date,
+                "FID_INPUT_ISCD_2": iscd,
+            },
+        )
+
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     #  업종/시장 정보
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

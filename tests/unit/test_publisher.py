@@ -458,20 +458,36 @@ class TestUs:
 
 class TestWeekly:
     def test_iso_week(self, kr_data):
-        snap = P.build_weekly_snapshot(kr_data["kospi_daily"], {"SMH": 6.23}, _NOW_KST)
+        snap = P.build_weekly_snapshot(
+            kr_data["kospi_daily"], [], {"SMH": 6.23}, _NOW_KST
+        )
         assert snap["week"] == "2026-W22"
         assert snap["market"] == "weekly"
 
     def test_watch_5d_list_shape(self, kr_data):
         snap = P.build_weekly_snapshot(
-            kr_data["kospi_daily"], {"SMH": 6.23, "ITA": 5.50}, _NOW_KST
+            kr_data["kospi_daily"], [], {"SMH": 6.23, "ITA": 5.50}, _NOW_KST
         )
         w = snap["payload"]["watch_5d"]
         assert {"ticker": "SMH", "pct_5d": 6.23} in w
         assert len(w) == 2
 
+    def test_kosdaq_daily_payload_shape(self, kr_data):
+        kosdaq_daily = [
+            {
+                "date": "26.05.29",
+                "personal": -8793,
+                "foreign": 5975,
+                "institutional": 3010,
+            }
+        ]
+        snap = P.build_weekly_snapshot(
+            kr_data["kospi_daily"], kosdaq_daily, {}, _NOW_KST
+        )
+        assert snap["payload"]["kosdaq_daily"] == kosdaq_daily
+
     def test_path_uses_week(self, kr_data):
-        snap = P.build_weekly_snapshot(kr_data["kospi_daily"], {}, _NOW_KST)
+        snap = P.build_weekly_snapshot(kr_data["kospi_daily"], [], {}, _NOW_KST)
         assert P.snapshot_path(snap) == "snapshots/weekly/2026-W22.json"
 
 
@@ -595,9 +611,19 @@ class TestValidateSnapshot:
             "date": "2026-05-29",
             "week": "2026-W22",
             "is_holiday": False,
-            "payload": {"kospi_daily": [], "watch_5d": []},
+            "payload": {"kospi_daily": [], "kosdaq_daily": [], "watch_5d": []},
         }
         assert P.validate_snapshot(snap) is not None
+
+    def test_weekly_kosdaq_only_payload_ok(self):
+        snap = {
+            "market": "weekly",
+            "date": "2026-05-29",
+            "week": "2026-W22",
+            "is_holiday": False,
+            "payload": {"kospi_daily": [], "kosdaq_daily": [{"date": "26.05.29"}]},
+        }
+        assert P.validate_snapshot(snap) is None
 
     def test_unknown_market_blocked(self):
         assert P.validate_snapshot({"market": "xx", "date": "2026-05-29"}) is not None

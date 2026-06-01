@@ -801,7 +801,7 @@ class TestFormatWeekly:
             _make_daily_row(f"05.{20 + i:02d}", scale=i + 1) for i in range(5)
         ]
         watch_5d = {"QQQ": 2.5, "SMH": -1.2}
-        out = F.format_weekly(kospi_daily, watch_5d)
+        out = F.format_weekly(kospi_daily, [], watch_5d)
         assert "📅" in out
         assert "주간 매매동향 리포트" in out
         assert "🇰🇷" in out
@@ -812,16 +812,32 @@ class TestFormatWeekly:
 
     def test_handles_empty_watch_5d(self):
         kospi_daily = [_make_daily_row("05.25")]
-        out = F.format_weekly(kospi_daily, {})
+        out = F.format_weekly(kospi_daily, [], {})
         # watch_5d 가 비어있으면 워치 ETF 섹션 미출력
         assert "워치 ETF" not in out
         # 그러나 코스피 섹션은 출력됨
         assert "코스피" in out
 
+    def test_contains_kosdaq_when_rows_exist(self):
+        kospi_daily = [_make_daily_row("05.25")]
+        kosdaq_daily = [
+            {"date": "05.25", "personal": -30, "foreign": 10, "institutional": 20}
+        ]
+        out = F.format_weekly(kospi_daily, kosdaq_daily, {})
+        assert "코스피 1거래일 누적" in out
+        assert "코스닥 1거래일 누적" in out
+        assert "05.25" in out
+
+    def test_omits_kosdaq_when_rows_empty(self):
+        kospi_daily = [_make_daily_row("05.25")]
+        out = F.format_weekly(kospi_daily, [], {})
+        assert "코스피" in out
+        assert "코스닥" not in out
+
     def test_truncates_to_5_days_when_more_rows(self):
         # 7일분 입력 → 5일만 사용
         rows = [_make_daily_row(f"05.{15 + i:02d}") for i in range(7)]
-        out = F.format_weekly(rows, {"QQQ": 1.0})
+        out = F.format_weekly(rows, [], {"QQQ": 1.0})
         # 일별 표에 5개만 표시 — 05.15, 05.16, 05.17, 05.18, 05.19 만 출력
         assert "05.15" in out
         assert "05.19" in out

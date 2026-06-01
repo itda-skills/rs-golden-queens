@@ -210,6 +210,44 @@ class TestBudget:
 
 
 # ──────────────────────────────────────────────
+#  국내 시장별 투자자 일별 API 래퍼
+# ──────────────────────────────────────────────
+
+
+class TestInvestorDailyByMarket:
+    def test_kosdaq_params(self):
+        c = _client()
+        c.fetch_dataframe = MagicMock(return_value="df")
+
+        out = c.inquire_investor_daily_by_market("KSQ", "20260529")
+
+        assert out == "df"
+        c.fetch_dataframe.assert_called_once_with(
+            "/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market",
+            "FHPTJ04040000",
+            {
+                "FID_COND_MRKT_DIV_CODE": "U",
+                "FID_INPUT_ISCD": "1001",
+                "FID_INPUT_DATE_1": "20260529",
+                "FID_INPUT_ISCD_1": "KSQ",
+                "FID_INPUT_DATE_2": "20260529",
+                "FID_INPUT_ISCD_2": "1001",
+            },
+        )
+
+    def test_kospi_params(self):
+        c = _client()
+        c.fetch_dataframe = MagicMock(return_value="df")
+
+        c.inquire_investor_daily_by_market("KSP", "20260529")
+
+        params = c.fetch_dataframe.call_args.args[2]
+        assert params["FID_INPUT_ISCD"] == "0001"
+        assert params["FID_INPUT_ISCD_1"] == "KSP"
+        assert params["FID_INPUT_ISCD_2"] == "0001"
+
+
+# ──────────────────────────────────────────────
 #  get() / post() degrade
 # ──────────────────────────────────────────────
 

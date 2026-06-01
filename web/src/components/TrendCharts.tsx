@@ -2,20 +2,25 @@
 
 import { BarChart, type BarDatum } from "./BarChart";
 import { shortDate } from "@/lib/format";
-import type { KrDailyRow, Watch5d } from "@/lib/types";
+import type { KrDailyFlow, Watch5d } from "@/lib/types";
 
-// kospi_daily 는 최신순 → 차트는 시간순(오래된 것 왼쪽)으로
-function toChrono(rows: KrDailyRow[]): KrDailyRow[] {
+// 일별 순매수 행(코스피·코스닥 공용)은 최신순 → 차트는 시간순(오래된 것 왼쪽)으로
+function toChrono(rows: KrDailyFlow[]): KrDailyFlow[] {
   return [...rows].reverse();
 }
 
-const SERIES: { key: keyof KrDailyRow; label: string }[] = [
+type FlowSeriesKey = keyof Pick<
+  KrDailyFlow,
+  "foreign" | "institutional" | "personal"
+>;
+
+const SERIES: { key: FlowSeriesKey; label: string }[] = [
   { key: "foreign", label: "외국인" },
   { key: "institutional", label: "기관" },
   { key: "personal", label: "개인" },
 ];
 
-export function KospiTrendCharts({ rows }: { rows: KrDailyRow[] }) {
+export function InvestorTrendCharts({ rows }: { rows: KrDailyFlow[] }) {
   const chrono = toChrono(rows);
   return (
     <div className="space-y-5">

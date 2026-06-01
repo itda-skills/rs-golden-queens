@@ -64,6 +64,11 @@ export const CARD_INFO = {
       "한 주 거래일별 코스피 외국인·기관·개인 순매수 추이(억원). 일별 노이즈를 줄여 '그 주의 방향'을 본다.",
     href: "/guide#weekly-common",
   },
+  weeklyKosdaq: {
+    tooltip:
+      "한 주 거래일별 코스닥 외국인·기관·개인 순매수 추이(억원). 일별 노이즈를 줄여 '그 주의 방향'을 본다.",
+    href: "/guide#weekly-common",
+  },
   weeklyWatch: {
     tooltip:
       "워치 ETF의 가장 최근 종가 대 5거래일 전 종가 등락률(점대점). 매일 등락의 합이 아니다.",

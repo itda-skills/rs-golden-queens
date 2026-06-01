@@ -42,6 +42,19 @@ def _fake_kospi_daily():
     ]
 
 
+def _fake_kosdaq_daily():
+    """fetch_kosdaq_daily 가 반환하는 5거래일 row 합성."""
+    return [
+        {
+            "date": f"05.{20 + i:02d}",
+            "personal": -30 - i,
+            "foreign": 10 + i,
+            "institutional": 20,
+        }
+        for i in range(5)
+    ]
+
+
 # ──────────────────────────────────────────────
 #  main() 통합
 # ──────────────────────────────────────────────
@@ -58,6 +71,11 @@ def test_weekly_main_dry_run_outputs_report(monkeypatch, capsys):
             "market_flow.weekly.fetch_kospi_daily", return_value=_fake_kospi_daily()
         ) as mock_kr,
         patch(
+            "market_flow.weekly.fetch_kosdaq_daily",
+            return_value=_fake_kosdaq_daily(),
+        ) as mock_kosdaq,
+        patch("market_flow.weekly.KISClient"),
+        patch(
             "market_flow.weekly._watch_5d_pct", return_value={"QQQ": 2.5, "SMH": -1.5}
         ) as mock_watch,
         patch("market_flow.telegram_push.urllib.request.urlopen") as mock_urlopen,
@@ -67,12 +85,14 @@ def test_weekly_main_dry_run_outputs_report(monkeypatch, capsys):
 
     mock_urlopen.assert_not_called()
     mock_kr.assert_called_once()
+    mock_kosdaq.assert_called_once()
     mock_watch.assert_called_once()
 
     out = capsys.readouterr().out
     assert "📅" in out
     assert "주간 매매동향 리포트" in out
     assert "코스피" in out
+    assert "코스닥" in out
     assert "워치 ETF" in out
     assert "✅ 주간 리포트 푸시" in out
 

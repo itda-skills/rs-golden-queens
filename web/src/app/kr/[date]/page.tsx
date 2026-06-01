@@ -8,13 +8,13 @@ import {
 import {
   ForeignInstTable,
   InvestorFlowTable,
-  KospiDailyTable,
+  InvestorDailyTable,
   MoneyFlowSellTable,
   MoneyFlowTable,
   ProgramTable,
 } from "@/components/Tables";
 import { HBarChart } from "@/components/BarChart";
-import { KospiTrendCharts } from "@/components/TrendCharts";
+import { InvestorTrendCharts } from "@/components/TrendCharts";
 import { PrevNext } from "@/components/PrevNext";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { adjacent } from "@/lib/adjacent";
@@ -154,14 +154,14 @@ export default async function KrDetail({
               subtitle="최근 거래일 (억원)"
               info={<InfoTooltip {...CARD_INFO.krDaily} />}
             >
-              <KospiTrendCharts rows={snap.payload.kospi_daily} />
+              <InvestorTrendCharts rows={snap.payload.kospi_daily} />
             </Card>
             <Card
               title="일별 상세"
               subtitle="외국인 / 기관 / 개인 (억원)"
               info={<InfoTooltip {...CARD_INFO.krDaily} />}
             >
-              <KospiDailyTable rows={snap.payload.kospi_daily} />
+              <InvestorDailyTable rows={snap.payload.kospi_daily} />
             </Card>
             <SourceList sources={snap.sources} />
           </>

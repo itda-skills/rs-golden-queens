@@ -15,7 +15,9 @@ import type {
 const DATA_REPO =
   process.env.NEXT_PUBLIC_DATA_REPO ?? "itda-skills/rs-golden-queens-data";
 const DATA_BRANCH = process.env.NEXT_PUBLIC_DATA_BRANCH ?? "main";
-const RAW_BASE = `https://raw.githubusercontent.com/${DATA_REPO}/${DATA_BRANCH}`;
+const DATA_BASE_URL = process.env.NEXT_PUBLIC_DATA_BASE_URL?.replace(/\/$/, "");
+const RAW_BASE =
+  DATA_BASE_URL ?? `https://raw.githubusercontent.com/${DATA_REPO}/${DATA_BRANCH}`;
 
 // ISR: 발행은 거래일 마감 후 1회. 10분마다 재검증하면 충분.
 const REVALIDATE_SECONDS = 600;

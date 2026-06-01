@@ -18,6 +18,7 @@ npm run build    # 정적 생성 검증
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
+| `NEXT_PUBLIC_DATA_BASE_URL` | unset | 로컬/프리뷰용 스냅샷 base URL. 설정 시 repo/branch보다 우선 |
 | `NEXT_PUBLIC_DATA_REPO` | `itda-skills/rs-golden-queens-data` | 발행 데이터 저장소 |
 | `NEXT_PUBLIC_DATA_BRANCH` | `main` | 읽을 브랜치 (test 가능) |
 
@@ -35,7 +36,7 @@ npm run build    # 정적 생성 검증
 | `/` | 최신 KR/US/주간 요약 |
 | `/kr/[date]` | 한국장 일별 (코스피·코스닥·프로그램매매·추이) |
 | `/us/[date]` | 미국장 (지수·변동성·매크로·섹터·워치ETF) |
-| `/weekly/[week]` | 주간 (코스피 추이 + 워치 5일 등락) |
+| `/weekly/[week]` | 주간 (코스피·코스닥 추이 + 워치 5일 등락) |
 | `/archive` | 전체 발행 날짜 인덱스 |
 
 색 컨벤션: 한국 증시 관례 — 상승 🔴 / 하락 🔵 / 보합 –.
