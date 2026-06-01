@@ -14,15 +14,21 @@ from kis import KISClient
 # KIS 가집계 응답 컬럼 (FHPTJ04400000 output)
 _CODE = "mksc_shrn_iscd"
 _NAME = "hts_kor_isnm"
-_FRGN = "frgn_ntby_tr_pbmn"  # 외국인 순매수 거래대금(원)
-_ORGN = "orgn_ntby_tr_pbmn"  # 기관계 순매수 거래대금(원)
+_FRGN = "frgn_ntby_tr_pbmn"  # 외국인 순매수 거래대금(백만원)
+_ORGN = "orgn_ntby_tr_pbmn"  # 기관계 순매수 거래대금(백만원)
 _BOGUS_CODES = {"", "nan", "none", "<na>", "null"}
 
 
 def _to_eok(v):
-    """원 단위 문자열/숫자 → 억원(소수1). 파싱 불가·NaN·Inf 는 None."""
+    """백만원 단위 문자열/숫자 → 억원(소수1). 파싱 불가·NaN·Inf 는 None.
+
+    KIS frgn/orgn_ntby_tr_pbmn 의 단위는 '원'이 아니라 '백만원'이다.
+    1억원 = 100백만원 → 백만원을 억원으로 바꾸려면 100 으로 나눈다. (과거 버그:
+    /1e8 로 원 단위처럼 환산해 수천억 값이 0.00x → round(,1) 후 0.0/-0.0 으로
+    뭉개졌다. 수량×현재가 역산에서 원/pbmn 이 정확히 1e6 임을 확인.)
+    """
     try:
-        x = float(str(v).replace(",", "").strip()) / 1e8
+        x = float(str(v).replace(",", "").strip()) / 100
     except (ValueError, TypeError):
         return None
     if math.isnan(x) or math.isinf(x):

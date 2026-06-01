@@ -40,6 +40,19 @@ def _warn_block(warnings: list[str]) -> str:
     return ("\n\n" + "\n".join(warnings)) if warnings else ""
 
 
+def _foreign_inst_all_zero(fi: dict) -> bool:
+    """가집계 행은 있으나 외인·기관 금액이 전부 0/None 인지(단위·스케일 회귀 가드).
+
+    행 개수만 보는 가드(n_buy/n_sell)는 'frgn/orgn_ntby_tr_pbmn 단위 오해(백만원↔
+    원)로 전부 0' 같은 침묵 회귀를 놓친다 — 실제로 한 번 발생했다(#10). 순매수·순매도
+    어느 행에서도 0 이 아닌 금액이 하나도 없으면 True (round(,1) 라 0.0/-0.0 은 falsy).
+    """
+    rows = (fi.get("buy") or []) + (fi.get("sell") or [])
+    if not rows:
+        return False  # 행 자체가 없으면 위 'n_buy==0 and n_sell==0' 가 담당
+    return not any(r.get("foreign_eok") or r.get("orgn_eok") for r in rows)
+
+
 def _norm_yyyymmdd(s: Optional[str], year_hint: Optional[str] = None) -> Optional[str]:
     """다양한 날짜 표기를 YYYYMMDD 로 정규화.
 
@@ -195,6 +208,8 @@ def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
         data["foreign_inst"] = fi
         if n_buy == 0 and n_sell == 0:
             warnings.append("⚠️ 가집계 수집 결과 없음")
+        elif _foreign_inst_all_zero(fi):
+            warnings.append("⚠️ 가집계 금액 전부 0 (단위·스케일 의심)")
     except Exception as e:  # noqa: BLE001 — 발송 보호: 가집계 실패가 전체를 막지 않음
         print(f"⚠️  가집계 수집 실패 (메시지에서 제외): {e}", file=sys.stderr)
         warnings.append("⚠️ 가집계 수집 실패")

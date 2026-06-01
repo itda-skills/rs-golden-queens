@@ -569,3 +569,21 @@ def test_kr_integrity_none_field_skipped():
 def test_kr_integrity_empty_no_warning():
     assert daily_kr._build_kr_integrity_warnings({}) == []
     assert daily_kr._build_kr_integrity_warnings({"kospi_daily": []}) == []
+
+
+def test_foreign_inst_all_zero_guard():
+    # 행은 있으나 외인·기관 금액이 전부 0/-0/None → '단위·스케일 의심' 가드가 잡는다.
+    # (행 개수만 보던 가드가 백만원↔원 단위 회귀를 침묵 통과시킨 실제 버그 방지 — #10)
+    all_zero = {
+        "buy": [{"foreign_eok": 0.0, "orgn_eok": -0.0}],
+        "sell": [{"foreign_eok": 0.0, "orgn_eok": 0.0}],
+    }
+    assert daily_kr._foreign_inst_all_zero(all_zero) is True
+    # 결측(None)도 0 취급 — 전부 None 이면 True
+    all_none = {"buy": [{"foreign_eok": None, "orgn_eok": None}], "sell": []}
+    assert daily_kr._foreign_inst_all_zero(all_none) is True
+    # 0 아닌 금액이 하나라도 있으면 False(정상)
+    has_value = {"buy": [{"foreign_eok": 3835.5, "orgn_eok": 0.0}], "sell": []}
+    assert daily_kr._foreign_inst_all_zero(has_value) is False
+    # 행 자체가 없으면 False — 그건 n_buy==0 가드의 몫
+    assert daily_kr._foreign_inst_all_zero({"buy": [], "sell": []}) is False
