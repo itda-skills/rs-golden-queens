@@ -35,6 +35,10 @@ jobs:
         env:
           GOLDENQUEENS_BOT_TOKEN: ${{ secrets.GOLDENQUEENS_BOT_TOKEN }}
           GOLDENQUEENS_CHAT_ID:   ${{ secrets.GOLDENQUEENS_CHAT_ID }}
+          # 운영 발송 후 테스트 채널로도 동일 메시지 미러(확인용, best-effort)
+          TEST_GOLDENQUEENS_BOT_TOKEN: ${{ secrets.TEST_GOLDENQUEENS_BOT_TOKEN }}
+          TEST_GOLDENQUEENS_CHAT_ID:   ${{ secrets.TEST_GOLDENQUEENS_CHAT_ID }}
+          MARKET_FLOW_MIRROR_TEST: '1'
           KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCOUNT:            ${{ secrets.KIS_ACCOUNT }}

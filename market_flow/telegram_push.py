@@ -6,7 +6,12 @@
 
 기본 발송은 GOLDENQUEENS_BOT_TOKEN / GOLDENQUEENS_CHAT_ID 를 사용합니다.
 MARKET_FLOW_TEST_SEND=1 이면 TEST_GOLDENQUEENS_BOT_TOKEN /
-TEST_GOLDENQUEENS_CHAT_ID 를 사용합니다.
+TEST_GOLDENQUEENS_CHAT_ID 를 사용합니다(운영 대신 테스트 채널로 '대체' 발송).
+
+MARKET_FLOW_MIRROR_TEST=1 이면 운영 채널 발송 '후' 동일 메시지를
+TEST_GOLDENQUEENS_* 테스트 채널로도 '추가' 발송합니다(미러, best-effort).
+미러 실패는 운영 결과·종료에 영향을 주지 않습니다. 대체 모드
+(MARKET_FLOW_TEST_SEND)와 함께면 이미 테스트로 발송되므로 미러는 생략됩니다.
 
 GOLDENQUEENS_CHAT_ID 와 TEST_GOLDENQUEENS_CHAT_ID 는 **콤마로 구분된 여러 chat_id** 를 지원합니다.
   예: "42478249"                 → 1곳
@@ -162,6 +167,15 @@ def _is_dry_run():
     }
 
 
+def _is_mirror_test():
+    """운영 발송 후 테스트 채널 미러 여부 (MARKET_FLOW_MIRROR_TEST)."""
+    return os.environ.get("MARKET_FLOW_MIRROR_TEST", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
 # ANSI 색상 — dry-run stdout 가독성용 (텔레그램 발송 텍스트와 무관)
 _ANSI_RED = "\033[31m"
 _ANSI_BLUE = "\033[34m"
@@ -233,6 +247,42 @@ def _aggregate(results):
     }
 
 
+def _test_chat_ids():
+    """TEST_GOLDENQUEENS_CHAT_ID 를 콤마로 분리한 리스트. 비었으면 RuntimeError."""
+    raw, _ = _env_first(("TEST_GOLDENQUEENS_CHAT_ID",))
+    ids = [s.strip() for s in raw.split(",") if s.strip()]
+    if not ids:
+        raise RuntimeError("TEST_GOLDENQUEENS_CHAT_ID 에 유효한 chat_id 가 없음")
+    return ids
+
+
+def _mirror_to_test(text, parse_mode, disable_notification):
+    """운영 발송 후 테스트 채널로 동일 메시지 미러(best-effort).
+
+    실패는 운영 결과·종료에 영향을 주지 않는다(경고만). 대체 모드
+    (MARKET_FLOW_TEST_SEND)일 때는 이미 테스트로 발송됐으므로 호출 측에서
+    제외한다(중복 방지).
+    """
+    try:
+        token, _ = _env_first(("TEST_GOLDENQUEENS_BOT_TOKEN",))
+        ids = _test_chat_ids()
+    except RuntimeError as e:
+        _warn(f"[mirror] 건너뜀 — 테스트 환경변수 없음: {e}")
+        return
+    _log(
+        f"[mirror] 테스트 채널 발송 시작 — chat_count={len(ids)} "
+        f"chat_ids={_mask_env_values(ids)}"
+    )
+    for cid in ids:
+        try:
+            _post_message(token, cid, text, parse_mode, disable_notification)
+            _log(f"  [mirror] → chat={_mask_chat_id(cid)} ok=True")
+        except Exception as e:
+            _warn(
+                f"  [mirror] → chat={_mask_chat_id(cid)} 실패: {type(e).__name__}: {e}"
+            )
+
+
 def send(text, parse_mode="Markdown", disable_notification=False):
     """텔레그램 채널/그룹/개인으로 메시지 발송. 다중 chat_id 지원.
 
@@ -256,6 +306,15 @@ def send(text, parse_mode="Markdown", disable_notification=False):
         print("─" * 60)
         print(_colorize_for_stdout(text))
         print("─" * 60)
+        if _is_mirror_test() and not _is_test_send():
+            try:
+                tids = _test_chat_ids()
+            except RuntimeError:
+                tids = ["<unset>"]
+            print(
+                f"[DRY-RUN] mirror_test=on → 테스트 채널 {len(tids)}곳에도 발송 예정 "
+                f"{_mask_env_values(tids)}"
+            )
         results = [
             {"chat_id": c, "ok": True, "result": {"message_id": 0}, "dry_run": True}
             for c in ids
@@ -297,6 +356,11 @@ def send(text, parse_mode="Markdown", disable_notification=False):
 
     ok_n = sum(1 for r in results if r["ok"])
     _log(f"send() 완료 — 성공 {ok_n}/{len(results)}")
+
+    # 운영 발송 후 미러(best-effort). 대체 모드(test-send)면 이미 테스트로 갔으므로 제외.
+    if _is_mirror_test() and not _is_test_send():
+        _mirror_to_test(text, parse_mode, disable_notification)
+
     return _aggregate(results)
 
 

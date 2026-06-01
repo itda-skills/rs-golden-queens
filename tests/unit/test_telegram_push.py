@@ -320,6 +320,124 @@ class TestSendWithTestSecrets:
 
 
 # ──────────────────────────────────────────────
+#  MARKET_FLOW_MIRROR_TEST — 운영 후 테스트 채널 미러
+# ──────────────────────────────────────────────
+
+
+class TestIsMirrorTest:
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", " 1 "])
+    def test_truthy_values(self, value, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", value)
+        assert tp._is_mirror_test() is True
+
+    @pytest.mark.parametrize("value", ["0", "false", "no", "", "random"])
+    def test_falsy_values(self, value, monkeypatch):
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", value)
+        assert tp._is_mirror_test() is False
+
+    def test_unset_returns_false(self, monkeypatch):
+        monkeypatch.delenv("MARKET_FLOW_MIRROR_TEST", raising=False)
+        assert tp._is_mirror_test() is False
+
+
+class TestMirrorToTest:
+    def _resp(self, mid=1):
+        m = MagicMock()
+        m.read.return_value = json.dumps(
+            {"ok": True, "result": {"message_id": mid}}
+        ).encode()
+        m.__enter__ = MagicMock(return_value=m)
+        m.__exit__ = MagicMock(return_value=False)
+        return m
+
+    def _setup_prod(self, monkeypatch):
+        monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
+        monkeypatch.delenv("MARKET_FLOW_TEST_SEND", raising=False)
+        monkeypatch.setenv("GOLDENQUEENS_BOT_TOKEN", "PROD_TOKEN")
+        monkeypatch.setenv("GOLDENQUEENS_CHAT_ID", "prod-chat")
+
+    def test_mirror_sends_to_prod_then_test(self, monkeypatch):
+        self._setup_prod(monkeypatch)
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            side_effect=[self._resp(1), self._resp(2)],
+        ) as mock_u:
+            resp = tp.send("hi")
+        assert mock_u.call_count == 2  # 운영 1 + 미러 1
+        urls = [c.args[0].full_url for c in mock_u.call_args_list]
+        chats = [
+            urllib.parse.parse_qs(c.args[0].data.decode())["chat_id"][0]
+            for c in mock_u.call_args_list
+        ]
+        assert urls[0].endswith("botPROD_TOKEN/sendMessage")
+        assert chats[0] == "prod-chat"
+        assert urls[1].endswith("botTEST_TOKEN/sendMessage")
+        assert chats[1] == "test-chat"
+        assert resp["ok"] is True  # 운영 성공 기준 (미러는 결과에 미반영)
+
+    def test_mirror_skipped_in_test_send_mode(self, monkeypatch):
+        # 대체 모드(MARKET_FLOW_TEST_SEND)면 이미 테스트로 발송 → 미러 생략(1회만)
+        monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
+        monkeypatch.setenv("MARKET_FLOW_TEST_SEND", "1")
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._resp(),
+        ) as mock_u:
+            tp.send("hi")
+        assert mock_u.call_count == 1
+
+    def test_mirror_skipped_when_test_env_missing(self, monkeypatch, capsys):
+        self._setup_prod(monkeypatch)
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", "1")
+        monkeypatch.delenv("TEST_GOLDENQUEENS_BOT_TOKEN", raising=False)
+        monkeypatch.delenv("TEST_GOLDENQUEENS_CHAT_ID", raising=False)
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._resp(),
+        ) as mock_u:
+            resp = tp.send("hi")
+        assert mock_u.call_count == 1  # 운영만, 미러는 스킵
+        assert resp["ok"] is True
+        assert "[mirror]" in capsys.readouterr().err  # 경고 노출
+
+    def test_mirror_failure_does_not_affect_prod_result(self, monkeypatch):
+        self._setup_prod(monkeypatch)
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_BOT_TOKEN", "TEST_TOKEN")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+
+        def side_effect(*args, **kwargs):
+            req = args[0]
+            chat = urllib.parse.parse_qs(req.data.decode())["chat_id"][0]
+            if chat == "test-chat":
+                raise urllib.error.HTTPError(
+                    url=req.full_url, code=400, msg="bad", hdrs=None, fp=None
+                )
+            return self._resp()
+
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen", side_effect=side_effect
+        ):
+            resp = tp.send("hi")
+        assert resp["ok"] is True  # 운영 성공, 미러 실패는 무관(best-effort)
+
+    def test_dry_run_notes_mirror_without_sending(self, monkeypatch, capsys):
+        monkeypatch.setenv("MARKET_FLOW_DRY_RUN", "1")
+        monkeypatch.setenv("MARKET_FLOW_MIRROR_TEST", "1")
+        monkeypatch.setenv("TEST_GOLDENQUEENS_CHAT_ID", "test-chat")
+        with patch("market_flow.telegram_push.urllib.request.urlopen") as mock_u:
+            tp.send("hi")
+            mock_u.assert_not_called()
+        assert "mirror_test=on" in capsys.readouterr().out
+
+
+# ──────────────────────────────────────────────
 #  _colorize_for_stdout
 # ──────────────────────────────────────────────
 

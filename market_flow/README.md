@@ -64,10 +64,12 @@ repo Settings → Secrets and variables → Actions → New repository secret
 |---|---|
 | `GOLDENQUEENS_BOT_TOKEN` | BotFather에서 받은 봇 토큰 |
 | `GOLDENQUEENS_CHAT_ID` | 채널 chat_id (`-100...` 음수) |
-| `TEST_GOLDENQUEENS_BOT_TOKEN` | `--test` 발송에 사용할 테스트 봇 토큰 |
-| `TEST_GOLDENQUEENS_CHAT_ID` | `--test` 발송에 사용할 테스트 채널 chat_id |
+| `TEST_GOLDENQUEENS_BOT_TOKEN` | `--test` 대체 발송 및 운영 미러에 쓸 테스트 봇 토큰 |
+| `TEST_GOLDENQUEENS_CHAT_ID` | `--test` 대체 발송 및 운영 미러에 쓸 테스트 채널 chat_id |
 
 > chat_id 확인: `curl "https://api.telegram.org/bot<TOKEN>/getUpdates"` 후 채널에서 메시지 한 줄 보내고 응답의 `chat.id` 추출
+>
+> 운영 워크플로우(flow-kr/us/weekly)는 `MARKET_FLOW_MIRROR_TEST=1`로 설정돼, 운영 채널 발송 **후** 동일 메시지를 `TEST_GOLDENQUEENS_*` 테스트 채널에도 미러합니다(best-effort — 미러 실패는 운영 발송 결과·종료에 영향 없음). `--test`(`MARKET_FLOW_TEST_SEND`) 대체 모드와 함께면 이미 테스트로 발송되므로 미러는 생략됩니다.
 
 ### 2. 워크플로우 실행
 
