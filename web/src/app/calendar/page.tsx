@@ -10,7 +10,7 @@ import {
 import type { CalendarOverviews } from "@/lib/types";
 
 export const revalidate = 600;
-export const metadata = { title: "거래일 캘린더" };
+export const metadata = { title: "발행 캘린더" };
 
 async function buildOverviews(
   krDates: string[],
@@ -65,7 +65,7 @@ export default async function CalendarPage() {
   if (!cal) {
     return (
       <Container>
-        <h1 className="text-xl font-bold mb-6">거래일 캘린더</h1>
+        <h1 className="text-xl font-bold mb-6">발행 캘린더</h1>
         <Card>
           <p className="text-sm text-neutral-500">
             아직 캘린더 데이터가 발행되지 않았습니다.
@@ -94,17 +94,20 @@ export default async function CalendarPage() {
 
   return (
     <Container>
-      <h1 className="text-xl font-bold mb-1">거래일 캘린더</h1>
+      <h1 className="text-xl font-bold mb-1">발행 캘린더</h1>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-        KR/US 거래일·휴장. 발행된 날짜(동그라미)를 클릭하면 한국장·미국장 데이터를
-        선택해 볼 수 있습니다.
+        발행된 날짜(동그라미)를 클릭하면 한국장·미국장 데이터를 선택해 볼 수
+        있습니다. 점은 그 날 발행된 항목을 나타냅니다.
       </p>
       <div className="flex flex-wrap gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> 한국 거래일
+          <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> 한국장
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> 미국 거래일
+          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> 미국장
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> 주간 리포트
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white text-[9px]">
@@ -112,14 +115,8 @@ export default async function CalendarPage() {
           </span>{" "}
           발행됨 (클릭하여 보기)
         </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block w-4 h-4 rounded-full bg-blue-600 ring-2 ring-amber-400 ring-inset" />{" "}
-          주간 리포트 포함
-        </span>
       </div>
       <CalendarGrid
-        krDays={cal.kr}
-        usDays={cal.us}
         krPublished={krPublished}
         usPublished={usPublished}
         overviews={overviews}

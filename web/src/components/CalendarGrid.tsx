@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { colorClass, signedAmount, signedPct } from "@/lib/format";
 import type { CalendarOverviews } from "@/lib/types";
 
-// 거래일/휴장 캘린더 (표시 전용 — 판정은 발행된 calendar 스냅샷에 위임).
-// 발행일 셀 클릭 시 팝오버: KR/US 링크 + 그 주 주간 리포트 링크 + 간략 overview.
+// 발행 캘린더 (표시 전용 — 판정은 발행된 calendar 스냅샷에 위임).
+// 발행(데이터 있는) 날짜만 마커·클릭을 노출한다. 셀 클릭 시 팝오버:
+// KR/US 링크 + 그 주 주간 리포트 링크 + 간략 overview.
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -19,12 +20,10 @@ function iso(d: Date) {
 }
 
 export interface CalendarGridProps {
-  krDays: string[];
-  usDays: string[];
   krPublished: string[];
   usPublished: string[];
   overviews: CalendarOverviews;
-  // 주간 리포트 기준일(snap.date) → ISO week. 그 셀 팝오버에 주간 링크를 배치한다.
+  // 주간 리포트 기준일(snap.date) → ISO week. 그 셀에 주간 마커·링크를 배치한다.
   weeklyByDate: Record<string, string>;
   start: string;
   end: string;
@@ -136,8 +135,6 @@ function Popover({
 function MonthCard({
   year,
   month,
-  krSet,
-  usSet,
   krPubSet,
   usPubSet,
   overviews,
@@ -147,8 +144,6 @@ function MonthCard({
 }: {
   year: number;
   month: number;
-  krSet: Set<string>;
-  usSet: Set<string>;
   krPubSet: Set<string>;
   usPubSet: Set<string>;
   overviews: CalendarOverviews;
@@ -181,46 +176,39 @@ function MonthCard({
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} />;
           const id = iso(d);
-          const isKr = krSet.has(id);
-          const isUs = usSet.has(id);
-          const trading = isKr || isUs;
           const day = d.getUTCDate();
           const hasKr = krPubSet.has(id);
           const hasUs = usPubSet.has(id);
           const week = weeklyByDate[id];
           const hasWeekly = !!week;
-          // 주간 리포트 기준일도 발행 셀로 취급(보통 그 주 마지막 거래일과 일치).
-          const published = hasKr || hasUs;
-          const clickable = published || hasWeekly;
+          // 발행(데이터 있는) 날짜만 마커·클릭을 노출한다.
+          const clickable = hasKr || hasUs || hasWeekly;
 
-          // 주간 리포트가 있는 날은 amber 링으로 강조.
-          const circleClass = clickable
-            ? `inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white font-semibold${hasWeekly ? " ring-2 ring-amber-400" : ""}`
-            : trading
-              ? "inline-flex items-center justify-center w-6 h-6 text-neutral-800 dark:text-neutral-100"
-              : "inline-flex items-center justify-center w-6 h-6 text-neutral-300 dark:text-neutral-700";
-
-          const inner = (
-            <>
-              <span className={circleClass}>{day}</span>
-              <div className="flex justify-center gap-0.5 h-1.5 mt-0.5">
-                {isKr && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
-                {isUs && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
-              </div>
-            </>
-          );
+          const dayClass = clickable
+            ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white font-semibold"
+            : "inline-flex items-center justify-center w-6 h-6 text-neutral-300 dark:text-neutral-600";
 
           if (!clickable) {
             return (
-              <div
-                key={id}
-                className="py-1"
-                title={trading ? `${id} 거래일` : `${id} 휴장`}
-              >
-                {inner}
+              <div key={id} className="py-1">
+                <span className={dayClass}>{day}</span>
               </div>
             );
           }
+
+          // KR/US 마커와 동일한 점(dot) 방식으로 주간 리포트도 표시(amber).
+          const inner = (
+            <>
+              <span className={dayClass}>{day}</span>
+              <div className="flex justify-center gap-0.5 h-1.5 mt-0.5">
+                {hasKr && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                {hasUs && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                {hasWeekly && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                )}
+              </div>
+            </>
+          );
 
           const open = openId === id;
           return (
@@ -273,8 +261,6 @@ export function CalendarGrid(props: CalendarGridProps) {
     };
   }, [openId]);
 
-  const krSet = new Set(props.krDays);
-  const usSet = new Set(props.usDays);
   const krPubSet = new Set(props.krPublished);
   const usPubSet = new Set(props.usPublished);
   // 최신 월을 먼저 — 2열 그리드에서 최신이 좌상단으로 온다.
@@ -287,8 +273,6 @@ export function CalendarGrid(props: CalendarGridProps) {
           key={ymKey(y, m)}
           year={y}
           month={m}
-          krSet={krSet}
-          usSet={usSet}
           krPubSet={krPubSet}
           usPubSet={usPubSet}
           overviews={props.overviews}
