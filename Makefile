@@ -11,6 +11,11 @@
 #   make smoke-us     # yfinance fetch 단독 점검 (텔레그램 발송 없음)
 #   make clean        # 캐시 정리
 #
+# Cloudflare cron-worker (트리거 발사 장치):
+#   make cron-deploy           # 배포 (wrangler.toml 의 cron 변경 반영)
+#   make cron-tail             # 실시간 로그 (발사 확인)
+#   make cron-trigger WF=kr    # 워크플로 수동 발사 (GITHUB_PAT 필요)
+#
 # Dry-run (텔레그램 발송 없이 stdout 출력):
 #   make daily-kr DRY=1
 #   make daily-us DRY=1 DATE=2026-05-22
@@ -25,6 +30,7 @@
 #   TEST_GOLDENQUEENS_CHAT_ID    테스트용 수신 chat_id
 
 PKG_DIR := market_flow
+CRON_DIR := cron-worker
 VENV_DIR := .venv
 VENV_PY := $(VENV_DIR)/bin/python
 
@@ -46,7 +52,7 @@ TEST_ARG := --test
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean
+.PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean cron-install cron-deploy cron-tail cron-trigger
 
 help:  ## 사용 가능한 명령 목록
 	@printf "rs-golden-queens — 사용 가능한 명령\n\n"
@@ -105,3 +111,15 @@ smoke-us:  ## yfinance fetch 단독 점검 (텔레그램 발송 없음)
 clean:  ## __pycache__ 제거
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache .coverage htmlcov
+
+cron-install:  ## cron-worker 의존성 설치 (wrangler)
+	cd $(CRON_DIR) && npm install
+
+cron-deploy:  ## Cloudflare cron-worker 배포 (wrangler.toml 의 cron 변경 반영)
+	cd $(CRON_DIR) && npx wrangler deploy
+
+cron-tail:  ## cron-worker 실시간 로그 (발사 확인)
+	cd $(CRON_DIR) && npx wrangler tail
+
+cron-trigger:  ## 워크플로 수동 발사. WF=kr|us|weekly|calendar|flow-*.yml (GITHUB_PAT 필요)
+	cd $(CRON_DIR) && node scripts/trigger.mjs $(WF)

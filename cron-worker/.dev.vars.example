@@ -1,0 +1,4 @@
+# 로컬 테스트(`npm run dev`)용 환경변수 템플릿.
+# 실제 값은 `.dev.vars` 에 적는다(이 파일은 .gitignore 대상, 커밋 금지).
+# 배포 환경에서는 이 값을 쓰지 않고 `wrangler secret put GH_TOKEN` 으로 주입한 시크릿을 쓴다.
+GH_TOKEN=github_pat_xxx_fine_grained_token_with_actions_read_write

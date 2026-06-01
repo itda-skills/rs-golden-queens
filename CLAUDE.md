@@ -2,7 +2,7 @@
 
 이 저장소에서 항상 필요한 최소 지침이다. 작업 절차는 사용자의 현재 요청과 필요 시 붙여넣는 작업별 지시가 우선한다.
 
-rs-golden-queens는 한국장·미국장 마감 후 시장 매매동향 요약을 텔레그램으로 보내는 개인 투자 데이터 봇이다. NAS 작업 스케줄러가 GitHub Actions `flow-*` 워크플로우를 `workflow_dispatch`로 호출한다.
+rs-golden-queens는 한국장·미국장 마감 후 시장 매매동향 요약을 텔레그램으로 보내는 개인 투자 데이터 봇이다. Cloudflare cron-worker(`cron-worker/`)가 GitHub Actions `flow-*` 워크플로우를 `workflow_dispatch`로 호출한다.
 
 ## 기본
 

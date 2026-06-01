@@ -1,0 +1,16 @@
+{
+  "name": "rs-golden-queens-cron",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker + local CLI that fire GitHub Actions workflow_dispatch for rs-golden-queens on a cron schedule (replaces the NAS task scheduler).",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "trigger": "node scripts/trigger.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

@@ -1,0 +1,24 @@
+# rs-golden-queens 트리거 워커
+# 배포: npm install && npx wrangler login && npx wrangler secret put GH_TOKEN && npx wrangler deploy
+name = "rs-golden-queens-cron"
+main = "src/index.js"
+# wrangler 가 더 최신 날짜를 제안하면 그 값으로 바꿔도 무방하다(cron+fetch 는 호환 영향 없음).
+compatibility_date = "2025-03-01"
+
+# dispatch 대상 = GitHub Actions 가 도는 저장소(origin). Gitea 미러가 아니다.
+# GH_TOKEN 은 vars 가 아니라 secret 으로 주입한다(아래 명령 참고).
+[vars]
+OWNER = "itda-skills"
+REPO = "rs-golden-queens"
+REF = "main"
+
+# UTC 기준. src/index.js 의 CRON_TO_WORKFLOW 키와 일치해야 한다.
+# ⚠️ Cloudflare 요일은 1=일 … 7=토 (표준 cron 의 0=일 과 다름!). 숫자로 쓰면 하루씩 밀리므로
+#    요일은 약어(mon-fri / sun)로 쓴다 — 문서가 지원하고 의미가 명확하다.
+[triggers]
+crons = [
+  "10 9 * * mon-fri", # flow-kr        KST 월~금 18:10
+  "0 22 * * mon-fri", # flow-us        KST 화~토 07:00 (UTC 월~금 22:00)
+  "15 9 * * mon-fri", # flow-weekly    KST 월~금 18:15 (내부 게이트가 마지막 거래일만 통과)
+  "0 0 * * sun",      # flow-calendar  KST 일 09:00 (UTC 일 00:00)
+]

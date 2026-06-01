@@ -1,7 +1,7 @@
 # rs-golden-queens
 
 한국장·미국장 마감 후 텔레그램 채널로 매매동향 요약을 자동 푸시하는 개인 투자 데이터 보조 봇.
-NAS 작업 스케줄러가 GitHub Actions `flow-*` 워크플로우를 정시에 `workflow_dispatch`로 호출한다.
+Cloudflare cron-worker(`cron-worker/`)가 GitHub Actions `flow-*` 워크플로우를 정시에 `workflow_dispatch`로 호출한다.
 수집 데이터는 저장하지 않고 텔레그램으로만 즉시 발송한다.
 
 - 사실 데이터만 제공 — 투자 권유·종목 추천·시점 판단 없음
@@ -10,13 +10,13 @@ NAS 작업 스케줄러가 GitHub Actions `flow-*` 워크플로우를 정시에 
 
 ## 푸시 스케줄
 
-아래 시각은 NAS 작업 스케줄러 설정 기준이다. 저장소의 GitHub Actions에는 cron을 두지 않는다.
+아래 시각은 `cron-worker`의 cron 설정 기준이다. 저장소의 GitHub Actions에는 cron을 두지 않는다.
 
 | 워크플로우 | 시각 (KST) | 요일 | 내용 |
 |---|---|---|---|
 | `flow-kr` | 18:10 | 월~금 | 코스피·코스닥 외인·기관·개인 + 프로그램매매 + 10거래일 추이 |
 | `flow-us` | 07:00 | 화~토 | 지수·변동성·섹터·워치ETF·매크로 |
-| `flow-weekly` | 18:30 | 그 주 마지막 KR 거래일 | 코스피 5거래일 누적 + 워치ETF 5거래일 등락 |
+| `flow-weekly` | 18:15 | 그 주 마지막 KR 거래일 | 코스피 5거래일 누적 + 워치ETF 5거래일 등락 |
 
 ### 휴장 처리
 
@@ -48,11 +48,11 @@ rs-golden-queens/
 │       └── us_market.py              # yfinance WATCH ETF
 ├── tests/                            # pytest (unit/integration/live)
 └── .github/workflows/
-    ├── flow-kr.yml                   # NAS dispatch 대상
+    ├── flow-kr.yml                   # cron-worker dispatch 대상
     ├── flow-kr-test.yml              # TEST_GOLDENQUEENS_* 한국장 테스트 푸시
-    ├── flow-us.yml                   # NAS dispatch 대상
+    ├── flow-us.yml                   # cron-worker dispatch 대상
     ├── flow-us-test.yml              # TEST_GOLDENQUEENS_* 미국장 테스트 푸시
-    ├── flow-weekly.yml               # NAS dispatch 대상, 마지막 거래일 게이트
+    ├── flow-weekly.yml               # cron-worker dispatch 대상, 마지막 거래일 게이트
     ├── flow-weekly-test.yml          # TEST_GOLDENQUEENS_* 주간 테스트 푸시
     ├── flow-telegram-test.yml        # TEST_GOLDENQUEENS_* 테스트 핑
     └── test.yml                      # CI 테스트
@@ -116,8 +116,8 @@ make notify-test           # 텔레그램 핑
 
 ### 수동 실행
 
-NAS 작업 스케줄러는 GitHub API/CLI로 각 workflow의 `workflow_dispatch`를 호출한다.
-GitHub 저장소 Actions 탭 → 원하는 workflow → "Run workflow".
+정시 발사는 `cron-worker`가 GitHub API로 각 workflow의 `workflow_dispatch`를 호출한다(로컬 수동 발사는 `make cron-trigger WF=...`).
+수동 실행은 GitHub 저장소 Actions 탭 → 원하는 workflow → "Run workflow".
 테스트 봇/채널로 핑을 보내려면 `텔레그램 테스트 전송` workflow를 수동 실행한다.
 
 ## 워치 ETF 수정
@@ -143,12 +143,12 @@ WATCH = [
 
 ### 미국 휴장 (NYSE) + DST
 
-`flow-us.yml`은 `workflow_dispatch`만 제공하고, 정시 호출은 NAS 작업 스케줄러가 담당한다.
+`flow-us.yml`은 `workflow_dispatch`만 제공하고, 정시 호출은 `cron-worker`가 담당한다.
 `daily_us.py`는 NYSE 캘린더로 휴장 여부를 판정한다. `MARKET_SCHEDULE=edt|est`가 주입된 경우에는 실제 DST 시즌과 대조해 불일치 실행을 스킵한다.
 
 ### 주간 이월 발송
 
-NAS가 `flow-weekly.yml`을 월~금 KST 18:30에 호출하고, `weekly.py`의 `is_last_kr_trading_day_of_week()` 게이트를 통과한 날에만 발송한다. 금요일이 KR 휴장이면 그 주 마지막 거래일로 자동 이월된다.
+`cron-worker`가 `flow-weekly.yml`을 월~금 KST 18:15에 호출하고, `weekly.py`의 `is_last_kr_trading_day_of_week()` 게이트를 통과한 날에만 발송한다. 금요일이 KR 휴장이면 그 주 마지막 거래일로 자동 이월된다.
 
 ## 메시지 컨벤션
 

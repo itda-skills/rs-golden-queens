@@ -1,7 +1,7 @@
 name: 거래일 캘린더 발행
 
 on:
-  # NAS 작업 스케줄러가 주기적으로(예: 주 1회) dispatch.
+  # Cloudflare cron-worker(cron-worker/)가 주기적으로(예: 주 1회) dispatch.
   # 텔레그램 발송은 없고, 데이터 저장소의 calendar.json 만 갱신한다.
   workflow_dispatch:
 
