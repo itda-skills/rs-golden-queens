@@ -81,10 +81,10 @@ export default async function HomePage() {
       )}
 
       <Link
-        href="/archive"
+        href="/calendar"
         className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
       >
-        전체 아카이브 보기 →
+        전체 거래일 캘린더 보기 →
       </Link>
     </Container>
   );

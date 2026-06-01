@@ -35,10 +35,10 @@ export async function POST(request: Request) {
 
   const revalidated: string[] = [];
 
-  // 홈·아카이브는 항상 갱신 (latest/index 반영)
+  // 홈·캘린더는 항상 갱신 (latest/index 반영)
   revalidatePath("/");
-  revalidatePath("/archive");
-  revalidated.push("/", "/archive");
+  revalidatePath("/calendar");
+  revalidated.push("/", "/calendar");
 
   // 개별 상세 경로
   const id = body.id ?? body.date;

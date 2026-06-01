@@ -3,10 +3,8 @@ import type { ReactNode } from "react";
 
 const NAV_LINKS = [
   { href: "/", label: "홈" },
-  { href: "/archive", label: "아카이브" },
   { href: "/calendar", label: "캘린더" },
   { href: "/guide", label: "가이드" },
-  { href: "/search", label: "검색" },
 ];
 
 export function SiteHeader() {

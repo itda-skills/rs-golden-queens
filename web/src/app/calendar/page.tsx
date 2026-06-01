@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, Container } from "@/components/Layout";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { getCalendar, getIndex, getKrSnapshot, getUsSnapshot } from "@/lib/data";
@@ -58,6 +59,7 @@ export default async function CalendarPage() {
 
   const krPublished = index?.kr ?? [];
   const usPublished = index?.us ?? [];
+  const weeklyPublished = [...(index?.weekly ?? [])].sort().reverse();
   const overviews = await buildOverviews(krPublished, usPublished);
 
   // 발행 데이터가 있는 달만 표시 (없으면 캘린더 range 폴백).
@@ -102,6 +104,25 @@ export default async function CalendarPage() {
       <p className="text-xs text-neutral-400 mt-4">
         거래일·휴장 판정 출처: 발행된 캘린더 스냅샷 (XKRX / NYSE).
       </p>
+
+      {weeklyPublished.length > 0 && (
+        <div className="mt-6">
+          <Card title={`📅 주간 리포트 (${weeklyPublished.length})`}>
+            <ul className="flex flex-wrap gap-2">
+              {weeklyPublished.map((week) => (
+                <li key={week}>
+                  <Link
+                    href={`/weekly/${week}`}
+                    className="text-sm px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    {week}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
     </Container>
   );
 }
