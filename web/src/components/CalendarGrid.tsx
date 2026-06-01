@@ -18,12 +18,26 @@ function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// ISO week "YYYY-Www" → 그 주 목요일이 속한 [year, month]. 순수 ISO 8601 캘린더
+// 산술이다(거래일/휴장 같은 시장 로직 아님). 목요일은 ISO 주의 대표일이라
+// 월 경계에 걸친 주도 다수가 속한 달로 안정 귀속된다.
+function isoWeekToYearMonth(weekStr: string): [number, number] | null {
+  const m = /^(\d{4})-W(\d{2})$/.exec(weekStr);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const week = Number(m[2]);
+  const jan4Dow = new Date(Date.UTC(year, 0, 4)).getUTCDay() || 7; // 1(월)~7(일)
+  const thu = new Date(Date.UTC(year, 0, 4 - (jan4Dow - 1) + 3 + (week - 1) * 7));
+  return [thu.getUTCFullYear(), thu.getUTCMonth() + 1];
+}
+
 export interface CalendarGridProps {
   krDays: string[];
   usDays: string[];
   krPublished: string[];
   usPublished: string[];
   overviews: CalendarOverviews;
+  weekly: string[];
   start: string;
   end: string;
 }
@@ -119,6 +133,7 @@ function MonthCard({
   krPubSet,
   usPubSet,
   overviews,
+  weeklyList,
   openId,
   setOpenId,
 }: {
@@ -129,6 +144,7 @@ function MonthCard({
   krPubSet: Set<string>;
   usPubSet: Set<string>;
   overviews: CalendarOverviews;
+  weeklyList: string[];
   openId: string | null;
   setOpenId: (id: string | null) => void;
 }) {
@@ -221,6 +237,25 @@ function MonthCard({
           );
         })}
       </div>
+      {weeklyList.length > 0 && (
+        <div className="mt-2.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
+          <div className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 mb-1.5">
+            주간 리포트
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {weeklyList.map((w) => (
+              <Link
+                key={w}
+                href={`/weekly/${w}`}
+                title={w}
+                className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-800 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                📅 {w.slice(5)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -245,7 +280,20 @@ export function CalendarGrid(props: CalendarGridProps) {
   const usSet = new Set(props.usDays);
   const krPubSet = new Set(props.krPublished);
   const usPubSet = new Set(props.usPublished);
-  const months = [...monthsBetween(props.start, props.end)];
+  // 최신 월을 먼저 — 2열 그리드에서 최신이 좌상단으로 온다.
+  const months = [...monthsBetween(props.start, props.end)].reverse();
+
+  // 주간 리포트를 ISO week 목요일이 속한 월에 귀속(ISO 8601). props.weekly 는
+  // 이미 최신순이라 월별 리스트도 최신순을 유지한다.
+  const weeklyByMonth = new Map<string, string[]>();
+  for (const w of props.weekly) {
+    const ym = isoWeekToYearMonth(w);
+    if (!ym) continue;
+    const key = ymKey(ym[0], ym[1]);
+    const list = weeklyByMonth.get(key);
+    if (list) list.push(w);
+    else weeklyByMonth.set(key, [w]);
+  }
 
   return (
     <div className="grid sm:grid-cols-2 gap-3">
@@ -259,6 +307,7 @@ export function CalendarGrid(props: CalendarGridProps) {
           krPubSet={krPubSet}
           usPubSet={usPubSet}
           overviews={props.overviews}
+          weeklyList={weeklyByMonth.get(ymKey(y, m)) ?? []}
           openId={openId}
           setOpenId={setOpenId}
         />
