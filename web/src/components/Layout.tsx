@@ -1,75 +1,65 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-const NAV_LINKS = [
-  { href: "/", label: "홈" },
-  { href: "/calendar", label: "캘린더" },
-  { href: "/guide", label: "가이드" },
-];
+// SiteHeader/SiteFooter 는 라우트별 폭 분기(usePathname)를 위해 클라이언트
+// 컴포넌트(SiteChrome.tsx)로 분리했다. layout 은 그쪽에서 import 한다.
 
-export function SiteHeader() {
-  // 좁은 화면(iPhone)에서 메뉴명이 2줄로 접히던 문제: 링크는 항상 1줄
-  // (whitespace-nowrap·shrink-0)로 두고, 모바일은 로고/nav 를 세로 스택해 nav 가
-  // 전체 폭을 쓰게 한다. sm+ 는 가로 배치. 넘치면 nav 가 가로 스크롤(안전망).
-  return (
-    <header className="border-b border-neutral-200 dark:border-neutral-800">
-      <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4">
-        <Link
-          href="/"
-          className="shrink-0 whitespace-nowrap text-lg font-bold tracking-tight"
-        >
-          📊 Golden Queens
-        </Link>
-        <nav className="-mx-4 flex gap-4 overflow-x-auto whitespace-nowrap px-4 text-sm text-neutral-600 dark:text-neutral-300 sm:mx-0 sm:px-0">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="shrink-0 hover:text-neutral-900 dark:hover:text-white"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-    </header>
-  );
+export function Container({
+  children,
+  width = "default",
+}: {
+  children: ReactNode;
+  // KR 상세만 'wide'(max-w-5xl)로 멀티컬럼 대시보드. 그 외는 기본 max-w-3xl 유지.
+  width?: "default" | "wide";
+}) {
+  const max = width === "wide" ? "max-w-5xl" : "max-w-3xl";
+  return <main className={`mx-auto ${max} px-4 py-6 w-full`}>{children}</main>;
 }
 
-export function SiteFooter() {
+// 관련 카드들을 한 묶음으로 보여주는 헤더 래퍼(표시 전용). 내부 그리드 컬럼 수는
+// 묶음마다 다르므로 호출부가 children 으로 grid div 를 직접 넘긴다(CardGroup 은 헤더만).
+export function CardGroup({
+  title,
+  subtitle,
+  children,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <footer className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
-      <div className="mx-auto max-w-3xl px-4 py-6 text-xs text-neutral-500 dark:text-neutral-400 space-y-1">
-        <p>
-          본 페이지는 한국·미국 시장 마감 후의 <strong>사실 데이터</strong>만
-          제공합니다. 투자 권유·종목 추천·매매 시점 판단을 포함하지 않습니다.
-        </p>
-        <p>
-          데이터 출처: 네이버 금융, Yahoo Finance, 한국투자증권 등. 지연·오류가
-          있을 수 있으며 투자 판단의 근거로 삼지 마십시오.
-        </p>
-      </div>
-    </footer>
+    <section className="mb-8">
+      <h2 className="mb-3 text-base font-semibold text-neutral-700 dark:text-neutral-300">
+        {title}
+        {subtitle && (
+          <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
+            {subtitle}
+          </span>
+        )}
+      </h2>
+      {children}
+    </section>
   );
-}
-
-export function Container({ children }: { children: ReactNode }) {
-  return <main className="mx-auto max-w-3xl px-4 py-6 w-full">{children}</main>;
 }
 
 export function Card({
   title,
   subtitle,
   info,
+  className,
   children,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
   info?: ReactNode;
+  // 그리드 셀 안에서는 카드 자체 mb-4 를 제거해야 한다(그리드 gap 이 간격을 줌).
+  // 호출부가 className="!mb-0" 으로 확실히 덮는다(!important 로 mb-4 보다 우선).
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 mb-4">
+    <section
+      className={`rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 mb-4 ${className ?? ""}`}
+    >
       {title && (
         <div className="mb-3">
           <h2 className="font-semibold flex items-center gap-1.5">
@@ -135,6 +125,7 @@ export function SectionPlaceholder({
   state,
   normallyShows,
   collect,
+  className,
 }: {
   title: ReactNode;
   info?: ReactNode;
@@ -143,6 +134,8 @@ export function SectionPlaceholder({
   normallyShows: string;
   // 수집 출처·시점 (명사구)
   collect: string;
+  // 그리드 셀에서 자체 mb-4 제거용(Card 와 동일) — 호출부가 "!mb-0" 전달.
+  className?: string;
 }) {
   const reason =
     state === "legacy"
@@ -151,7 +144,9 @@ export function SectionPlaceholder({
         ? "과거 거래일 재발행분이라 이 지표가 포함되지 않았습니다 (KIS 지표는 거래일 당일에만 제공)."
         : "이 날짜에는 표시할 데이터가 없습니다.";
   return (
-    <section className="rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-4 mb-4">
+    <section
+      className={`rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-4 mb-4 ${className ?? ""}`}
+    >
       <h2 className="font-semibold flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300">
         <span>{title}</span>
         {info}

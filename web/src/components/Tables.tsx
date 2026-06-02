@@ -165,7 +165,9 @@ function MoneyFlowRows({ items }: { items: KrMoneyFlowItem[] }) {
             className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
           >
             <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              {it.name}
+              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
+                {it.name}
+              </span>
               <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
               <span className="text-xs text-neutral-400 ml-1">{it.grade}</span>
             </td>
@@ -222,7 +224,9 @@ function MoneyFlowSellRows({ items }: { items: KrMoneyFlowSellItem[] }) {
             className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
           >
             <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              {it.name}
+              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
+                {it.name}
+              </span>
               <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
             </td>
             <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
@@ -277,7 +281,9 @@ function ForeignInstRows({ items }: { items: KrForeignInstItem[] }) {
             className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
           >
             <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              {it.name}
+              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
+                {it.name}
+              </span>
               <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
             </td>
             <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
