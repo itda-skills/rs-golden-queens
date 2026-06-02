@@ -271,6 +271,45 @@ class TestFormatKrDaily:
         out = F.format_kr_daily(data)
         assert "5거래일 누적" not in out
 
+    def test_kosdaq_daily_block_when_rows_present(self):
+        kosdaq_rows = [
+            {
+                "date": "05.25",
+                "personal": -30,
+                "foreign": 10,
+                "institutional": 20,
+            },
+            {
+                "date": "05.22",
+                "personal": 50,
+                "foreign": -20,
+                "institutional": -30,
+            },
+        ]
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "kosdaq_daily": kosdaq_rows,
+        }
+        out = F.format_kr_daily(data)
+        assert "코스닥 2거래일 누적" in out
+        assert "코스닥 일별" in out
+        assert "05.25" in out and "05.22" in out
+        assert "금융투자" not in out  # 코스닥 3주체에는 기관세부를 붙이지 않는다
+
+    def test_kosdaq_daily_block_omitted_when_empty(self):
+        data = {
+            "bizdate": "20260525",
+            "kospi": _make_kr_side(),
+            "kosdaq": _make_kr_side(),
+            "kospi_daily": [],
+            "kosdaq_daily": [],
+        }
+        out = F.format_kr_daily(data)
+        assert "코스닥 일별" not in out
+
     def test_includes_detail_table_when_daily_rows_present(self):
         # daily_rows 가 1개라도 있으면 detail = daily_rows[0] → 기관 세부 표 출력
         data = {

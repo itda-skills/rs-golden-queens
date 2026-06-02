@@ -24,7 +24,7 @@ _KST = ZoneInfo("Asia/Seoul")
 _ET = ZoneInfo("America/New_York")
 
 # KR payload 에 포함할 키 (kospi_intraday 는 장중 분단위라 아카이브 제외)
-_KR_PAYLOAD_KEYS = ("bizdate", "kospi", "kosdaq", "kospi_daily")
+_KR_PAYLOAD_KEYS = ("bizdate", "kospi", "kosdaq", "kospi_daily", "kosdaq_daily")
 
 _KR_SOURCES_TMPL = [
     (
@@ -341,6 +341,7 @@ def _payload_all_empty(snapshot: dict[str, Any]) -> bool:
             _has_vals(payload.get("kospi"))
             or _has_vals(payload.get("kosdaq"))
             or payload.get("kospi_daily")
+            or payload.get("kosdaq_daily")
         )
     return False
 

@@ -203,6 +203,7 @@ def format_kr_daily(data):
     kospi = data["kospi"]
     kosdaq = data["kosdaq"]
     daily_rows = data.get("kospi_daily") or []
+    kosdaq_daily_rows = data.get("kosdaq_daily") or []
     detail = daily_rows[0] if daily_rows else None
 
     L = []
@@ -229,18 +230,37 @@ def format_kr_daily(data):
     L.append("📈 *프로그램매매 (코스닥)*")
     L.append(_card(_kr_program_table(kosdaq), ALIGNS))
 
-    if len(daily_rows) >= 5:
-        f5 = sum(r["foreign"] for r in daily_rows[:5])
-        i5 = sum(r["institutional"] for r in daily_rows[:5])
-        p5 = sum(r["personal"] for r in daily_rows[:5])
+    def _append_daily_block(title, rows):
+        if not rows:
+            return
+        days = min(5, len(rows))
+        recent = rows[:days]
+        f5 = sum(r["foreign"] for r in recent)
+        i5 = sum(r["institutional"] for r in recent)
+        p5 = sum(r["personal"] for r in recent)
         L.append("")
-        L.append("🔁 *코스피 5거래일 누적*")
-        rows = [
+        L.append(f"🔁 *{title} {days}거래일 누적*")
+        cum_rows = [
             ["외인", signed(f5), emoji(f5)],
             ["기관", signed(i5), emoji(i5)],
             ["개인", signed(p5), emoji(p5)],
         ]
-        L.append(_card(rows, ALIGNS))
+        L.append(_card(cum_rows, ALIGNS))
+        L.append(f"{title} 일별 _(일자 · 외인 · 기관)_:")
+        trend_rows = [
+            [
+                r["date"],
+                signed(r["foreign"]),
+                emoji(r["foreign"]),
+                signed(r["institutional"]),
+                emoji(r["institutional"]),
+            ]
+            for r in recent
+        ]
+        L.append(_card(trend_rows, ["l", "r", "l", "r", "l"]))
+
+    _append_daily_block("코스피", daily_rows)
+    _append_daily_block("코스닥", kosdaq_daily_rows)
 
     # 섹터 ETF (18종)
     sectors = data.get("sectors") or []

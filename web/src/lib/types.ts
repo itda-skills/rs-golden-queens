@@ -117,6 +117,9 @@ export interface KrPayload {
   kospi: KrInvestorFlow;
   kosdaq: KrInvestorFlow;
   kospi_daily: KrDailyRow[];
+  // KIS 코스닥 3주체 일별. 추가 키라 구버전 스냅샷엔 없을 수 있고,
+  // 과거일 재발송처럼 KIS 섹션을 스킵한 스냅샷에서는 null 일 수 있다.
+  kosdaq_daily?: KrDailyFlow[] | null;
   // P0-c: 텔레그램과 동일한 섹터·수급 섹션. schema_version 1 의 추가 키이므로
   // 구버전 스냅샷엔 없을 수 있어 optional (없으면 카드 미표시).
   sectors?: KrSector[] | null;

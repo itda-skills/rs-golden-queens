@@ -163,6 +163,24 @@ export default async function KrDetail({
             >
               <InvestorDailyTable rows={snap.payload.kospi_daily} />
             </Card>
+            {snap.payload.kosdaq_daily && snap.payload.kosdaq_daily.length > 0 && (
+              <>
+                <Card
+                  title="코스닥 일별 추이"
+                  subtitle="최근 거래일 (억원)"
+                  info={<InfoTooltip {...CARD_INFO.krDaily} />}
+                >
+                  <InvestorTrendCharts rows={snap.payload.kosdaq_daily} />
+                </Card>
+                <Card
+                  title="코스닥 일별 상세"
+                  subtitle="외국인 / 기관 / 개인 (억원)"
+                  info={<InfoTooltip {...CARD_INFO.krDaily} />}
+                >
+                  <InvestorDailyTable rows={snap.payload.kosdaq_daily} />
+                </Card>
+              </>
+            )}
             <SourceList sources={snap.sources} />
           </>
         )

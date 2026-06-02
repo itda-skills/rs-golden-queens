@@ -171,14 +171,29 @@ class TestKr:
             "kospi",
             "kosdaq",
             "kospi_daily",
+            "kosdaq_daily",
             "sectors",
             "money_flow",
             "foreign_inst",
         }
         # KIS 데이터(섹터·수급·가집계)가 없으면 None 으로 발행된다 (P0-c/I4)
+        assert snap["payload"]["kosdaq_daily"] is None
         assert snap["payload"]["sectors"] is None
         assert snap["payload"]["money_flow"] is None
         assert snap["payload"]["foreign_inst"] is None
+
+    def test_payload_keeps_daily_kosdaq_daily(self, kr_data):
+        kosdaq_daily = [
+            {
+                "date": "26.05.29",
+                "personal": -8793,
+                "foreign": 5975,
+                "institutional": 3010,
+            }
+        ]
+        data = dict(kr_data, kosdaq_daily=kosdaq_daily)
+        snap = P.build_kr_snapshot(data, _NOW_KST)
+        assert snap["payload"]["kosdaq_daily"] == kosdaq_daily
 
     def test_intraday_excluded(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
@@ -639,9 +654,25 @@ class TestValidateSnapshot:
                 "kospi": {"bizdate": "20260529", "foreign": None, "personal": None},
                 "kosdaq": {"bizdate": "20260529", "foreign": None},
                 "kospi_daily": [],
+                "kosdaq_daily": [],
             },
         }
         assert P.validate_snapshot(snap) is not None
+
+    def test_kr_kosdaq_daily_only_payload_ok(self):
+        snap = {
+            "market": "kr",
+            "date": "2026-05-29",
+            "is_holiday": False,
+            "payload": {
+                "bizdate": "20260529",
+                "kospi": {"bizdate": "20260529", "foreign": None, "personal": None},
+                "kosdaq": {"bizdate": "20260529", "foreign": None},
+                "kospi_daily": [],
+                "kosdaq_daily": [{"date": "26.05.29"}],
+            },
+        }
+        assert P.validate_snapshot(snap) is None
 
     def test_kr_with_values_passes(self):
         snap = {

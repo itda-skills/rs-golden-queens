@@ -103,11 +103,22 @@ def _build_kr_freshness_warnings(data: dict, req_bizdate: str) -> list[str]:
             f"⚠️ 투자자별 당일 합산은 {kr_weekday(stale_mob[0])} 기준 (요청 {kr_weekday(req)})"
         )
 
-    # E7: 데스크탑 일별 추이 최신 행 (MM.DD → 요청 연도로 해석)
+    # E7: 데스크탑/KIS 일별 추이 최신 행 (MM.DD → 요청 연도로 해석)
     daily = data.get("kospi_daily") or []
     desk = _norm_yyyymmdd(daily[0].get("date"), year_hint=req) if daily else None
     if desk and desk != req:
         w.append(f"⚠️ 일별 추이 최신일은 {kr_weekday(desk)} (요청 {kr_weekday(req)})")
+    kosdaq_daily = data.get("kosdaq_daily") or []
+    kosdaq_desk = (
+        _norm_yyyymmdd(kosdaq_daily[0].get("date"), year_hint=req)
+        if kosdaq_daily
+        else None
+    )
+    if kosdaq_desk and kosdaq_desk != req:
+        w.append(
+            f"⚠️ 코스닥 일별 추이 최신일은 {kr_weekday(kosdaq_desk)} "
+            f"(요청 {kr_weekday(req)})"
+        )
 
     # KIS 섹터 ETF 기준일 — 모든 항목 검사 (P0-a 로 과거일 재발송은 KIS 스킵 → 오늘만 도달)
     sec_dates = {_norm_yyyymmdd(s.get("date")) for s in (data.get("sectors") or [])}
@@ -179,6 +190,20 @@ def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
     except Exception as e:  # noqa: BLE001 — 발송 보호: 섹터 실패가 전체를 막지 않음
         print(f"⚠️  섹터 fetch 실패 (메시지에서 제외): {e}", file=sys.stderr)
         warnings.append("⚠️ 섹터 ETF 수집 실패")
+
+    try:
+        from market_flow.fetchers.kr_market_investor import fetch_kosdaq_daily
+
+        print("📥 KIS 코스닥 일별 수급 수집 시작")
+        kosdaq_daily = fetch_kosdaq_daily(data["bizdate"], client=client)
+        print(f"📊 코스닥 일별 수집 완료 — rows={len(kosdaq_daily)}")
+        data["kosdaq_daily"] = kosdaq_daily
+        if len(kosdaq_daily) == 0:
+            warnings.append("⚠️ 코스닥 일별 수집 결과 없음")
+    except Exception as e:  # noqa: BLE001 — 발송 보호: 코스닥 일별 실패가 전체를 막지 않음
+        print(f"⚠️  코스닥 일별 수집 실패 (메시지에서 제외): {e}", file=sys.stderr)
+        data["kosdaq_daily"] = []
+        warnings.append("⚠️ 코스닥 일별 수집 실패")
 
     try:
         from market_flow.fetchers.kr_money_flow import fetch_money_flow_watch
@@ -253,6 +278,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     #   ※ 과거 버그: now 를 argv 날짜로 덮은 뒤 그 now 로 today_kst 를 계산하면
     #     bizdate == today_kst 가 되어 스킵이 무력화됐다. argv 존재로 직접 판정한다.
     data["sectors"] = None
+    data["kosdaq_daily"] = None
     data["money_flow"] = None
     data["foreign_inst"] = None
     kis_warnings: list[str] = []

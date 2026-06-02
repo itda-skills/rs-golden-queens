@@ -30,6 +30,10 @@ _KR_MF_OK = {
     ],
     "stocks": [],
 }
+_KOSDAQ_DAILY_OK = [
+    {"date": "25.05.26", "personal": -30, "foreign": 10, "institutional": 20},
+    {"date": "25.05.23", "personal": 15, "foreign": -5, "institutional": -10},
+]
 
 
 def _kr_holiday_msg(now: datetime) -> str:
@@ -99,10 +103,14 @@ def test_kr_trading_day_sends_report(monkeypatch):
             "market_flow.fetchers.kr_etfs.fetch_kr_sectors", return_value=_KR_SECTORS_OK
         ),
         patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            return_value=_KOSDAQ_DAILY_OK,
+        ),
+        patch(
             "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
             return_value=_KR_MF_OK,
         ),
-        patch("market_flow.daily_kr.maybe_publish"),
+        patch("market_flow.daily_kr.maybe_publish") as mock_publish,
     ):
         mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
         daily_kr.main(now=now)
@@ -112,6 +120,9 @@ def test_kr_trading_day_sends_report(monkeypatch):
         sent_text = mock_send.call_args.args[0]
         assert "오늘은 휴장입니다" not in sent_text
         assert "코스피" in sent_text or "마감" in sent_text
+        assert "코스닥 일별" in sent_text
+        snap = mock_publish.call_args.args[0]
+        assert snap["payload"]["kosdaq_daily"] == _KOSDAQ_DAILY_OK
 
 
 def test_kr_holiday_dry_run_via_env(monkeypatch, capsys):
@@ -215,6 +226,10 @@ def test_kr_kis_partial_failure_independent(monkeypatch):
             side_effect=RuntimeError("boom"),
         ),
         patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            return_value=_KOSDAQ_DAILY_OK,
+        ),
+        patch(
             "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
             return_value={
                 "etfs": [{"code": "069500", "name": "KODEX200"}],
@@ -228,6 +243,36 @@ def test_kr_kis_partial_failure_independent(monkeypatch):
         sent = mock_send.call_args.args[0]
         assert "섹터 ETF 수집 실패" in sent
         assert "수급 스크리닝 실패" not in sent  # 수급은 성공 → 경고 없음
+
+
+def test_kr_kis_kosdaq_daily_failure_isolated(monkeypatch):
+    """O2-R: 코스닥 일별 실패가 코스피/코스닥 본문 발송을 막지 않는다."""
+    now = datetime(2025, 5, 26, 18, 10, tzinfo=KST)
+    monkeypatch.delenv("MARKET_FLOW_DRY_RUN", raising=False)
+    with (
+        patch("market_flow.daily_kr.send") as mock_send,
+        patch("market_flow.daily_kr.fetch_today", return_value=dict(_KR_FAKE)),
+        patch("kis.KISClient"),
+        patch(
+            "market_flow.fetchers.kr_etfs.fetch_kr_sectors",
+            return_value=_KR_SECTORS_OK,
+        ),
+        patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            side_effect=RuntimeError("kis kosdaq down"),
+        ),
+        patch(
+            "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
+            return_value=_KR_MF_OK,
+        ),
+        patch("market_flow.daily_kr.maybe_publish") as mock_publish,
+    ):
+        mock_send.return_value = {"ok": True, "result": {"message_id": 1}}
+        daily_kr.main(now=now)
+        sent = mock_send.call_args.args[0]
+        assert "코스닥 일별 수집 실패" in sent
+        assert "마감 매매동향" in sent
+        assert mock_publish.call_args.args[0]["payload"]["kosdaq_daily"] == []
 
 
 def test_kr_kis_connection_failure_warning(monkeypatch):
@@ -258,6 +303,10 @@ def test_kr_kis_sector_partial_count_warning(monkeypatch):
         patch(
             "market_flow.fetchers.kr_etfs.fetch_kr_sectors",
             return_value=_KR_SECTORS_OK[:17],  # 17/18종만 수집
+        ),
+        patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            return_value=_KOSDAQ_DAILY_OK,
         ),
         patch(
             "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
@@ -362,6 +411,10 @@ def test_kr_kis_sector_stale_date_warning(monkeypatch):
             return_value=sectors_stale,
         ),
         patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            return_value=_KOSDAQ_DAILY_OK,
+        ),
+        patch(
             "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
             return_value=_KR_MF_OK,
         ),
@@ -457,6 +510,23 @@ def test_kr_e7_kosdaq_only_mismatch(monkeypatch):
         assert "투자자별 당일 합산은 5/29" in sent  # KOSDAQ stale 포착
 
 
+def test_kr_e7_kosdaq_daily_stale_warning():
+    """O2-R: KIS 코스닥 일별 최신 행도 요청일과 다르면 기준일 경고를 낸다."""
+    data = {
+        "bizdate": "20260522",
+        "kospi": {"bizdate": "20260522"},
+        "kosdaq": {"bizdate": "20260522"},
+        "kospi_daily": [
+            {"date": "05.22", "foreign": 1, "institutional": 1, "personal": -2}
+        ],
+        "kosdaq_daily": [
+            {"date": "05.21", "foreign": 1, "institutional": 1, "personal": -2}
+        ],
+    }
+    warnings = daily_kr._build_kr_freshness_warnings(data, "20260522")
+    assert any("코스닥 일별 추이 최신일은 5/21" in w for w in warnings)
+
+
 def test_kr_kis_sector_mixed_date(monkeypatch):
     """KIS #4: 첫 항목은 오늘이어도 일부 섹터가 직전일이면 (전체 집합 검사) 경고."""
     now = datetime(2025, 5, 26, 18, 10, tzinfo=KST)
@@ -500,6 +570,10 @@ def test_kr_kis_sector_mixed_date(monkeypatch):
         patch(
             "market_flow.fetchers.kr_etfs.fetch_kr_sectors",
             return_value=sectors_mixed,
+        ),
+        patch(
+            "market_flow.fetchers.kr_market_investor.fetch_kosdaq_daily",
+            return_value=_KOSDAQ_DAILY_OK,
         ),
         patch(
             "market_flow.fetchers.kr_money_flow.fetch_money_flow_watch",
@@ -569,6 +643,16 @@ def test_kr_integrity_none_field_skipped():
 def test_kr_integrity_empty_no_warning():
     assert daily_kr._build_kr_integrity_warnings({}) == []
     assert daily_kr._build_kr_integrity_warnings({"kospi_daily": []}) == []
+
+
+def test_kr_integrity_ignores_kosdaq_daily_rows():
+    data = {
+        "kospi_daily": [],
+        "kosdaq_daily": [
+            {"date": "26.05.29", "personal": 10, "foreign": -3, "institutional": -7}
+        ],
+    }
+    assert daily_kr._build_kr_integrity_warnings(data) == []
 
 
 def test_foreign_inst_all_zero_guard():
