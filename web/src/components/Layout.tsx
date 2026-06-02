@@ -114,6 +114,59 @@ export function SourceList({
   );
 }
 
+// 조건부 섹션이 비었을 때, 그냥 숨기는 대신 "왜 비었고 / 정상적으로는 무엇이
+// 보이며 / 어떻게 수집되는지"를 같은 자리에 안내한다(데이터 부재 ≠ 결함).
+// 사유는 발행 스냅샷의 키 상태로 구분한다:
+//   legacy  — payload 에 키 자체가 없음(그 지표 도입 전 발행분, 과거라 보정 불가)
+//   skipped — 값이 null(과거일 재발행 KIS 스킵 또는 당일 수집 실패)
+//   empty   — 키·구조는 있으나 항목 0건(당일 조건에 맞는 데이터 없음)
+export type SectionState = "ok" | "legacy" | "skipped" | "empty";
+
+// raw: 스냅샷의 해당 키 값(undefined=키 부재, null=스킵), hasData: 표시할 항목 유무
+export function sectionState(raw: unknown, hasData: boolean): SectionState {
+  if (raw === undefined) return "legacy";
+  if (raw === null) return "skipped";
+  return hasData ? "ok" : "empty";
+}
+
+export function SectionPlaceholder({
+  title,
+  info,
+  state,
+  normallyShows,
+  collect,
+}: {
+  title: ReactNode;
+  info?: ReactNode;
+  state: Exclude<SectionState, "ok">;
+  // 정상적으로 이 자리에 표시되는 내용 ("~가 표시됩니다" 형태로 끝나는 절)
+  normallyShows: string;
+  // 수집 출처·시점 (명사구)
+  collect: string;
+}) {
+  const reason =
+    state === "legacy"
+      ? "이 날짜를 발행한 시점에는 아직 이 지표를 수집·기록하지 않았습니다. 이후 발송분부터 표시됩니다."
+      : state === "skipped"
+        ? "과거 거래일 재발행분이라 이 지표가 포함되지 않았습니다 (KIS 지표는 거래일 당일에만 제공)."
+        : "이 날짜에는 표시할 데이터가 없습니다.";
+  return (
+    <section className="rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-4 mb-4">
+      <h2 className="font-semibold flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300">
+        <span>{title}</span>
+        {info}
+      </h2>
+      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+        <span className="mr-1">ℹ️</span>
+        {reason}
+      </p>
+      <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
+        이 자리에는 보통 {normallyShows}. 수집: {collect}.
+      </p>
+    </section>
+  );
+}
+
 export function HolidayNotice({ message }: { message?: string }) {
   return (
     <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm">
