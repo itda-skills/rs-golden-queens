@@ -30,9 +30,9 @@ export function PrevNext({
       if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "ArrowLeft" && prev) {
-        router.push(prev.href);
+        router.push(prev.href, { scroll: false });
       } else if (e.key === "ArrowRight" && next) {
-        router.push(next.href);
+        router.push(next.href, { scroll: false });
       }
     }
     window.addEventListener("keydown", onKey);
@@ -45,6 +45,7 @@ export function PrevNext({
         <Tooltip label="이전 (← 방향키)">
           <Link
             href={prev.href}
+            scroll={false}
             className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
           >
             <kbd className="text-[10px] px-1 rounded border border-neutral-300 dark:border-neutral-600">
@@ -61,6 +62,7 @@ export function PrevNext({
         <Tooltip label="다음 (→ 방향키)">
           <Link
             href={next.href}
+            scroll={false}
             className="flex items-center gap-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2 hover:border-blue-400"
           >
             <span className="font-medium">{next.label}</span>
