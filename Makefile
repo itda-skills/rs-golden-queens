@@ -11,6 +11,12 @@
 #   make smoke-us     # yfinance fetch 단독 점검 (텔레그램 발송 없음)
 #   make clean        # 캐시 정리
 #
+# 웹 (텔레그램 원본의 종속 표현 — 로컬 확인용):
+#   make web-install           # 웹 의존성 설치
+#   make web-dev               # dev 서버 (기본 0.0.0.0:3000, LAN IP 접근 가능)
+#   make web-dev PORT=4000     # 포트 변경
+#   make web-build             # 프로덕션 빌드 (정합 확인)
+#
 # Cloudflare cron-worker (트리거 발사 장치):
 #   make cron-deploy           # 배포 (wrangler.toml 의 cron 변경 반영)
 #   make cron-tail             # 실시간 로그 (발사 확인)
@@ -31,7 +37,12 @@
 
 PKG_DIR := market_flow
 CRON_DIR := cron-worker
+WEB_DIR := web
 VENV_DIR := .venv
+
+# 웹 dev 서버 기본값 (claude-in-chrome 은 localhost 거부 → LAN IP 접근 위해 0.0.0.0 바인딩)
+WEB_HOST ?= 0.0.0.0
+PORT ?= 3000
 VENV_PY := $(VENV_DIR)/bin/python
 
 # .venv 가 있으면 우선 사용, 없으면 시스템 python3
@@ -52,7 +63,7 @@ TEST_ARG := --test
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean cron-install cron-deploy cron-tail cron-trigger
+.PHONY: help install daily-kr daily-us weekly notify-test smoke-kr smoke-us clean web-install web-dev web-build cron-install cron-deploy cron-tail cron-trigger
 
 help:  ## 사용 가능한 명령 목록
 	@printf "rs-golden-queens — 사용 가능한 명령\n\n"
@@ -111,6 +122,15 @@ smoke-us:  ## yfinance fetch 단독 점검 (텔레그램 발송 없음)
 clean:  ## __pycache__ 제거
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache .coverage htmlcov
+
+web-install:  ## 웹 의존성 설치 (npm install)
+	cd $(WEB_DIR) && npm install
+
+web-dev:  ## 웹 dev 서버 실행 (HOST=0.0.0.0 PORT=3000, LAN IP 접근 가능)
+	cd $(WEB_DIR) && npm run dev -- -H $(WEB_HOST) -p $(PORT)
+
+web-build:  ## 웹 프로덕션 빌드 (정합 확인용)
+	cd $(WEB_DIR) && npm run build
 
 cron-install:  ## cron-worker 의존성 설치 (wrangler)
 	cd $(CRON_DIR) && npm install
