@@ -12,12 +12,6 @@ import { useDrawer } from "./DrawerContext";
 import { shortDateWeekday } from "@/lib/format";
 import type { IndexFile } from "@/lib/types";
 
-// 주간 키 "2026-W22" → "2026 22주" (사이드바 표시용). 형식 불일치 시 원문 유지.
-function weeklyLabel(w: string): string {
-  const m = w.match(/^(\d{4})-W(\d{2})$/);
-  return m ? `${m[1]} ${Number(m[2])}주` : w;
-}
-
 // 섹션별 표시 상한 — 최근 3일치만 노출하고 나머지는 캘린더로 유도(사이드바를 짧게).
 const MAX_PER_SECTION = 3;
 
@@ -30,7 +24,14 @@ interface Section {
   fmt: (d: string) => string;
 }
 
-export function Sidebar({ index }: { index: IndexFile | null }) {
+export function Sidebar({
+  index,
+  weeklyDates,
+}: {
+  index: IndexFile | null;
+  // 주간 키("2026-W22") → 발행 기준일("2026-05-29") 매핑. layout 이 fetch 해 넘긴다.
+  weeklyDates: Record<string, string | null>;
+}) {
   const pathname = usePathname();
   const { open, setOpen } = useDrawer();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -56,7 +57,18 @@ export function Sidebar({ index }: { index: IndexFile | null }) {
   const sections: Section[] = [
     { key: "kr", label: "코스피", emoji: "🇰🇷", base: "/kr", dates: index?.kr ?? [], fmt: shortDateWeekday },
     { key: "us", label: "미국지수", emoji: "🇺🇸", base: "/us", dates: index?.us ?? [], fmt: shortDateWeekday },
-    { key: "weekly", label: "주간리포트", emoji: "📈", base: "/weekly", dates: index?.weekly ?? [], fmt: weeklyLabel },
+    {
+      key: "weekly",
+      label: "주간리포트",
+      emoji: "📈",
+      base: "/weekly",
+      dates: index?.weekly ?? [],
+      // 키(2026-W22) 대신 발행 '기준일'(수집된 날짜)을 코스피·미국과 같은 형식으로.
+      fmt: (w) => {
+        const d = weeklyDates[w];
+        return d ? shortDateWeekday(d) : w;
+      },
+    },
   ];
 
   const renderNav = () => (
