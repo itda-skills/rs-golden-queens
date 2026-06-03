@@ -45,7 +45,9 @@ export default async function RootLayout({
       <body className="flex min-h-full flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <DrawerProvider>
           <SiteHeader />
-          <div className="flex w-full flex-1">
+          {/* 사이드바+본문을 한 묶음(max-w)으로 중앙정렬 — 넓은 화면에서 사이드바와
+              본문이 무한정 벌어지지 않게. 폭 = 사이드바 16rem + KR 본문 6xl(72rem). */}
+          <div className="mx-auto flex w-full max-w-[88rem] flex-1">
             <Sidebar index={index} weeklyDates={weeklyDates} />
             <main className="min-w-0 flex-1">{children}</main>
           </div>

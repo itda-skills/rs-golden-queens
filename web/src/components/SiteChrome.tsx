@@ -18,7 +18,7 @@ export function SiteHeader() {
   const { setOpen } = useDrawer();
   return (
     <header className="border-b border-neutral-200 dark:border-neutral-800">
-      <div className="flex items-center gap-2 px-4 py-3 sm:py-4">
+      <div className="mx-auto flex w-full max-w-[88rem] items-center gap-2 px-4 py-3 sm:py-4">
         {/* 모바일 햄버거 — 사이드바 드로어 토글. lg+ 에선 사이드바가 고정이라 숨김. */}
         <button
           type="button"
@@ -53,7 +53,7 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
-      <div className="space-y-1 px-4 py-6 text-xs text-neutral-500 dark:text-neutral-400">
+      <div className="mx-auto w-full max-w-[88rem] space-y-1 px-4 py-6 text-xs text-neutral-500 dark:text-neutral-400">
         <p>
           본 페이지는 한국·미국 시장 마감 후의 <strong>사실 데이터</strong>만
           제공합니다. 투자 권유·종목 추천·매매 시점 판단을 포함하지 않습니다.

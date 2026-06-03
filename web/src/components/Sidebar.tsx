@@ -107,6 +107,7 @@ export function Sidebar({
                     <li key={date}>
                       <Link
                         href={href}
+                        scroll={false}
                         onClick={() => setOpen(false)}
                         aria-current={active ? "page" : undefined}
                         className={`block rounded px-2 py-1 tabular-nums ${
