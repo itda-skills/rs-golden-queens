@@ -8,6 +8,7 @@ import {
   signedAmount,
   signedPct,
   volRatio,
+  weekdayLabel,
 } from "@/lib/format";
 import type {
   HighYieldOas,
@@ -83,7 +84,10 @@ export function InvestorDailyTable({ rows }: { rows: KrDailyFlow[] }) {
       <tbody>
         {rows.map((r) => (
           <tr key={r.date} className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0">
-            <td className="py-1.5 text-neutral-600 dark:text-neutral-300">{shortDate(r.date)}</td>
+            <td className="py-1.5 text-neutral-600 dark:text-neutral-300">
+              {shortDate(r.date)}{" "}
+              <span className="text-xs text-neutral-400">{weekdayLabel(r.date)}</span>
+            </td>
             <td className={`py-1.5 text-right ${colorClass(r.foreign)}`}>{signedAmount(r.foreign)}</td>
             <td className={`py-1.5 text-right ${colorClass(r.institutional)}`}>{signedAmount(r.institutional)}</td>
             <td className={`py-1.5 text-right ${colorClass(r.personal)}`}>{signedAmount(r.personal)}</td>

@@ -76,3 +76,12 @@ export function shortDateWeekday(iso: string): string {
   const wd = WEEKDAY_KR[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${m}/${d} (${wd})`;
 }
+
+// "26.05.29"(YY.MM.DD) → "(금)". 일별 표는 거래일만 나열해 날짜가 띄엄띄엄(주말·휴장)
+// 이라, 요일로 간격을 읽히게 한다. 형식 불일치 시 "". 2000년대 가정(26→2026).
+export function weekdayLabel(yymmdd: string): string {
+  const [yy, mm, dd] = yymmdd.split(".").map(Number);
+  if (!yy || !mm || !dd) return "";
+  const wd = WEEKDAY_KR[new Date(Date.UTC(2000 + yy, mm - 1, dd)).getUTCDay()];
+  return `(${wd})`;
+}
