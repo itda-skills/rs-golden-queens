@@ -1,6 +1,6 @@
 "use client";
 
-// 사이트 헤더/푸터 — 라우트별 본문 폭(KR 상세 max-w-5xl, 그 외 max-w-3xl)에
+// 사이트 헤더/푸터 — 라우트별 본문 폭(KR 상세 max-w-6xl, 그 외 max-w-3xl)에
 // 맞춰 좌우 정렬을 일치시키려 usePathname 으로 폭을 분기한다(클라이언트 컴포넌트).
 // layout 에서 headers() 로 라우트를 읽으면 KR 의 정적 생성(ISR)이 동적으로
 // 전환되므로, 폭 분기는 이 작은 chrome 만 클라이언트로 두어 처리한다.
@@ -16,7 +16,7 @@ const NAV_LINKS = [
 
 // KR 상세(/kr/<date>)만 본문이 넓어진다 → 헤더/푸터도 같은 폭으로 정렬.
 function shellMax(pathname: string | null): string {
-  return pathname?.startsWith("/kr/") ? "max-w-5xl" : "max-w-3xl";
+  return pathname?.startsWith("/kr/") ? "max-w-6xl" : "max-w-3xl";
 }
 
 export function SiteHeader() {

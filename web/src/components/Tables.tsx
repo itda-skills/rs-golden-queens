@@ -1,3 +1,4 @@
+import { TruncatedName } from "./TruncatedName";
 import {
   arrow,
   colorClass,
@@ -155,39 +156,40 @@ export function VixTermStructure({ volatility }: { volatility: UsSection }) {
 }
 
 // 동적 수급 워치 한 그룹(ETF 또는 개별주) — 외인·기관 순매수(억원), 색은 값 부호에서 재현.
+// flex 행: 종목명만 truncate(+툴팁)로 줄어들고, 외/기 값은 nowrap·고정폭으로 항상 1줄.
 function MoneyFlowRows({ items }: { items: KrMoneyFlowItem[] }) {
   return (
-    <table className="w-full text-sm tabular-nums">
-      <tbody>
-        {items.map((it) => (
-          <tr
-            key={it.code}
-            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+    <div className="text-sm tabular-nums">
+      {items.map((it) => (
+        <div
+          key={it.code}
+          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
+        >
+          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+            <TruncatedName name={it.name} />
+            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+            <span className="shrink-0 text-xs text-neutral-400">{it.grade}</span>
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
           >
-            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
-                {it.name}
-              </span>
-              <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
-              <span className="text-xs text-neutral-400 ml-1">{it.grade}</span>
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
-              외{" "}
-              {it.foreign_eok == null
-                ? "–"
-                : signedAmount(Math.round(it.foreign_eok))}
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.orgn_eok)}`}>
-              기{" "}
-              {it.orgn_eok == null
-                ? "–"
-                : signedAmount(Math.round(it.orgn_eok))}
-            </td>
-            <td className="py-1.5 text-right">{it.both_buy ? "🔥" : ""}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            외{" "}
+            {it.foreign_eok == null
+              ? "–"
+              : signedAmount(Math.round(it.foreign_eok))}
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+          >
+            기{" "}
+            {it.orgn_eok == null
+              ? "–"
+              : signedAmount(Math.round(it.orgn_eok))}
+          </span>
+          <span className="w-4 shrink-0 text-right">{it.both_buy ? "🔥" : ""}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -214,37 +216,38 @@ export function MoneyFlowTable({ mf }: { mf: KrMoneyFlow }) {
 }
 
 // 순매도 한 그룹 (I1, #10 P0-d) — 매수 라벨(grade·🔥) 미사용. 외인·기관 순매도(억원).
+// flex 행: 종목명만 truncate(+툴팁), 외/기 값은 nowrap·고정폭으로 항상 1줄.
 function MoneyFlowSellRows({ items }: { items: KrMoneyFlowSellItem[] }) {
   return (
-    <table className="w-full text-sm tabular-nums">
-      <tbody>
-        {items.map((it) => (
-          <tr
-            key={it.code}
-            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+    <div className="text-sm tabular-nums">
+      {items.map((it) => (
+        <div
+          key={it.code}
+          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
+        >
+          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+            <TruncatedName name={it.name} />
+            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
           >
-            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
-                {it.name}
-              </span>
-              <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
-              외{" "}
-              {it.foreign_eok == null
-                ? "–"
-                : signedAmount(Math.round(it.foreign_eok))}
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.orgn_eok)}`}>
-              기{" "}
-              {it.orgn_eok == null
-                ? "–"
-                : signedAmount(Math.round(it.orgn_eok))}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            외{" "}
+            {it.foreign_eok == null
+              ? "–"
+              : signedAmount(Math.round(it.foreign_eok))}
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+          >
+            기{" "}
+            {it.orgn_eok == null
+              ? "–"
+              : signedAmount(Math.round(it.orgn_eok))}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -271,35 +274,36 @@ export function MoneyFlowSellTable({ mf }: { mf: KrMoneyFlow }) {
 }
 
 // 외국인·기관 가집계 한 그룹 (I4, #10) — 장중 추정 금액(억원). 색은 값 부호에서 재현.
+// flex 행: 종목명만 truncate(+툴팁), 외/기 값은 nowrap·고정폭으로 항상 1줄.
 function ForeignInstRows({ items }: { items: KrForeignInstItem[] }) {
   return (
-    <table className="w-full text-sm tabular-nums">
-      <tbody>
-        {items.map((it) => (
-          <tr
-            key={it.code}
-            className="border-b border-neutral-100 dark:border-neutral-800/60 last:border-0"
+    <div className="text-sm tabular-nums">
+      {items.map((it) => (
+        <div
+          key={it.code}
+          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
+        >
+          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+            <TruncatedName name={it.name} />
+            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
           >
-            <td className="py-1.5 text-neutral-700 dark:text-neutral-200">
-              <span className="inline-block max-w-[9rem] truncate align-bottom sm:max-w-[12rem]">
-                {it.name}
-              </span>
-              <span className="text-xs text-neutral-400 ml-1">{it.code}</span>
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.foreign_eok)}`}>
-              외{" "}
-              {it.foreign_eok == null
-                ? "–"
-                : signedAmount(Math.round(it.foreign_eok))}
-            </td>
-            <td className={`py-1.5 text-right ${colorClass(it.orgn_eok)}`}>
-              기{" "}
-              {it.orgn_eok == null ? "–" : signedAmount(Math.round(it.orgn_eok))}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            외{" "}
+            {it.foreign_eok == null
+              ? "–"
+              : signedAmount(Math.round(it.foreign_eok))}
+          </span>
+          <span
+            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+          >
+            기{" "}
+            {it.orgn_eok == null ? "–" : signedAmount(Math.round(it.orgn_eok))}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -122,7 +122,7 @@ export default async function KrDetail({
             </CardGroup>
 
             {/* ③ 오늘의 종목·섹터 — 모두 KIS 의존 당일 데이터. 섹터 ETF(등락률=가격
-                신호)는 전체폭 단독, 수급 표 3장(순매수=flow)은 lg 부터 2열. */}
+                신호)는 전체폭 단독, 수급 표 3장(순매수=flow)은 lg 부터 3열(빈 칸 0). */}
             <CardGroup
               title="오늘의 종목·섹터"
               subtitle="KIS · 한국장 마감 후 · 거래일 당일만"
@@ -159,7 +159,7 @@ export default async function KrDetail({
                   className="!mb-4"
                 />
               )}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 {mfTopState === "ok" ? (
                   <Card
                     title="오늘의 수급 Top"

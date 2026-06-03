@@ -8,10 +8,10 @@ export function Container({
   width = "default",
 }: {
   children: ReactNode;
-  // KR 상세만 'wide'(max-w-5xl)로 멀티컬럼 대시보드. 그 외는 기본 max-w-3xl 유지.
+  // KR 상세만 'wide'(max-w-6xl)로 멀티컬럼 대시보드. 그 외는 기본 max-w-3xl 유지.
   width?: "default" | "wide";
 }) {
-  const max = width === "wide" ? "max-w-5xl" : "max-w-3xl";
+  const max = width === "wide" ? "max-w-6xl" : "max-w-3xl";
   return <main className={`mx-auto ${max} px-4 py-6 w-full`}>{children}</main>;
 }
 
