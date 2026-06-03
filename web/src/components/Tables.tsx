@@ -1,3 +1,4 @@
+import { Expandable } from "./Expandable";
 import { TruncatedName } from "./TruncatedName";
 import {
   arrow,
@@ -160,35 +161,37 @@ export function VixTermStructure({ volatility }: { volatility: UsSection }) {
 function MoneyFlowRows({ items }: { items: KrMoneyFlowItem[] }) {
   return (
     <div className="text-sm tabular-nums">
-      {items.map((it) => (
-        <div
-          key={it.code}
-          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
-        >
-          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
-            <TruncatedName name={it.name} />
-            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
-            <span className="shrink-0 text-xs text-neutral-400">{it.grade}</span>
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+      <Expandable>
+        {items.map((it) => (
+          <div
+            key={it.code}
+            className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
           >
-            외{" "}
-            {it.foreign_eok == null
-              ? "–"
-              : signedAmount(Math.round(it.foreign_eok))}
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
-          >
-            기{" "}
-            {it.orgn_eok == null
-              ? "–"
-              : signedAmount(Math.round(it.orgn_eok))}
-          </span>
-          <span className="w-4 shrink-0 text-right">{it.both_buy ? "🔥" : ""}</span>
-        </div>
-      ))}
+            <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+              <TruncatedName name={it.name} />
+              <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+              <span className="shrink-0 text-xs text-neutral-400">{it.grade}</span>
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+            >
+              외{" "}
+              {it.foreign_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.foreign_eok))}
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+            >
+              기{" "}
+              {it.orgn_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.orgn_eok))}
+            </span>
+            <span className="w-4 shrink-0 text-right">{it.both_buy ? "🔥" : ""}</span>
+          </div>
+        ))}
+      </Expandable>
     </div>
   );
 }
@@ -220,33 +223,35 @@ export function MoneyFlowTable({ mf }: { mf: KrMoneyFlow }) {
 function MoneyFlowSellRows({ items }: { items: KrMoneyFlowSellItem[] }) {
   return (
     <div className="text-sm tabular-nums">
-      {items.map((it) => (
-        <div
-          key={it.code}
-          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
-        >
-          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
-            <TruncatedName name={it.name} />
-            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+      <Expandable>
+        {items.map((it) => (
+          <div
+            key={it.code}
+            className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
           >
-            외{" "}
-            {it.foreign_eok == null
-              ? "–"
-              : signedAmount(Math.round(it.foreign_eok))}
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
-          >
-            기{" "}
-            {it.orgn_eok == null
-              ? "–"
-              : signedAmount(Math.round(it.orgn_eok))}
-          </span>
-        </div>
-      ))}
+            <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+              <TruncatedName name={it.name} />
+              <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+            >
+              외{" "}
+              {it.foreign_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.foreign_eok))}
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+            >
+              기{" "}
+              {it.orgn_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.orgn_eok))}
+            </span>
+          </div>
+        ))}
+      </Expandable>
     </div>
   );
 }
@@ -278,31 +283,33 @@ export function MoneyFlowSellTable({ mf }: { mf: KrMoneyFlow }) {
 function ForeignInstRows({ items }: { items: KrForeignInstItem[] }) {
   return (
     <div className="text-sm tabular-nums">
-      {items.map((it) => (
-        <div
-          key={it.code}
-          className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
-        >
-          <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
-            <TruncatedName name={it.name} />
-            <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+      <Expandable>
+        {items.map((it) => (
+          <div
+            key={it.code}
+            className="flex items-baseline gap-2 border-b border-neutral-100 dark:border-neutral-800/60 py-1.5 last:border-0"
           >
-            외{" "}
-            {it.foreign_eok == null
-              ? "–"
-              : signedAmount(Math.round(it.foreign_eok))}
-          </span>
-          <span
-            className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
-          >
-            기{" "}
-            {it.orgn_eok == null ? "–" : signedAmount(Math.round(it.orgn_eok))}
-          </span>
-        </div>
-      ))}
+            <span className="flex min-w-0 flex-1 items-baseline gap-1 text-neutral-700 dark:text-neutral-200">
+              <TruncatedName name={it.name} />
+              <span className="shrink-0 text-xs text-neutral-400">{it.code}</span>
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.foreign_eok)}`}
+            >
+              외{" "}
+              {it.foreign_eok == null
+                ? "–"
+                : signedAmount(Math.round(it.foreign_eok))}
+            </span>
+            <span
+              className={`w-[4.5rem] shrink-0 whitespace-nowrap text-right ${colorClass(it.orgn_eok)}`}
+            >
+              기{" "}
+              {it.orgn_eok == null ? "–" : signedAmount(Math.round(it.orgn_eok))}
+            </span>
+          </div>
+        ))}
+      </Expandable>
     </div>
   );
 }

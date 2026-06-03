@@ -277,10 +277,13 @@ def format_kr_daily(data):
             )
         L.append(_card(rows, ["l", "r", "l", "l"]))
 
+    # 텔레그램은 수급 상위 5개만 보여준다(웹은 스냅샷의 나머지를 '더보기'로 펼침).
+    # 스냅샷엔 fetcher 가 담은 전체(최대 10)가 그대로 들어간다(publisher 별도 경로).
+    TG_SHOW = 5
     # 동적 수급 워치 (오늘의 수급 Top)
     money_flow = data.get("money_flow") or {}
-    etfs = money_flow.get("etfs") or []
-    stocks = money_flow.get("stocks") or []
+    etfs = (money_flow.get("etfs") or [])[:TG_SHOW]
+    stocks = (money_flow.get("stocks") or [])[:TG_SHOW]
     if etfs or stocks:
         L.append("")
         L.append("🔥 *오늘의 수급 Top (자동 스크리닝)*")
@@ -300,8 +303,8 @@ def format_kr_daily(data):
         L.append(_card(_money_flow_rows(stocks), ["l", "l", "l", "r", "r", "l"]))
 
     # 외인·기관 순매도 상위 (I1) — 매수 라벨(🔥·grade·Top) 미사용, 금액 사실값만.
-    etfs_sell = money_flow.get("etfs_sell") or []
-    stocks_sell = money_flow.get("stocks_sell") or []
+    etfs_sell = (money_flow.get("etfs_sell") or [])[:TG_SHOW]
+    stocks_sell = (money_flow.get("stocks_sell") or [])[:TG_SHOW]
     if etfs_sell or stocks_sell:
         L.append("")
         L.append("📉 *외인·기관 순매도 상위 (자동 스크리닝)*")
@@ -319,8 +322,8 @@ def format_kr_daily(data):
 
     # 외국인·기관 가집계 (장중 추정, KIS FHPTJ04400000) — 확정 아님, 금액 사실값만(I4)
     fi = data.get("foreign_inst") or {}
-    fi_buy = fi.get("buy") or []
-    fi_sell = fi.get("sell") or []
+    fi_buy = (fi.get("buy") or [])[:TG_SHOW]
+    fi_sell = (fi.get("sell") or [])[:TG_SHOW]
     if fi_buy or fi_sell:
         L.append("")
         L.append("🏛 *외국인·기관 가집계 (장중 추정)*")

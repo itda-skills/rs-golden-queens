@@ -209,8 +209,9 @@ def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
         from market_flow.fetchers.kr_money_flow import fetch_money_flow_watch
 
         print("📥 KIS 동적 수급 워치 스크리닝 시작 (top=40)")
+        # 표시 10개까지(웹 '더보기'용) — 텔레그램은 formatter 가 상위 5개로 자른다.
         money_flow = fetch_money_flow_watch(
-            client, window=1, top=40, etf_show=5, stock_show=5
+            client, window=1, top=40, etf_show=10, stock_show=10
         )
         n_etf = len(money_flow.get("etfs", []))
         n_stock = len(money_flow.get("stocks", []))
@@ -226,7 +227,8 @@ def _collect_kis_sections(client, data: dict, warnings: list[str]) -> None:
         from market_flow.fetchers.kr_foreign_inst import fetch_foreign_inst_tally
 
         print("📥 KIS 외국인·기관 가집계(장중 추정) 수집 시작")
-        fi = fetch_foreign_inst_tally(client, show=5)
+        # 표시 10개까지(웹 '더보기'용) — 텔레그램은 formatter 가 상위 5개로 자른다.
+        fi = fetch_foreign_inst_tally(client, show=10)
         n_buy = len(fi.get("buy", []))
         n_sell = len(fi.get("sell", []))
         print(f"📊 가집계 완료 — 순매수 {n_buy}종 + 순매도 {n_sell}종")
