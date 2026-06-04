@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from market_flow import calendar_utils as cu
@@ -118,6 +118,22 @@ class TestIsKrTradingDay:
     def test_kr_christmas_is_holiday(self):
         now = datetime(2025, 12, 25, 18, 10, tzinfo=KST)
         assert cu.is_kr_trading_day(now) is False
+
+    def test_local_election_day_is_holiday(self):
+        # 2026-06-03 제9회 전국동시지방선거 — exchange_calendars(XKRX)가 거래일로
+        # 오판하는 임시공휴일. _KR_EXTRA_CLOSED override 로 휴장 처리돼야 한다.
+        now = datetime(2026, 6, 3, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is False
+
+    def test_day_before_election_is_trading_day(self):
+        # 6/2(화)는 정상 거래일 — override 가 인접 거래일을 침범하지 않는다.
+        now = datetime(2026, 6, 2, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is True
+
+    def test_day_after_election_is_trading_day(self):
+        # 6/4(목)도 정상 거래일.
+        now = datetime(2026, 6, 4, 18, 10, tzinfo=KST)
+        assert cu.is_kr_trading_day(now) is True
 
 
 # ──────────────────────────────────────────────
@@ -243,3 +259,24 @@ class TestLastUsTradingDay:
 
         now = datetime(2025, 9, 15, 20, 0, tzinfo=_ZI("UTC"))
         assert cu.last_us_trading_day(now) == "2025-09-15"
+
+
+# ──────────────────────────────────────────────
+#  거래일 목록 (kr_trading_days / us_trading_days) — calendar.json 정합
+# ──────────────────────────────────────────────
+
+
+class TestTradingDaysRange:
+    def test_kr_excludes_extra_closed_election_day(self):
+        # 6/3 제9회 지방선거는 _KR_EXTRA_CLOSED override 로 제외되고 인접일은 유지된다.
+        # calendar.json(build_calendar_snapshot)이 이 함수로 생성되므로 재생성 시에도
+        # 6/3 이 거래일로 되살아나지 않는다.
+        days = cu.kr_trading_days(date(2026, 6, 1), date(2026, 6, 5))
+        assert "2026-06-03" not in days
+        assert "2026-06-02" in days
+        assert "2026-06-04" in days
+
+    def test_us_keeps_election_day(self):
+        # 미국은 한국 지방선거와 무관 — 6/3은 NYSE 정상 거래일로 유지된다.
+        days = cu.us_trading_days(date(2026, 6, 1), date(2026, 6, 5))
+        assert "2026-06-03" in days

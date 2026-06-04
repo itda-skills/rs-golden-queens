@@ -26,6 +26,19 @@ _ET = ZoneInfo("America/New_York")
 _NYSE = _mcal.get_calendar("NYSE")
 _XKRX = _ec.get_calendar("XKRX")
 
+# exchange_calendars(XKRX)가 반영하지 못하는 한국 임시공휴일·선거일 보완 세트.
+# 정부가 수시 지정하는 임시공휴일과 선거일은 라이브러리가 미래치로 보장하지 못한다 —
+# 실제로 2026-06-03 제9회 전국동시지방선거를 4.13.2 XKRX 가 거래일로 오판(is_session
+# =True)해 한국장 데이터가 직전 거래일 복제로 오발행된 적이 있다. 거래일 판정의 단일
+# 출처(_is_xkrx_session·kr_trading_days)에서만 이 세트를 차감해, daily_kr 등에 산발적
+# 날짜 게이트를 하드코딩하지 않고 보완한다. 라이브러리가 향후 반영하면 과거 항목은
+# 정리해도 무방하다. ISO(YYYY-MM-DD) 문자열로 둔다.
+_KR_EXTRA_CLOSED: frozenset[str] = frozenset(
+    {
+        "2026-06-03",  # 제9회 전국동시지방선거 (임시공휴일)
+    }
+)
+
 
 def _now_in(tz: ZoneInfo) -> datetime:
     return datetime.now(tz)
@@ -91,7 +104,10 @@ def is_kr_trading_day(now: Optional[datetime] = None) -> bool:
 
 
 def _is_xkrx_session(d: date) -> bool:
-    return bool(_XKRX.is_session(d.isoformat()))
+    iso = d.isoformat()
+    if iso in _KR_EXTRA_CLOSED:
+        return False  # 라이브러리 미반영 임시공휴일·선거일 보완
+    return bool(_XKRX.is_session(iso))
 
 
 _WEEKDAY_KR = "월화수목금토일"
@@ -163,9 +179,11 @@ def kr_trading_days(start: date, end: date) -> list[str]:
     재구현하지 않도록 단일 출처를 제공한다 (SPEC-MF-SCHED-001 일관성).
     """
     sessions = _XKRX.sessions_in_range(start.isoformat(), end.isoformat())
-    return [
+    days = [
         s.date().isoformat() if hasattr(s, "date") else str(s)[:10] for s in sessions
     ]
+    # 라이브러리가 못 잡는 임시공휴일·선거일을 단일 출처에서 차감 (calendar.json 정합).
+    return [d for d in days if d not in _KR_EXTRA_CLOSED]
 
 
 def us_trading_days(start: date, end: date) -> list[str]:
