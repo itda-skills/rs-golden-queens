@@ -11,8 +11,8 @@ import {
 } from "@/lib/format";
 import { Tooltip } from "./Tooltip";
 
-// 툴팁 본문 — 1행 이름 / 2행 값(+선택 note). 배경 톤(빨강/파랑)은 Tooltip 이
-// 부호에서 칠하므로 여기선 흰 글자 농담으로만 위계를 준다.
+// 툴팁 본문 — 1행 이름(진회색) / 2행 값(톤 컬러·굵게)+선택 note. 값의 색은 Tooltip
+// 의 톤(부호 파생)에서 상속하므로 여기선 위계(농담·굵기)만 준다.
 function TipBody({
   name,
   value,
@@ -24,10 +24,17 @@ function TipBody({
 }) {
   return (
     <span className="block">
-      <span className="block text-[11px] font-normal text-white/75">{name}</span>
+      <span className="block text-[11px] font-normal text-neutral-600 dark:text-neutral-300">
+        {name}
+      </span>
       <span className="block font-semibold tabular-nums">
         {value}
-        {note ? <span className="font-normal text-white/75"> · {note}</span> : null}
+        {note ? (
+          <span className="font-normal text-neutral-500 dark:text-neutral-400">
+            {" · "}
+            {note}
+          </span>
+        ) : null}
       </span>
     </span>
   );
@@ -77,6 +84,7 @@ export function HBarChart({
             <li key={d.label} className="text-sm">
               <Tooltip
                 as="div"
+                follow
                 tone={direction(v)}
                 label={
                   <TipBody
@@ -154,6 +162,7 @@ export function BarChart({
             <Tooltip
               key={d.label}
               as="div"
+              follow
               tone={direction(d.value)}
               label={
                 <TipBody
