@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { DrawerProvider } from "@/components/DrawerContext";
 import { Sidebar } from "@/components/Sidebar";
@@ -53,6 +54,7 @@ export default async function RootLayout({
           </div>
           <SiteFooter />
         </DrawerProvider>
+        <Analytics />
       </body>
     </html>
   );
