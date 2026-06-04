@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 
-// 경량 React 툴팁 — 브라우저 기본 title 대비 즉시 표시 + 디자인 일관.
-// hover/focus 시 표시. 의존성 없음.
+// 경량 React 툴팁 — 브라우저 기본 title 대비 즉시 표시 + 디자인 일관. 의존성 없음.
+// 마우스: hover 로 열고 닫음. 키보드: focus/blur + Esc. 터치/펜: 탭 토글 + 바깥 탭
+// 닫기(트리거가 포커스 불가 요소여도 닫히도록 document 레벨에서 처리).
 
 export function Tooltip({
   label,
@@ -11,6 +18,7 @@ export function Tooltip({
   side = "bottom",
   disabled = false,
   className,
+  as = "span",
 }: {
   label: ReactNode;
   children: ReactNode;
@@ -20,26 +28,63 @@ export function Tooltip({
   disabled?: boolean;
   // 래퍼 span 에 덧붙일 클래스 — flex 셀 안에서 min-w-0/flex-1 로 줄어들게 할 때.
   className?: string;
+  // 래퍼 요소. 기본 span(phrasing). 차트 막대처럼 block(div) 자식을 감쌀 땐 "div"
+  // 로 줘 div-in-span 부적합을 피한다. 기존 호출부는 기본값 span 그대로.
+  as?: "span" | "div";
 }) {
   const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLElement | null>(null);
+  // 마지막 포인터 종류 — 마우스는 hover 가 담당하므로 onClick 토글에서 제외하고,
+  // 터치/펜 탭만 토글한다. onClick 엔 pointerType 이 없어 pointerdown 에서 기록한다.
+  const pointerTypeRef = useRef<string>("mouse");
 
-  const pos =
-    side === "top"
-      ? "bottom-full mb-1.5"
-      : "top-full mt-1.5";
+  const showing = open && !disabled;
 
-  return (
-    <span
-      className={`relative inline-flex ${className ?? ""}`}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      // 터치(탭)에도 열리게 — 모바일엔 hover 가 없다. 닫기는 blur(바깥 탭).
-      onClick={() => setOpen(true)}
-    >
+  // 표시 중일 때만: 바깥 탭/클릭 → 닫기(차트 막대처럼 포커스 불가라 blur 로 못 닫는
+  // 경우 대비), Esc → 닫기.
+  useEffect(() => {
+    if (!showing) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showing]);
+
+  const pos = side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5";
+
+  const handlers = {
+    // 마우스만 hover 로 열고 닫는다. 터치 pointerenter 는 무시 → 탭 토글로만 동작.
+    onPointerEnter: (e: ReactPointerEvent) => {
+      if (e.pointerType === "mouse") setOpen(true);
+    },
+    onPointerLeave: (e: ReactPointerEvent) => {
+      if (e.pointerType === "mouse") setOpen(false);
+    },
+    onPointerDown: (e: ReactPointerEvent) => {
+      pointerTypeRef.current = e.pointerType;
+    },
+    // 터치/펜 탭 = 토글(다시 탭하면 닫힘). 마우스 클릭은 hover 가 담당하므로 무시.
+    onClick: () => {
+      if (pointerTypeRef.current !== "mouse") setOpen((o) => !o);
+    },
+    onFocus: () => setOpen(true),
+    onBlur: () => setOpen(false),
+  };
+
+  const wrapperClassName = `relative inline-flex ${className ?? ""}`;
+
+  const inner = (
+    <>
       {children}
-      {open && !disabled && (
+      {showing && (
         <span
           role="tooltip"
           className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${pos} z-30 w-max max-w-[16rem] whitespace-normal text-left leading-snug rounded-md bg-neutral-900 dark:bg-neutral-700 px-2.5 py-1.5 text-xs text-white shadow-lg`}
@@ -47,6 +92,31 @@ export function Tooltip({
           {label}
         </span>
       )}
+    </>
+  );
+
+  if (as === "div") {
+    return (
+      <div
+        ref={(el) => {
+          wrapperRef.current = el;
+        }}
+        className={wrapperClassName}
+        {...handlers}
+      >
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <span
+      ref={(el) => {
+        wrapperRef.current = el;
+      }}
+      className={wrapperClassName}
+      {...handlers}
+    >
+      {inner}
     </span>
   );
 }

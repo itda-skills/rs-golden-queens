@@ -2,7 +2,8 @@
 // 0선 기준 발산형: 양수=위(상승 빨강)·음수=아래(하락 파랑). 각 막대에 실제 수치 라벨.
 // SVG preserveAspectRatio="none" 의 가로 찌그러짐/수치 미표시 문제를 피하려 flex+높이(px)로 구현.
 
-import { colorClass, signedAmount, signedPct } from "@/lib/format";
+import { arrow, colorClass, signedAmount, signedPct } from "@/lib/format";
+import { Tooltip } from "./Tooltip";
 
 export interface BarDatum {
   label: string; // x축 라벨 (일자/티커)
@@ -45,33 +46,39 @@ export function HBarChart({
           const up = v != null && v >= 0;
           const w = v == null ? 0 : (Math.abs(v) / max) * 50; // 한쪽 최대 50%
           return (
-            <li key={d.label} className="flex items-center gap-2 text-sm">
-              <span className="w-16 shrink-0 truncate text-neutral-600 dark:text-neutral-300">
-                {d.label}
-              </span>
-              <div className="relative h-4 min-w-0 flex-1">
-                <div className="absolute inset-y-0 left-1/2 w-px bg-neutral-300 dark:bg-neutral-700" />
-                {v != null && (
-                  <div
-                    className={`absolute inset-y-1 rounded ${up ? "bg-rose-500/85" : "bg-blue-500/85"}`}
-                    style={
-                      up
-                        ? { left: "50%", width: `${w}%` }
-                        : { right: "50%", width: `${w}%` }
-                    }
-                  />
-                )}
-              </div>
-              <span
-                className={`w-14 shrink-0 text-right font-medium tabular-nums ${colorClass(v)}`}
+            <li key={d.label} className="text-sm">
+              <Tooltip
+                as="div"
+                label={`${d.label} · ${fmt(v)} ${arrow(v)}${d.note ? ` · ${d.note}` : ""}`}
+                className="w-full items-center gap-2 cursor-help"
               >
-                {fmt(v)}
-              </span>
-              {d.note ? (
-                <span className="hidden w-24 shrink-0 truncate text-right text-xs text-neutral-400 sm:block">
-                  {d.note}
+                <span className="w-16 shrink-0 truncate text-neutral-600 dark:text-neutral-300">
+                  {d.label}
                 </span>
-              ) : null}
+                <div className="relative h-4 min-w-0 flex-1">
+                  <div className="absolute inset-y-0 left-1/2 w-px bg-neutral-300 dark:bg-neutral-700" />
+                  {v != null && (
+                    <div
+                      className={`absolute inset-y-1 rounded ${up ? "bg-rose-500/85" : "bg-blue-500/85"}`}
+                      style={
+                        up
+                          ? { left: "50%", width: `${w}%` }
+                          : { right: "50%", width: `${w}%` }
+                      }
+                    />
+                  )}
+                </div>
+                <span
+                  className={`w-14 shrink-0 text-right font-medium tabular-nums ${colorClass(v)}`}
+                >
+                  {fmt(v)}
+                </span>
+                {d.note ? (
+                  <span className="hidden w-24 shrink-0 truncate text-right text-xs text-neutral-400 sm:block">
+                    {d.note}
+                  </span>
+                ) : null}
+              </Tooltip>
             </li>
           );
         })}
@@ -109,10 +116,11 @@ export function BarChart({
           const up = d.value >= 0;
           const barPx = Math.max((Math.abs(d.value) / max) * barMax, d.value === 0 ? 0 : 2);
           return (
-            <div
+            <Tooltip
               key={d.label}
-              className="flex-1 flex flex-col items-center justify-center min-w-0"
-              title={`${d.label}: ${fmt(d.value)}`}
+              as="div"
+              label={`${d.label} · ${fmt(d.value)} ${arrow(d.value)}`}
+              className="flex-1 min-w-0 cursor-help flex-col items-center justify-center"
             >
               {/* 위 영역 (양수) */}
               <div className="flex-1 min-h-0 w-full flex flex-col justify-end items-center">
@@ -144,7 +152,7 @@ export function BarChart({
                   </>
                 )}
               </div>
-            </div>
+            </Tooltip>
           );
         })}
       </div>
