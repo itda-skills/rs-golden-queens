@@ -1,6 +1,6 @@
 "use client";
 
-// 좌측 날짜 사이드바 — 🇰🇷 코스피 / 🇺🇸 미국지수 / 📈 주간리포트 3섹션, 각 하위에
+// 좌측 날짜 사이드바 — 🇰🇷 한국 시장 / 🇺🇸 미국 시장 / 📈 주간 리포트 3섹션, 각 하위에
 // 발행 날짜 링크. 데이터는 발행 index(getIndex)에서 layout 이 server fetch 해 넘긴다
 // (웹은 새로 수집·계산하지 않는다). 현재 보는 날짜를 usePathname 으로 하이라이트하고,
 // 모바일에선 헤더 ☰ 가 여는 드로어로 표시한다(DrawerContext 공유).
@@ -55,11 +55,11 @@ export function Sidebar({
     });
 
   const sections: Section[] = [
-    { key: "kr", label: "코스피", emoji: "🇰🇷", base: "/kr", dates: index?.kr ?? [], fmt: shortDateWeekday },
-    { key: "us", label: "미국지수", emoji: "🇺🇸", base: "/us", dates: index?.us ?? [], fmt: shortDateWeekday },
+    { key: "kr", label: "한국 시장", emoji: "🇰🇷", base: "/kr", dates: index?.kr ?? [], fmt: shortDateWeekday },
+    { key: "us", label: "미국 시장", emoji: "🇺🇸", base: "/us", dates: index?.us ?? [], fmt: shortDateWeekday },
     {
       key: "weekly",
-      label: "주간리포트",
+      label: "주간 리포트",
       emoji: "📈",
       base: "/weekly",
       dates: index?.weekly ?? [],
