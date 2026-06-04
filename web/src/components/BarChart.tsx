@@ -2,8 +2,36 @@
 // 0선 기준 발산형: 양수=위(상승 빨강)·음수=아래(하락 파랑). 각 막대에 실제 수치 라벨.
 // SVG preserveAspectRatio="none" 의 가로 찌그러짐/수치 미표시 문제를 피하려 flex+높이(px)로 구현.
 
-import { arrow, colorClass, signedAmount, signedPct } from "@/lib/format";
+import {
+  arrow,
+  colorClass,
+  direction,
+  signedAmount,
+  signedPct,
+} from "@/lib/format";
 import { Tooltip } from "./Tooltip";
+
+// 툴팁 본문 — 1행 이름 / 2행 값(+선택 note). 배경 톤(빨강/파랑)은 Tooltip 이
+// 부호에서 칠하므로 여기선 흰 글자 농담으로만 위계를 준다.
+function TipBody({
+  name,
+  value,
+  note,
+}: {
+  name: string;
+  value: string;
+  note?: string;
+}) {
+  return (
+    <span className="block">
+      <span className="block text-[11px] font-normal text-white/75">{name}</span>
+      <span className="block font-semibold tabular-nums">
+        {value}
+        {note ? <span className="font-normal text-white/75"> · {note}</span> : null}
+      </span>
+    </span>
+  );
+}
 
 export interface BarDatum {
   label: string; // x축 라벨 (일자/티커)
@@ -49,7 +77,14 @@ export function HBarChart({
             <li key={d.label} className="text-sm">
               <Tooltip
                 as="div"
-                label={`${d.label} · ${fmt(v)} ${arrow(v)}${d.note ? ` · ${d.note}` : ""}`}
+                tone={direction(v)}
+                label={
+                  <TipBody
+                    name={d.label}
+                    value={v == null ? fmt(v) : `${fmt(v)} ${arrow(v)}`}
+                    note={d.note}
+                  />
+                }
                 className="w-full items-center gap-2 cursor-help"
               >
                 <span className="w-16 shrink-0 truncate text-neutral-600 dark:text-neutral-300">
@@ -119,7 +154,13 @@ export function BarChart({
             <Tooltip
               key={d.label}
               as="div"
-              label={`${d.label} · ${fmt(d.value)} ${arrow(d.value)}`}
+              tone={direction(d.value)}
+              label={
+                <TipBody
+                  name={d.label}
+                  value={`${fmt(d.value)} ${arrow(d.value)}`}
+                />
+              }
               className="flex-1 min-w-0 cursor-help flex-col items-center justify-center"
             >
               {/* 위 영역 (양수) */}

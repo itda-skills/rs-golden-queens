@@ -19,6 +19,7 @@ export function Tooltip({
   disabled = false,
   className,
   as = "span",
+  tone = "flat",
 }: {
   label: ReactNode;
   children: ReactNode;
@@ -31,6 +32,9 @@ export function Tooltip({
   // 래퍼 요소. 기본 span(phrasing). 차트 막대처럼 block(div) 자식을 감쌀 땐 "div"
   // 로 줘 div-in-span 부적합을 피한다. 기존 호출부는 기본값 span 그대로.
   as?: "span" | "div";
+  // 말풍선 배경 톤 — 수치 부호에서 파생(상승 빨강 / 하락 파랑 / 보합·무값 검정).
+  // 기본 flat 은 기존 검정. format.direction() 의 반환값을 그대로 넘기면 된다.
+  tone?: "up" | "down" | "flat";
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLElement | null>(null);
@@ -60,6 +64,14 @@ export function Tooltip({
 
   const pos = side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5";
 
+  // 한국 색 컨벤션(상승 빨강 / 하락 파랑). 흰 글자 가독성 위해 진한 600 단계.
+  const toneBg =
+    tone === "up"
+      ? "bg-rose-600"
+      : tone === "down"
+        ? "bg-blue-600"
+        : "bg-neutral-900 dark:bg-neutral-700";
+
   const handlers = {
     // 마우스만 hover 로 열고 닫는다. 터치 pointerenter 는 무시 → 탭 토글로만 동작.
     onPointerEnter: (e: ReactPointerEvent) => {
@@ -87,7 +99,7 @@ export function Tooltip({
       {showing && (
         <span
           role="tooltip"
-          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${pos} z-30 w-max max-w-[16rem] whitespace-normal text-left leading-snug rounded-md bg-neutral-900 dark:bg-neutral-700 px-2.5 py-1.5 text-xs text-white shadow-lg`}
+          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${pos} z-30 w-max max-w-[16rem] whitespace-normal text-left leading-snug rounded-md ${toneBg} px-2.5 py-1.5 text-xs text-white shadow-lg`}
         >
           {label}
         </span>
