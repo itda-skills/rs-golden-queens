@@ -68,7 +68,7 @@ export function HBarChart({
                 {fmt(v)}
               </span>
               {d.note ? (
-                <span className="w-24 shrink-0 truncate text-right text-xs text-neutral-400">
+                <span className="hidden w-24 shrink-0 truncate text-right text-xs text-neutral-400 sm:block">
                   {d.note}
                 </span>
               ) : null}

@@ -10,6 +10,7 @@ import {
   volRatio,
   weekdayLabel,
 } from "@/lib/format";
+import { vixTermShape } from "@/lib/vix";
 import type {
   HighYieldOas,
   KrDailyFlow,
@@ -141,21 +142,18 @@ export function UsSectionTable({
 // VIX 기간구조 (I7, #10) — 9일 vs 30일 곡선 형태(콘탱고/백워데이션). 발행 스냅샷의
 // 종가값에서 파생. 곡선 형태 사실이지 판단·예측 아님 — 세 상태 모두 중립색(경고색 미사용).
 export function VixTermStructure({ volatility }: { volatility: UsSection }) {
-  const short = volatility["^VIX9D"]?.close ?? null;
-  const long = volatility["^VIX"]?.close ?? null;
-  if (short == null || long == null) return null;
-  const spread = long - short;
-  // 표시 단위(소수 2자리)로 반올림해 분류 — 텔레그램 round(spread,2) 와 동일 임계(SoT 정합).
-  const s = Math.round(spread * 100) / 100;
-  const shape = s > 0.3 ? "콘탱고" : s < -0.3 ? "백워데이션" : "평탄";
+  // 9D/30D 곡선 형태 분류는 lib/vix 의 vixTermShape 단일 출처에 위임(MoodStrip 과 임계
+  // 공유 — ±0.3p 이중정의 방지). 곡선 형태 사실이지 판단·예측 아님(세 상태 모두 중립색).
+  const t = vixTermShape(volatility);
+  if (!t) return null;
   return (
     <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
-      VIX 기간구조: 9일 {short.toFixed(2)} / 30일 {long.toFixed(2)} →{" "}
+      VIX 기간구조: 9일 {t.short.toFixed(2)} / 30일 {t.long.toFixed(2)} →{" "}
       <span className="font-medium text-neutral-700 dark:text-neutral-200">
-        {shape}
+        {t.shape}
       </span>{" "}
-      ({spread >= 0 ? "+" : ""}
-      {spread.toFixed(2)}p)
+      ({t.spread >= 0 ? "+" : ""}
+      {t.spread.toFixed(2)}p)
     </p>
   );
 }
