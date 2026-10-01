@@ -205,6 +205,18 @@ class TestSendRealHttp:
             assert parsed["chat_id"] == ["12345"]
             assert parsed["text"] == ["hello"]
 
+    def test_parse_mode_none_omits_field(self, monkeypatch):
+        # 평문 발송(실패 알림) — 문자열 "None" 이 parse_mode 로 전송되지 않는다
+        self._setup_env(monkeypatch)
+        with patch(
+            "market_flow.telegram_push.urllib.request.urlopen",
+            return_value=self._make_mock_response(),
+        ) as mock_u:
+            tp.send("plain", parse_mode=None)
+            parsed = urllib.parse.parse_qs(mock_u.call_args.args[0].data.decode())
+            assert "parse_mode" not in parsed
+            assert parsed["text"] == ["plain"]
+
     def test_returns_parsed_response_json(self, monkeypatch):
         self._setup_env(monkeypatch)
         payload = {"ok": True, "result": {"message_id": 999}}

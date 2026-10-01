@@ -5,6 +5,7 @@
     python main.py [--test] daily-us [DATE]   # DATE: YYYY-MM-DD
     python main.py [--test] weekly
     python main.py [--test] notify-test
+    python main.py --test notify-failure [--log PATH]   # 워크플로우 실패 알림
     python main.py smoke-kr
     python main.py smoke-us
 
@@ -53,6 +54,14 @@ def _cmd_notify_test(args: argparse.Namespace) -> None:
     mode = "test" if os.environ.get(_TEST_SEND_ENV) else "prod"
     resp = send(f"[rs-golden-queens] notify-test ({mode}) ping at {now} (KST)")
     print("OK" if resp.get("ok") else resp)
+
+
+def _cmd_notify_failure(args: argparse.Namespace) -> None:
+    from market_flow import failure_alert
+
+    code = failure_alert.main(args.log)
+    if code:
+        sys.exit(code)
 
 
 def _add_test_arg(parser: argparse.ArgumentParser) -> None:
@@ -149,6 +158,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_ping = sub.add_parser("notify-test", help="텔레그램 핑 (환경변수 검증)")
     _add_test_arg(p_ping)
     p_ping.set_defaults(func=_cmd_notify_test)
+
+    p_fail = sub.add_parser(
+        "notify-failure", help="워크플로우 실패 알림 (운영자용, --test 와 함께)"
+    )
+    p_fail.add_argument("--log", help="실패한 단계의 출력 로그 경로 ([FAIL] 원인 추출)")
+    _add_test_arg(p_fail)
+    p_fail.set_defaults(func=_cmd_notify_failure)
 
     p_skr = sub.add_parser("smoke-kr", help="KR 데이터 소스 단독 점검")
     p_skr.set_defaults(func=_cmd_smoke_kr)

@@ -51,4 +51,16 @@ jobs:
           MARKET_FLOW_REVALIDATE_URL: https://rs-golden-queens.vercel.app/api/revalidate
           MARKET_FLOW_REVALIDATE_SECRET: ${{ secrets.MARKET_FLOW_REVALIDATE_SECRET }}
           TZ: Asia/Seoul
-        run: python main.py daily-kr ${{ inputs.date }}
+        # pipefail(shell: bash) 로 main.py 의 종료 코드를 유지하며 실패 알림용 로그를 남긴다.
+        shell: bash
+        run: python main.py daily-kr ${{ inputs.date }} 2>&1 | tee "$RUNNER_TEMP/flow.log"
+
+      # 위 단계 어디서든 실패·타임아웃하면 운영자(테스트) 채널로 알린다.
+      # 구독자 채널에는 보내지 않는다. 원인은 tee 로그의 [FAIL] 줄에서 뽑는다.
+      - name: Notify failure
+        if: ${{ failure() || cancelled() }}
+        env:
+          TEST_GOLDENQUEENS_BOT_TOKEN: ${{ secrets.TEST_GOLDENQUEENS_BOT_TOKEN }}
+          TEST_GOLDENQUEENS_CHAT_ID:   ${{ secrets.TEST_GOLDENQUEENS_CHAT_ID }}
+          TZ: Asia/Seoul
+        run: python3 main.py --test notify-failure --log "$RUNNER_TEMP/flow.log"
