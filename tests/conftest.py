@@ -111,18 +111,6 @@ def naver_mobile_kosdaq_json(fixtures_dir: Path) -> str:
 
 
 @pytest.fixture
-def naver_intraday_html(fixtures_dir: Path) -> str:
-    """네이버 데스크탑 시간별 추세 HTML (utf-8 디코딩된 문자열)."""
-    return (fixtures_dir / "naver_kr" / "intraday.html").read_text(encoding="utf-8")
-
-
-@pytest.fixture
-def naver_daily_html(fixtures_dir: Path) -> str:
-    """네이버 데스크탑 일별 추세 HTML (utf-8 디코딩된 문자열)."""
-    return (fixtures_dir / "naver_kr" / "daily.html").read_text(encoding="utf-8")
-
-
-@pytest.fixture
 def naver_mobile_kospi_dict(naver_mobile_kospi_json: str) -> dict:
     """KOSPI 모바일 응답을 dict 로 파싱."""
     return json.loads(naver_mobile_kospi_json)

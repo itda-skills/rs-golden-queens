@@ -1,6 +1,6 @@
 """SPEC-MF-TEST-001: fetchers/naver_kr 단위 테스트.
 
-market_flow/fetchers/naver_kr.py 의 모바일 JSON 파서 / 데스크탑 HTML 파서 /
+market_flow/fetchers/naver_kr.py 의 모바일 JSON 파서 / Npay 증권 일별 파서 /
 fetch_today 통합 동작을 검증한다. ``urllib.request.urlopen`` 은 모두
 mock 으로 차단되어 실 네이버 호출이 발생하지 않는다.
 """
@@ -22,15 +22,6 @@ def _mock_urlopen_response(text):
     """
     mock_resp = MagicMock()
     mock_resp.read.return_value = text.encode("utf-8")
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    return mock_resp
-
-
-def _mock_urlopen_bytes(raw_bytes):
-    """euc-kr 인코딩 등 raw 바이트 응답을 위한 헬퍼."""
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = raw_bytes
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
     return mock_resp
@@ -119,181 +110,139 @@ class TestFetchDailySummary:
 
 
 # ──────────────────────────────────────────────
-#  _parse_trend_rows
+#  fetch_kospi_daily (Npay 증권 API)
 # ──────────────────────────────────────────────
 
 
-class TestParseTrendRows:
-    def test_empty_body_returns_empty_list(self):
-        assert naver_kr._parse_trend_rows("", time_col=True) == []
+_EOK = 100_000_000
 
-    def test_time_col_true_first_key_is_time(self):
-        body = (
-            "<tr>"
-            "<td>15:30</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=True)
-        assert len(rows) == 1
-        assert "time" in rows[0]
-        assert rows[0]["time"] == "15:30"
-        assert "date" not in rows[0]
 
-    def test_time_col_false_first_key_is_date(self):
-        body = (
-            "<tr>"
-            "<td>05.25</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert "date" in rows[0]
-        assert rows[0]["date"] == "05.25"
+def _trend_item(bizdate, **codes):
+    """API 일별 항목 합성 — codes 는 investorGubun 코드별 억원 값(c8000=-100 …)."""
+    return {
+        "bizdate": bizdate,
+        "time": "",
+        "netAmounts": [
+            {"investorGubun": k[1:], "diffValue": str(v * _EOK)}
+            for k, v in codes.items()
+        ],
+    }
 
-    def test_skips_rows_with_fewer_than_11_cells(self):
-        body = (
-            "<tr><td>15:30</td><td>+1</td><td>+2</td></tr>"  # 3 cells only — skip
-            "<tr>"
-            "<td>15:00</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=True)
-        assert len(rows) == 1
-        assert rows[0]["time"] == "15:00"
 
-    def test_dash_cell_becomes_zero(self):
-        body = (
-            "<tr>"
-            "<td>15:30</td><td>-</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=True)
-        # 두 번째 셀(personal)이 "-" → 0
-        assert rows[0]["personal"] == 0
+# 제로섬·기관소계가 맞는 기본 행: 개인 -300, 외국인 -100(-90-10), 기관 +150, 기타법인 +250
+_BALANCED = dict(
+    c8000=-300,
+    c9000=-90,
+    c9001=-10,
+    c1000=40,
+    c2000=10,
+    c3000=20,
+    c3100=30,
+    c4000=5,
+    c5000=15,
+    c6000=25,
+    c7000=5,
+    c7100=250,
+)
 
-    def test_numeric_normalization_strips_commas_and_plus(self):
-        body = (
-            "<tr>"
-            "<td>15:30</td><td>+1,234</td><td>-5,678</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=True)
-        assert rows[0]["personal"] == 1234
-        assert rows[0]["foreign"] == -5678
 
-    def test_all_11_value_keys_present(self):
-        body = (
-            "<tr>"
-            "<td>05.25</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        expected = {
-            "date",
-            "personal",
-            "foreign",
-            "institutional",
-            "finance",
-            "insurance",
-            "trust",
-            "bank",
-            "other_fin",
-            "pension",
-            "other_corp",
+def _page(items, last=True):
+    return json.dumps({"content": items, "last": last})
+
+
+def _patch_pages(*bodies):
+    return patch(
+        "market_flow.fetchers.naver_kr.urllib.request.urlopen",
+        side_effect=[_mock_urlopen_response(b) for b in bodies],
+    )
+
+
+class TestFetchKospiDaily:
+    def test_groups_codes_into_legacy_row(self):
+        with _patch_pages(_page([_trend_item("20261001", **_BALANCED)])):
+            rows = naver_kr.fetch_kospi_daily("20261001")
+        assert rows == [
+            {
+                "date": "26.10.01",
+                "personal": -300,
+                "foreign": -100,  # 외국인 + 기타외국인
+                "institutional": 150,  # 기관 세부 합
+                "finance": 40,
+                "insurance": 10,
+                "trust": 50,  # 투신 + 사모
+                "bank": 5,
+                "other_fin": 15,
+                "pension": 30,  # 연기금 + 국가·지자체
+                "other_corp": 250,
+            }
+        ]
+
+    def test_rows_satisfy_sum_identities(self):
+        with _patch_pages(_page([_trend_item("20261001", **_BALANCED)])):
+            (r,) = naver_kr.fetch_kospi_daily("20261001")
+        inst_parts = ("finance", "insurance", "trust", "bank", "other_fin", "pension")
+        assert r["personal"] + r["foreign"] + r["institutional"] + r["other_corp"] == 0
+        assert sum(r[k] for k in inst_parts) == r["institutional"]
+
+    def test_rounds_won_to_eok_after_grouping(self):
+        item = {
+            "bizdate": "20261001",
+            "netAmounts": [
+                {"investorGubun": "9000", "diffValue": "-550942000000"},
+                {"investorGubun": "9001", "diffValue": "-4887000000"},
+            ],
         }
-        assert set(rows[0].keys()) == expected
+        with _patch_pages(_page([item])):
+            (r,) = naver_kr.fetch_kospi_daily("20261001")
+        assert r["foreign"] == -5558
 
-    def test_skips_pagination_row(self):
-        # 네이버 페이지 하단 페이지네이션("1 2 3 … 10")이 11컬럼으로 잡혀도
-        # 첫 셀이 날짜 형식이 아니므로 제외된다(E8 회귀 방지).
-        body = (
-            "<tr>"
-            "<td>26.05.29</td><td>+1</td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td>"
-            "</tr>"
-            "<tr>"
-            "<td>1</td><td>2</td><td>3</td><td>4</td><td>5</td>"
-            "<td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td>"
-            "</tr>"
+    def test_skips_rows_after_bizdate(self):
+        # API 는 bizdate 와 무관하게 최신일부터 준다 — 요청일 이하만 채택(E7·재발송)
+        items = [
+            _trend_item("20261002", **_BALANCED),
+            _trend_item("20261001", **_BALANCED),
+            _trend_item("20260930", **_BALANCED),
+        ]
+        with _patch_pages(_page(items)):
+            rows = naver_kr.fetch_kospi_daily("20261001")
+        assert [r["date"] for r in rows] == ["26.10.01", "26.09.30"]
+
+    def test_caps_at_ten_rows(self):
+        items = [_trend_item(f"202609{d:02d}", **_BALANCED) for d in range(30, 10, -1)]
+        with _patch_pages(_page(items, last=False)):
+            rows = naver_kr.fetch_kospi_daily("20260930")
+        assert len(rows) == 10
+        assert rows[0]["date"] == "26.09.30"
+
+    def test_pages_until_bizdate_rows_found(self):
+        newer = [_trend_item("20261001", **_BALANCED)]
+        older = [_trend_item("20260901", **_BALANCED)]
+        with _patch_pages(_page(newer, last=False), _page(older)) as m:
+            rows = naver_kr.fetch_kospi_daily("20260905")
+        assert [r["date"] for r in rows] == ["26.09.01"]
+        assert m.call_count == 2
+
+    def test_requests_krx_kospi(self):
+        with _patch_pages(_page([])) as m:
+            naver_kr.fetch_kospi_daily("20261001")
+        url = m.call_args.args[0].full_url
+        assert url.startswith(
+            "https://stock.naver.com/api/domestic/market/trend/daily?"
         )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert len(rows) == 1
-        assert rows[0]["date"] == "26.05.29"
+        assert "tradeType=KRX" in url and "marketType=KOSPI" in url
 
-    def test_accepts_both_date_formats(self):
-        # 데스크탑 일별은 YY.MM.DD, 일부는 MM.DD — 둘 다 허용(페이지네이션만 차단).
-        row1 = "<tr><td>05.25</td>" + "<td>+1</td>" * 10 + "</tr>"
-        row2 = "<tr><td>26.05.25</td>" + "<td>+1</td>" * 10 + "</tr>"
-        rows = naver_kr._parse_trend_rows(row1 + row2, time_col=False)
-        assert [r["date"] for r in rows] == ["05.25", "26.05.25"]
+    def test_empty_content_warns_and_returns_empty(self, capsys):
+        with _patch_pages(_page([])):
+            assert naver_kr.fetch_kospi_daily("20261001") == []
+        assert "0행" in capsys.readouterr().err
 
-    def test_time_col_skips_non_time_first_cell(self):
-        # 시간별도 첫 셀이 HH:MM 형식이 아니면 제외.
-        body = "<tr><td>1</td>" + "<td>2</td>" * 10 + "</tr>"
-        assert naver_kr._parse_trend_rows(body, time_col=True) == []
-
-
-# ──────────────────────────────────────────────
-#  fetch_kospi_intraday / fetch_kospi_daily — fixture 기반
-# ──────────────────────────────────────────────
-
-
-class TestFetchKospiHtmlPaths:
-    def test_intraday_returns_rows_with_time_key(self, naver_intraday_html):
-        with patch(
-            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(
-                naver_intraday_html.encode("euc-kr", errors="replace")
-            ),
-        ):
-            rows = naver_kr.fetch_kospi_intraday("20260525")
-        assert len(rows) >= 2  # 정상 행 2개, 부족한 행 1개 무시
-        for r in rows:
-            assert "time" in r
-            assert isinstance(r["personal"], int)
-
-    def test_intraday_dash_cell_becomes_zero(self, naver_intraday_html):
-        with patch(
-            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(
-                naver_intraday_html.encode("euc-kr", errors="replace")
-            ),
-        ):
-            rows = naver_kr.fetch_kospi_intraday("20260525")
-        # 두 번째 행 (15:00) 의 finance 셀이 "-" → 0
-        row_15h = next(r for r in rows if r["time"] == "15:00")
-        assert row_15h["finance"] == 0
-
-    def test_daily_returns_rows_with_date_key(self, naver_daily_html):
-        with patch(
-            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(
-                naver_daily_html.encode("euc-kr", errors="replace")
-            ),
-        ):
-            rows = naver_kr.fetch_kospi_daily("20260525")
-        assert len(rows) == 6
-        for r in rows:
-            assert "date" in r
-            assert "foreign" in r
-
-    def test_daily_numeric_values_are_int(self, naver_daily_html):
-        with patch(
-            "market_flow.fetchers.naver_kr.urllib.request.urlopen",
-            return_value=_mock_urlopen_bytes(
-                naver_daily_html.encode("euc-kr", errors="replace")
-            ),
-        ):
-            rows = naver_kr.fetch_kospi_daily("20260525")
-        row_first = rows[0]
-        assert row_first["date"] == "05.25"
-        assert row_first["personal"] == -1000
-        assert row_first["foreign"] == 2000
+    def test_garbage_value_becomes_zero_not_crash(self, capsys):
+        item = _trend_item("20261001", **_BALANCED)
+        item["netAmounts"][0]["diffValue"] = "N/A"  # 개인(8000)
+        with _patch_pages(_page([item])):
+            (r,) = naver_kr.fetch_kospi_daily("20261001")
+        assert r["personal"] == 0
+        assert "파싱 실패" in capsys.readouterr().err
 
 
 # ──────────────────────────────────────────────
@@ -303,7 +252,7 @@ class TestFetchKospiHtmlPaths:
 
 class TestFetchToday:
     def test_combines_sources(self, monkeypatch):
-        """fetch_today 는 모바일 코스피·코스닥 + 데스크탑 일별을 dict 로 묶는다."""
+        """fetch_today 는 모바일 코스피·코스닥 + 코스피 일별을 dict 로 묶는다."""
         fake_summary = {
             "bizdate": "20260525",
             "personal": 1,
@@ -347,95 +296,11 @@ class TestFetchToday:
 
 
 # ──────────────────────────────────────────────
-#  E3/E4: 파싱 견고화 (크래시 가드 · 정규식 · 0행 경고)
+#  E4: 모바일 파싱 크래시 가드
 # ──────────────────────────────────────────────
 
 
 class TestParsingRobustness:
-    # ── _n 크래시 가드 (E4) ──
-    def test_n_dash_empty_none_become_zero(self):
-        assert naver_kr._n("-") == 0
-        assert naver_kr._n("") == 0
-        assert naver_kr._n(None) == 0
-
-    def test_n_strips_commas_and_plus(self):
-        assert naver_kr._n("+1,234") == 1234
-        assert naver_kr._n("-5,678") == -5678
-
-    def test_n_garbage_returns_zero_not_crash(self, capsys):
-        assert naver_kr._n("N/A") == 0  # ValueError 로 죽지 않는다
-        assert "파싱 실패" in capsys.readouterr().err
-
-    def test_n_handles_entities_and_nbsp(self):
-        # &#43;=+, &#45;=-, &nbsp; 도 정상 파싱(엔티티 복원 + 공백 제거)
-        assert naver_kr._n(naver_kr._strip_tags("&#43;1,234")) == 1234
-        assert naver_kr._n(naver_kr._strip_tags("+1&nbsp;234")) == 1234
-        assert naver_kr._n(naver_kr._strip_tags("&#45;5,678")) == -5678
-
-    def test_n_handles_unicode_minus(self):
-        # &minus;(U+2212)·en-dash 등 유니코드 마이너스도 ASCII '-' 로 정규화
-        assert naver_kr._n(naver_kr._strip_tags("&minus;5,678")) == -5678
-        assert naver_kr._n("−100") == -100
-        assert naver_kr._n("−") == 0  # 단독 유니코드 마이너스도 0
-
-    def test_parses_entity_encoded_row(self):
-        body = (
-            "<tr><td>05.25</td><td>&#43;1,000</td><td>+2&nbsp;000</td>"
-            "<td>+3</td><td>+4</td><td>+5</td><td>+6</td><td>+7</td>"
-            "<td>+8</td><td>+9</td><td>+10</td></tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert rows[0]["personal"] == 1000  # &#43; 복원
-        assert rows[0]["foreign"] == 2000  # &nbsp; 제거
-
-    # ── _strip_tags ──
-    def test_strip_tags_removes_inner_markup(self):
-        assert naver_kr._strip_tags("<span>123</span>") == "123"
-        assert naver_kr._strip_tags("  +1,234  ") == "+1,234"
-
-    # ── 정규식 견고화 (E3) ──
-    def test_parses_tr_td_with_attributes(self):
-        body = (
-            '<tr class="row" data-x="1">'
-            '<td class="c">05.25</td><td align="right">+1</td>'
-            "<td>+2</td><td>+3</td><td>+4</td><td>+5</td><td>+6</td>"
-            "<td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert len(rows) == 1
-        assert rows[0]["date"] == "05.25"
-        assert rows[0]["personal"] == 1
-        assert rows[0]["other_corp"] == 10
-
-    def test_parses_nested_tags_in_cells(self):
-        body = (
-            "<tr><td><b>05.25</b></td><td><span>+1,000</span></td>"
-            "<td>+2</td><td>+3</td><td>+4</td><td>+5</td><td>+6</td>"
-            "<td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert rows[0]["personal"] == 1000  # <span> 내부 텍스트 파싱
-
-    def test_empty_cell_keeps_column_alignment(self):
-        # 빈 셀(<td></td>)도 0 으로 잡혀 컬럼이 밀리지 않는다(구 [^<]+ 는 이 행을 통째 누락)
-        body = (
-            "<tr><td>05.25</td><td></td><td>+2</td><td>+3</td><td>+4</td>"
-            "<td>+5</td><td>+6</td><td>+7</td><td>+8</td><td>+9</td><td>+10</td></tr>"
-        )
-        rows = naver_kr._parse_trend_rows(body, time_col=False)
-        assert len(rows) == 1
-        assert rows[0]["personal"] == 0  # 빈 셀
-        assert rows[0]["foreign"] == 2  # 정렬 유지
-
-    # ── 0행 경고 (E3) ──
-    def test_zero_rows_with_tr_present_warns(self, capsys):
-        assert naver_kr._parse_trend_rows("<tr><td>a</td><td>b</td></tr>", False) == []
-        assert "0행" in capsys.readouterr().err
-
-    def test_empty_body_no_warning(self, capsys):
-        assert naver_kr._parse_trend_rows("", time_col=False) == []
-        assert capsys.readouterr().err == ""
-
     # ── to_int 크래시 가드 (E4, 모바일) ──
     def test_mobile_to_int_garbage_returns_none_not_crash(self, capsys):
         body = json.dumps(

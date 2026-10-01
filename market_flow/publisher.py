@@ -29,7 +29,7 @@ _KR_PAYLOAD_KEYS = ("bizdate", "kospi", "kosdaq", "kospi_daily", "kosdaq_daily")
 _KR_SOURCES_TMPL = [
     (
         "네이버 일별",
-        "https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate}",
+        "https://stock.naver.com/market/stock/kr/trend/trader",
     ),
     ("모바일 통합", "https://m.stock.naver.com/domestic/index/KOSPI/total"),
 ]
@@ -40,7 +40,7 @@ _US_SOURCES = [
 _WEEKLY_SOURCES_TMPL = [
     (
         "네이버 일별",
-        "https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate}",
+        "https://stock.naver.com/market/stock/kr/trend/trader",
     ),
     (
         "KIS 코스닥 일별",

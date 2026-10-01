@@ -205,10 +205,11 @@ class TestKr:
         for ch in ("🔴", "🔵", "⚪", "▲", "▼"):
             assert ch not in blob
 
-    def test_sources_have_bizdate_url(self, kr_data):
+    def test_sources_have_trend_url(self, kr_data):
+        # 옛 investorDealTrendDay(410 폐기) 대신 Npay 증권 투자자별 매매동향 페이지
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)
         urls = [s["url"] for s in snap["sources"]]
-        assert any("bizdate=20260529" in u for u in urls)
+        assert "https://stock.naver.com/market/stock/kr/trend/trader" in urls
 
     def test_path(self, kr_data):
         snap = P.build_kr_snapshot(kr_data, _NOW_KST)

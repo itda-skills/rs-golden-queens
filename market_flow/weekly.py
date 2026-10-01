@@ -92,7 +92,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     snapshot = build_weekly_snapshot(kospi_daily, kosdaq_daily, watch_5d, now)
     sources = (
         "\n\n출처: "
-        f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
+        "[네이버 일별](https://stock.naver.com/market/stock/kr/trend/trader)"
         " · [KIS 코스닥 일별](https://apiportal.koreainvestment.com/apiservice/apiservice-domestic-stock-quotations#L_3d3dd20d-a64d-44ef-a7e2-ca110a5fe72e)"
         " · [Yahoo Finance](https://finance.yahoo.com/markets/)"
         f"{web_link_suffix_for_snapshot(snapshot)}"

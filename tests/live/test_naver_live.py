@@ -33,14 +33,14 @@ def test_fetch_daily_summary_kospi_smoke():
 
 @pytest.mark.live
 def test_fetch_kospi_daily_smoke():
-    """실제 네이버 데스크탑 페이지 → 10거래일 row 반환."""
+    """실제 Npay 증권 API → 10거래일 row 반환."""
     # bizdate 는 현재 시각 기준
     from datetime import datetime
 
     bizdate = datetime.now().strftime("%Y%m%d")
     rows = naver_kr.fetch_kospi_daily(bizdate)
     assert isinstance(rows, list)
-    # 데스크탑 페이지가 최대 10거래일을 반환하지만, 평일·휴장에 따라 변동.
+    # API 가 최대 10거래일을 반환하지만, 평일·휴장에 따라 변동.
     # 적어도 1개 이상이고 각 행에 date 키가 있는지만 검증.
     assert len(rows) >= 1
     for row in rows:

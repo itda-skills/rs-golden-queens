@@ -317,7 +317,7 @@ def main(argv: Optional[list[str]] = None, now: Optional[datetime] = None) -> No
     snapshot = build_kr_snapshot(data, now)
     sources = (
         "\n\n출처: "
-        f"[네이버 일별](https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate})"
+        "[네이버 일별](https://stock.naver.com/market/stock/kr/trend/trader)"
         f" · [모바일 통합](https://m.stock.naver.com/domestic/index/KOSPI/total)"
         f"{web_link_suffix_for_snapshot(snapshot)}"
     )
