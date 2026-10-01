@@ -2,8 +2,13 @@ name: 한국장 매매동향 푸시
 
 on:
   # Cloudflare cron-worker(cron-worker/)가 정시에 dispatch.
-  # 필요하면 Actions 탭에서 수동 실행 가능.
+  # 필요하면 Actions 탭에서 수동 실행 가능(실패분 복구 시 date 지정).
   workflow_dispatch:
+    inputs:
+      date:
+        description: "발송할 거래일 (YYYYMMDD, 비우면 오늘). 휴장일이면 휴장 안내만 발송됨"
+        required: false
+        default: ""
 
 jobs:
   push:
@@ -46,4 +51,4 @@ jobs:
           MARKET_FLOW_REVALIDATE_URL: https://rs-golden-queens.vercel.app/api/revalidate
           MARKET_FLOW_REVALIDATE_SECRET: ${{ secrets.MARKET_FLOW_REVALIDATE_SECRET }}
           TZ: Asia/Seoul
-        run: python main.py daily-kr
+        run: python main.py daily-kr ${{ inputs.date }}
